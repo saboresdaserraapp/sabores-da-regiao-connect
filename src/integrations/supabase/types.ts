@@ -2364,6 +2364,10 @@ export type Database = {
       }
       ensure_official_admin: { Args: never; Returns: undefined }
       gen_tracking_code: { Args: never; Returns: string }
+      get_establishment_plan_info: {
+        Args: { _estab_id: string }
+        Returns: Json
+      }
       get_order_by_tracking: {
         Args: { _code: string }
         Returns: {
@@ -2391,6 +2395,8 @@ export type Database = {
           updated_at: string
         }[]
       }
+      get_share_link_by_token: { Args: { _token: string }; Returns: Json }
+      get_visual_reference_by_token: { Args: { _token: string }; Returns: Json }
       has_feature: {
         Args: { _estab_id: string; _feature: string }
         Returns: boolean

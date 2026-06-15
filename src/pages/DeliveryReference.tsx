@@ -11,55 +11,22 @@ const DeliveryReferencePage = () => {
     queryKey: ["delivery-ref-link", token],
     enabled: !!token,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("order_reference_share_links")
-        .select("*")
-        .eq("private_token", token!)
-        .maybeSingle();
-
+      const { data, error } = await supabase.rpc("get_share_link_by_token", { _token: token! });
       if (error || !data) throw new Error("Link inválido ou expirado");
-
-      if (data.expires_at && new Date(data.expires_at) < new Date()) {
-        throw new Error("Este link de referência expirou por segurança.");
-      }
-
-      // Fetch limited data for privacy
-      const [orderRes, addressRes, houseRes] = await Promise.all([
-        supabase.from("orders").select("tracking_code, customer_name, address_id").eq("id", data.order_id).maybeSingle(),
-        supabase.from("addresses").select("*").eq("id", data.order_id).maybeSingle(), // wait, in share_links we have address_id
-        // Let's use the IDs from the share link itself to be safer
-        supabase.from("addresses").select("*").eq("id", data.order_id).maybeSingle(), // Wait, addressing bug in previous logic: data.order_id is not address_id
-      ]);
-      
-      // Corrected fetching
-      const { data: orderData } = await supabase.from("orders").select("tracking_code, customer_name, address_id, establishment_id").eq("id", data.order_id).maybeSingle();
-      const addrId = orderData?.address_id;
-      
-      // Safety check: Ensure the order belongs to the same establishment as the link
-      if (orderData?.establishment_id !== data.establishment_id) {
-        throw new Error("Acesso negado");
-      }
-
-      const [addressDataRes, houseRes2] = await Promise.all([
-        supabase.from("addresses").select("street, number, complement, neighborhood, city, popular_location_name, reference").eq("id", addrId!).maybeSingle(),
-        supabase.from("house_references").select("*, media:house_reference_media(*)").eq("address_id", addrId!).maybeSingle()
-      ]);
-
-      const referenceData = houseRes2.data;
-      if (referenceData && referenceData.media) {
-        const media = (referenceData as any).media || [];
+      const payload = data as any;
+      const referenceData = payload.reference;
+      if (referenceData?.media) {
+        const media = referenceData.media || [];
         const photos = media.filter((m: any) => m.media_type === 'photo').map((m: any) => m.media_url);
         const video = media.find((m: any) => m.media_type === 'video')?.media_url;
-        
         referenceData.media_urls = photos.length > 0 ? photos : (Array.isArray(referenceData.media_urls) ? referenceData.media_urls : []);
         referenceData.video_url = video || referenceData.video_url;
       }
-
       return {
-        ...data,
-        order: orderData,
-        address: addressDataRes.data,
-        reference: referenceData
+        ...payload.link,
+        order: payload.order,
+        address: payload.address,
+        reference: referenceData,
       };
     },
   });
