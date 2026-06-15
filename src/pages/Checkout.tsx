@@ -75,7 +75,7 @@ const CheckoutPage = () => {
   const isLoadingHouseRef = isLoadingAddrRef || isLoadingGlobalRef;
 
   useEffect(() => {
-    if (!v2 || !addresses?.length || selectedAddressId) return;
+    if (!addresses?.length || selectedAddressId) return;
     const def = addresses.find((a) => a.is_default) ?? addresses[0];
     setSelectedAddressId(def.id);
     setData((d) => ({
@@ -91,7 +91,7 @@ const CheckoutPage = () => {
       popular_location_name: def.popular_location_name || "",
       delivery_instructions: def.delivery_instructions || "",
     }));
-  }, [v2, addresses, selectedAddressId]);
+  }, [addresses, selectedAddressId]);
 
   const subtotal = cart.subtotal();
 
@@ -372,11 +372,68 @@ const CheckoutPage = () => {
           <div className="my-2 border-t border-border" />
           <Row label="Total estimado" value={brl(total)} strong />
         </section>
+
+        {type === "entrega" && (
+          <section className="rounded-3xl bg-card p-4 shadow-card">
+            <h2 className="mb-2 font-display text-sm font-semibold flex items-center gap-2">
+              <ImageIcon className="size-4 text-primary" /> Referências da entrega
+            </h2>
+            {isLoadingHouseRef ? (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Loader2 className="size-3.5 animate-spin" /> Carregando suas referências…
+              </div>
+            ) : houseRef ? (
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">
+                  {houseRefSource === "specific"
+                    ? "Referência específica deste endereço será enviada."
+                    : "Sua referência global será enviada."}
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {Array.isArray(houseRef.media_urls) && houseRef.media_urls.length > 0 && (
+                    <Badge variant="secondary" className="gap-1"><ImageIcon className="size-3" /> {houseRef.media_urls.length} foto(s)</Badge>
+                  )}
+                  {houseRef.video_url && (
+                    <Badge variant="secondary" className="gap-1"><Video className="size-3" /> Vídeo</Badge>
+                  )}
+                  {houseRef.instructions && (
+                    <Badge variant="secondary">Instruções</Badge>
+                  )}
+                  {(houseRef.pin_1_description || houseRef.pin_2_description || houseRef.pin_3_description) && (
+                    <Badge variant="secondary">Pins</Badge>
+                  )}
+                </div>
+                <Link to="/minha-conta" className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+                  <Pencil className="size-3" /> Editar referências
+                </Link>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">
+                  Nenhuma referência cadastrada. Você pode adicionar fotos da fachada e instruções para facilitar futuras entregas.
+                </p>
+                <Link to="/minha-conta" className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+                  <Plus className="size-3" /> Adicionar referência
+                </Link>
+              </div>
+            )}
+          </section>
+        )}
       </div>
 
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 p-4 backdrop-blur shadow-glow">
-        <button onClick={onSend} disabled={sending} className="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-4 font-semibold text-primary-foreground shadow-glow disabled:opacity-60">
-          <MessageCircle className="size-5" /> {sending ? "Enviando…" : "Enviar pedido para o WhatsApp"}
+        <button
+          onClick={onSend}
+          disabled={sending || (type === "entrega" && isLoadingHouseRef)}
+          title={type === "entrega" && isLoadingHouseRef ? "Carregando referências…" : undefined}
+          className="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-4 font-semibold text-primary-foreground shadow-glow disabled:opacity-60"
+        >
+          {sending ? <Loader2 className="size-5 animate-spin" /> : <MessageCircle className="size-5" />}
+          {sending
+            ? "Enviando…"
+            : type === "entrega" && isLoadingHouseRef
+            ? "Carregando referências…"
+            : "Enviar pedido para o WhatsApp"}
         </button>
       </div>
 
