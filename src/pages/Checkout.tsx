@@ -14,12 +14,10 @@ import { useQuery } from "@tanstack/react-query";
 import { useAddresses, useAddressMutations, type Address } from "@/hooks/useAddresses";
 import { useHouseReference } from "@/hooks/useHouseReference";
 import { useDeliveryRegions, useDeliverySettings, type DeliveryRegion } from "@/hooks/useDeliverySettings";
+import { resolveDeliveryFee, matchRegionByName } from "@/lib/deliveryFee";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-
-const SPECIAL_UNKNOWN = "__unknown__";
-const SPECIAL_NOT_LISTED = "__not_listed__";
 
 const CheckoutPage = () => {
   const { slug } = useParams();
@@ -95,29 +93,25 @@ const CheckoutPage = () => {
 
   const subtotal = cart.subtotal();
 
-  const v2DeliveryInfo = useMemo(() => {
-    if (!v2 || type !== "entrega") return null;
-    const region = regions?.find((r) => r.id === selectedRegion);
-    if (selectedRegion === SPECIAL_UNKNOWN) {
-      return { region: null, fee: null, status: "to_confirm" as const, confidence: "low" as const, manual: true,
-        notice: "Informe seu endereço e ponto de referência. O estabelecimento confirmará a taxa de entrega pelo WhatsApp." };
-    }
-    if (selectedRegion === SPECIAL_NOT_LISTED) {
-      return { region: null, fee: null, status: "to_confirm" as const, confidence: "low" as const, manual: true,
-        notice: "Sua região não está cadastrada na área padrão desta loja. O estabelecimento confirmará pelo WhatsApp se consegue entregar, o prazo e a taxa." };
-    }
-    if (!region) return null;
-    if (region.status === "nao_atendida") {
-      return { region, fee: null, status: "unavailable" as const, confidence: "high" as const, manual: false,
-        notice: "Esta loja não atende essa região para entrega.", blocked: true };
-    }
-    const manual = !!region.requires_manual_confirmation || !!settings?.always_confirm_by_whatsapp;
-    return {
-      region, fee: Number(region.fee), status: "estimated" as const,
-      confidence: manual ? ("medium" as const) : ("high" as const),
-      manual, notice: region.public_note ?? undefined,
-    };
-  }, [v2, type, regions, selectedRegion, settings?.always_confirm_by_whatsapp]);
+  // Auto-match region by neighborhood the moment user types it
+  useEffect(() => {
+    if (type !== "entrega" || selectedRegion) return;
+    const m = matchRegionByName(regions, data.neighborhood, data.popular_location_name);
+    if (m) setSelectedRegion(m.id);
+  }, [type, regions, data.neighborhood, data.popular_location_name, selectedRegion]);
+
+  const deliveryInfo = useMemo(() => {
+    if (type !== "entrega") return null;
+    return resolveDeliveryFee({
+      settings,
+      regions,
+      fixedFee: e?.deliveryFee != null ? Number(e.deliveryFee) : null,
+      subtotal,
+      manualRegionId: selectedRegion || null,
+      neighborhood: data.neighborhood,
+      popularLocationName: data.popular_location_name,
+    });
+  }, [type, settings, regions, e?.deliveryFee, subtotal, selectedRegion, data.neighborhood, data.popular_location_name]);
 
   if (loadingEstab) {
     return (
@@ -129,9 +123,7 @@ const CheckoutPage = () => {
 
   if (!e) return <div className="container py-20 text-center font-display text-xl">Estabelecimento não encontrado.</div>;
 
-  const taxa = v2
-    ? (type === "entrega" ? (v2DeliveryInfo?.fee ?? null) : 0)
-    : (type === "entrega" ? (Number(e.deliveryFee) ?? null) : 0);
+  const taxa = type === "entrega" ? (deliveryInfo?.fee ?? null) : 0;
   const total = subtotal + (taxa ?? 0);
 
   const update = (patch: Partial<CheckoutData>) => setData((d) => ({ ...d, ...patch }));
@@ -141,8 +133,7 @@ const CheckoutPage = () => {
     if (!data.name?.trim()) { toast.error("Informe seu nome"); return; }
     if (type !== "local" && !data.phone?.trim()) { toast.error("Informe seu telefone"); return; }
     if (type === "entrega") {
-      if (v2 && v2DeliveryInfo?.blocked) { toast.error("Esta loja não atende essa região."); return; }
-      if (v2 && !selectedRegion) { toast.error("Selecione sua região de entrega"); return; }
+      if (deliveryInfo?.blocked) { toast.error(deliveryInfo.notice || "Não é possível entregar neste momento."); return; }
       if (!data.street || !data.number || !data.neighborhood) {
         toast.error("Preencha o endereço de entrega"); return;
       }
@@ -184,7 +175,7 @@ const CheckoutPage = () => {
           whatsapp_sent_at: new Date().toISOString(),
           sent_to_whatsapp_at: new Date().toISOString(),
           whatsapp_message: "", // Filled later
-          delivery_fee_estimated: v2 && type === "entrega" ? (v2DeliveryInfo?.fee ?? 0) : 0,
+          delivery_fee_estimated: type === "entrega" ? (deliveryInfo?.fee ?? 0) : 0,
           total_estimated: total
         };
 
@@ -223,18 +214,18 @@ const CheckoutPage = () => {
             }
           }
 
-          if (v2 && v2DeliveryInfo) {
+          if (deliveryInfo) {
             await supabase.from("checkout_delivery_info").insert({
               order_id: inserted.id,
               user_id: user?.id ?? null,
               establishment_id: establishmentId,
               address_id: selectedAddressId || null,
-              selected_region_id: v2DeliveryInfo.region?.id ?? null,
-              selected_region_name: v2DeliveryInfo.region?.name || "Não listada",
-              delivery_fee_estimated: v2DeliveryInfo.fee,
-              delivery_fee_status: v2DeliveryInfo.status,
-              delivery_confidence_level: v2DeliveryInfo.confidence,
-              requires_manual_confirmation: v2DeliveryInfo.manual,
+              selected_region_id: deliveryInfo.region?.id ?? null,
+              selected_region_name: deliveryInfo.region?.name || "Não listada",
+              delivery_fee_estimated: deliveryInfo.fee,
+              delivery_fee_status: deliveryInfo.status,
+              delivery_confidence_level: deliveryInfo.manual ? "medium" : "high",
+              requires_manual_confirmation: deliveryInfo.manual,
               visual_reference_link: visualRefLink || null,
               address_snapshot_json: { ...data, selected_address_id: selectedAddressId } as any
             } as never);
@@ -249,10 +240,10 @@ const CheckoutPage = () => {
     }
 
     const payload: CheckoutData = { ...data, type };
-    const v2Msg: V2DeliveryMessageInfo | undefined = (v2 || !!visualRefLink) && type === "entrega" ? {
-      regionName: v2DeliveryInfo?.region?.name || "Não listada",
-      fee: v2DeliveryInfo?.fee ?? null,
-      feeToConfirm: v2DeliveryInfo?.status !== "estimated",
+    const v2Msg: V2DeliveryMessageInfo | undefined = type === "entrega" ? {
+      regionName: deliveryInfo?.region?.name || (deliveryInfo?.autoMatched ? data.neighborhood : "Não listada"),
+      fee: deliveryInfo?.fee ?? null,
+      feeToConfirm: !!deliveryInfo?.manual || deliveryInfo?.status === "to_confirm",
       deliveryInstructions: data.delivery_instructions || houseRef?.instructions || null,
       visualReferenceLink: visualRefLink || null,
       popularLocationName: data.popular_location_name || null,
@@ -371,6 +362,25 @@ const CheckoutPage = () => {
           <Row label="Taxa" value={taxa ? brl(taxa) : "a confirmar"} />
           <div className="my-2 border-t border-border" />
           <Row label="Total estimado" value={brl(total)} strong />
+          {type === "entrega" && deliveryInfo?.notice && (
+            <div className={cn(
+              "mt-3 rounded-xl px-3 py-2 text-xs flex items-start gap-2",
+              deliveryInfo.blocked ? "bg-destructive/10 text-destructive" : "bg-muted text-muted-foreground"
+            )}>
+              <AlertCircle className="size-3.5 mt-0.5 shrink-0" />
+              <span>{deliveryInfo.notice}</span>
+            </div>
+          )}
+          {type === "entrega" && deliveryInfo?.region && deliveryInfo.autoMatched && !deliveryInfo.blocked && (
+            <div className="mt-2 text-[11px] text-muted-foreground flex items-center gap-1">
+              <MapPin className="size-3" /> Região detectada: <strong className="text-foreground">{deliveryInfo.region.name}</strong>
+            </div>
+          )}
+          {type === "entrega" && deliveryInfo?.manual && deliveryInfo.fee != null && !deliveryInfo.blocked && (
+            <div className="mt-2 text-[11px] text-amber-700">
+              Valor estimado — o estabelecimento confirmará pelo WhatsApp.
+            </div>
+          )}
         </section>
 
         {type === "entrega" && (
