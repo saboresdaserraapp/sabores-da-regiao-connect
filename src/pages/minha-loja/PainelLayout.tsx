@@ -6,9 +6,10 @@ import { Badge } from "@/components/ui/badge";
 import {
   BarChart3, Brain, Calendar, ChefHat, Crown, DollarSign, Image as ImageIcon, LayoutDashboard,
   MessageSquare, Package, Palette, Receipt, Settings, Store, Tag, Truck, Users, Warehouse, Loader2,
-  Smartphone
+  Smartphone, Menu
 } from "lucide-react";
-import { NotificationCenter } from "@/components/NotificationCenter";
+import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { useState } from "react";
 
 
 type Item = { to: string; label: string; icon: any; feature?: FeatureKey };
@@ -44,6 +45,7 @@ function Inner() {
   const { ctx, loading } = useActiveEstablishment();
   const { establishmentId } = useParams();
   const location = useLocation();
+  const [navOpen, setNavOpen] = useState(false);
 
   if (loading) {
     return (
@@ -58,58 +60,70 @@ function Inner() {
   const limited = ctx.establishmentStatus !== "ativo";
   const suspended = ctx.establishmentStatus === "suspenso";
 
+  const renderNav = (onNavigate?: () => void) => (
+    <nav className="grid gap-0.5">
+      {ITEMS.map((item) => {
+        const allowed = !item.feature || canUseFeature(ctx, item.feature);
+        const minPlan = item.feature ? FEATURE_MIN_PLAN[item.feature] : undefined;
+        const to = item.to ? `/minha-loja/${establishmentId}/${item.to}` : `/minha-loja/${establishmentId}`;
+        const isActive = location.pathname === to || (item.to === "" && location.pathname === `/minha-loja/${establishmentId}`);
+        return (
+          <NavLink
+            key={item.to}
+            to={to}
+            end={item.to === ""}
+            onClick={onNavigate}
+            className={() =>
+              `group flex items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-sm transition-colors ${isActive ? "bg-primary/10 text-primary font-medium" : "text-foreground/80 hover:bg-muted hover:text-foreground"}`
+            }
+            title={!allowed && minPlan ? `Disponível no plano ${PLAN_LABEL[minPlan]}` : undefined}
+          >
+            <span className="flex items-center gap-2">
+              <item.icon className={`size-4 ${isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground"}`} /> {item.label}
+            </span>
+            {!allowed && <span className="text-[10px] text-muted-foreground">🔒</span>}
+          </NavLink>
+        );
+      })}
+    </nav>
+  );
+
+  const storeHeader = (
+    <div className="px-2 pb-3 border-b border-border/70">
+      <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Minha Loja</div>
+      <div className="truncate font-display font-semibold">{ctx.establishmentName}</div>
+      <div className="mt-1 flex flex-wrap gap-1">
+        <Badge variant={ctx.establishmentStatus === "ativo" ? "secondary" : "outline"} className="text-[10px]">
+          {STATUS_LABEL(ctx.establishmentStatus)}
+        </Badge>
+        {ctx.activePlan.name && <Badge variant="outline" className="text-[10px]">{ctx.activePlan.name}</Badge>}
+      </div>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-gradient-cream">
-      <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-14 items-center justify-between">
-          <Header />
-          <div className="flex items-center gap-2">
-            <NotificationCenter />
-            <div className="size-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
-              {ctx?.establishmentName?.charAt(0) || "L"}
-            </div>
-          </div>
+      <Header />
+      <div className="container py-4 sm:py-6 grid gap-4 sm:gap-6 lg:grid-cols-[260px_1fr]">
+        <div className="flex items-center justify-between gap-2 lg:hidden">
+          <Sheet open={navOpen} onOpenChange={setNavOpen}>
+            <SheetTrigger className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-sm font-medium">
+              <Menu className="size-4" /> Menu da loja
+            </SheetTrigger>
+            <SheetContent side="left" className="w-[88vw] max-w-sm overflow-y-auto p-4">
+              <SheetHeader><SheetTitle className="sr-only">Menu da loja</SheetTitle></SheetHeader>
+              {storeHeader}
+              <div className="mt-3">{renderNav(() => setNavOpen(false))}</div>
+            </SheetContent>
+          </Sheet>
+          <div className="min-w-0 truncate text-right text-sm font-medium">{ctx.establishmentName}</div>
         </div>
-      </header>
-      <div className="container py-6 grid gap-6 lg:grid-cols-[260px_1fr]">
-        <aside className="rounded-2xl border border-border/70 bg-card/80 backdrop-blur p-3 h-fit lg:sticky lg:top-20 shadow-sm">
-          <div className="px-2 pb-3 border-b border-border/70">
-            <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Minha Loja</div>
-            <div className="truncate font-display font-semibold">{ctx.establishmentName}</div>
-            <div className="mt-1 flex flex-wrap gap-1">
-              <Badge variant={ctx.establishmentStatus === "ativo" ? "secondary" : "outline"} className="text-[10px]">
-                {STATUS_LABEL(ctx.establishmentStatus)}
-              </Badge>
-              {ctx.activePlan.name && <Badge variant="outline" className="text-[10px]">{ctx.activePlan.name}</Badge>}
-            </div>
-          </div>
-          <nav className="mt-2 grid gap-0.5">
-            {ITEMS.map((item) => {
-              const allowed = !item.feature || canUseFeature(ctx, item.feature);
-              const minPlan = item.feature ? FEATURE_MIN_PLAN[item.feature] : undefined;
-              const to = item.to ? `/minha-loja/${establishmentId}/${item.to}` : `/minha-loja/${establishmentId}`;
-              const isActive = location.pathname === to || (item.to === "" && location.pathname === `/minha-loja/${establishmentId}`);
-              return (
-                <NavLink
-                  key={item.to}
-                  to={to}
-                  end={item.to === ""}
-                  className={() =>
-                    `group flex items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-sm transition-colors ${isActive ? "bg-primary/10 text-primary font-medium" : "text-foreground/80 hover:bg-muted hover:text-foreground"}`
-                  }
-                  title={!allowed && minPlan ? `Disponível no plano ${PLAN_LABEL[minPlan]}` : undefined}
-                >
-                  <span className="flex items-center gap-2">
-                    <item.icon className={`size-4 ${isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground"}`} /> {item.label}
-                  </span>
-                  {!allowed && <span className="text-[10px] text-muted-foreground">🔒</span>}
-                </NavLink>
-              );
-            })}
-          </nav>
+        <aside className="hidden lg:block rounded-2xl border border-border/70 bg-card/80 backdrop-blur p-3 h-fit lg:sticky lg:top-20 shadow-sm">
+          {storeHeader}
+          <div className="mt-2">{renderNav()}</div>
         </aside>
 
-        <main className="space-y-6">
+        <main className="min-w-0 space-y-6">
           {limited && (
             <div className={`rounded-2xl border p-4 text-sm ${suspended ? "border-destructive/40 bg-destructive/5" : "border-border bg-muted/30"}`}>
               {suspended ? (

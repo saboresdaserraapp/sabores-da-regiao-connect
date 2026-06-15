@@ -542,8 +542,8 @@ function PagamentosTab() {
         Os pedidos hoje são finalizados via WhatsApp diretamente com o estabelecimento. Esta área lista os valores declarados em cada pedido.
       </div>
       {orders.length === 0 ? <Empty msg="Sem registros de pagamento." /> : (
-        <div className="overflow-hidden rounded-2xl border border-border bg-card">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto rounded-2xl border border-border bg-card">
+          <table className="w-full min-w-[520px] text-sm">
             <thead className="bg-muted/40 text-left text-xs uppercase text-muted-foreground">
               <tr><th className="p-3">Data</th><th className="p-3">Estabelecimento</th><th className="p-3">Método</th><th className="p-3 text-right">Total</th></tr>
             </thead>
