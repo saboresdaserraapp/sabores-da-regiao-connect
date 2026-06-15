@@ -72,10 +72,10 @@ function Inner() {
         </div>
       </header>
       <div className="container py-6 grid gap-6 lg:grid-cols-[260px_1fr]">
-        <aside className="rounded-2xl border border-border bg-card p-3 h-fit lg:sticky lg:top-20">
-          <div className="px-2 pb-3 border-b border-border">
-            <div className="text-xs text-muted-foreground">Minha Loja</div>
-            <div className="truncate font-semibold">{ctx.establishmentName}</div>
+        <aside className="rounded-2xl border border-border/70 bg-card/80 backdrop-blur p-3 h-fit lg:sticky lg:top-20 shadow-sm">
+          <div className="px-2 pb-3 border-b border-border/70">
+            <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Minha Loja</div>
+            <div className="truncate font-display font-semibold">{ctx.establishmentName}</div>
             <div className="mt-1 flex flex-wrap gap-1">
               <Badge variant={ctx.establishmentStatus === "ativo" ? "secondary" : "outline"} className="text-[10px]">
                 {STATUS_LABEL(ctx.establishmentStatus)}
@@ -95,12 +95,12 @@ function Inner() {
                   to={to}
                   end={item.to === ""}
                   className={() =>
-                    `flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-muted ${isActive ? "bg-muted font-medium" : ""}`
+                    `group flex items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-sm transition-colors ${isActive ? "bg-primary/10 text-primary font-medium" : "text-foreground/80 hover:bg-muted hover:text-foreground"}`
                   }
                   title={!allowed && minPlan ? `Disponível no plano ${PLAN_LABEL[minPlan]}` : undefined}
                 >
                   <span className="flex items-center gap-2">
-                    <item.icon className="size-4 text-muted-foreground" /> {item.label}
+                    <item.icon className={`size-4 ${isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground"}`} /> {item.label}
                   </span>
                   {!allowed && <span className="text-[10px] text-muted-foreground">🔒</span>}
                 </NavLink>
