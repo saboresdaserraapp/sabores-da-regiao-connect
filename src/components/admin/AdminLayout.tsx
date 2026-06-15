@@ -28,8 +28,8 @@ export default function AdminLayout() {
 
   return (
     <div className="min-h-screen flex w-full bg-gradient-cream">
-      <aside className="hidden w-64 shrink-0 border-r border-border bg-card lg:flex lg:flex-col">
-        <Link to="/admin" className="flex items-center gap-2 border-b border-border px-5 py-4">
+      <aside className="hidden w-64 shrink-0 border-r border-border/70 bg-card/80 backdrop-blur lg:flex lg:flex-col">
+        <Link to="/admin" className="flex items-center gap-2 border-b border-border/70 px-5 py-4 transition-colors hover:bg-muted/40">
           <div className="grid size-9 place-items-center rounded-xl bg-gradient-warm shadow-glow">
             <UtensilsCrossed className="size-5 text-primary-foreground" />
           </div>
@@ -38,17 +38,22 @@ export default function AdminLayout() {
             <div className="text-[11px] text-muted-foreground">Sabores da Região</div>
           </div>
         </Link>
-        <nav className="flex-1 space-y-0.5 p-3">
+        <nav className="flex-1 space-y-0.5 overflow-y-auto p-3">
           {NAV.filter(n => !n.manageOnly || canManage).map(item => (
             <NavLink key={item.to} to={item.to} end={item.end} className={({ isActive }) =>
-              cn("flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                isActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground")
+              cn("group flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                isActive ? "bg-primary/10 text-primary shadow-sm" : "text-muted-foreground hover:bg-muted hover:text-foreground")
             }>
-              <item.icon className="size-4" />{item.label}
+              {({ isActive }: any) => (
+                <>
+                  <item.icon className={cn("size-4 transition-colors", isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
+                  <span className="truncate">{item.label}</span>
+                </>
+              )}
             </NavLink>
           ))}
         </nav>
-        <div className="border-t border-border p-3">
+        <div className="border-t border-border/70 p-3">
           <div className="mb-2 truncate text-xs">
             <div className="truncate font-medium">{user?.email}</div>
             <div className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
