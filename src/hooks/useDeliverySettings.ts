@@ -38,6 +38,7 @@ export interface DeliveryRegion {
   public_note: string | null;
   internal_note: string | null;
   display_order: number;
+  min_order_value: number;
 }
 
 export type PlanTier = "presenca" | "essencial" | "exclusivo" | "gestao";
