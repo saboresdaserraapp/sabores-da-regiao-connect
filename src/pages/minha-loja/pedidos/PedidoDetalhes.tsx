@@ -4,6 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { PainelSection } from "../painel/_shared";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, MessageCircle, Loader2, User, Phone, MapPin, Receipt, Clock, Trash2, Smartphone } from "lucide-react";
 import { OrderChat } from "@/components/OrderChat";
@@ -11,6 +14,7 @@ import { OrderDetailsPanel } from "@/components/orders/OrderDetailsPanel";
 import { OrderReferencesPanel } from "@/components/orders/OrderReferencesPanel";
 import { toast } from "sonner";
 import { brl } from "@/lib/format";
+import { useEffect, useState } from "react";
 
 const STATUS_OPTIONS: { value: string; label: string }[] = [
   { value: "waiting_business_confirmation", label: "Aguardando confirmação" },
@@ -74,6 +78,33 @@ export default function PedidoDetalhesLoja() {
       queryClient.invalidateQueries({ queryKey: ["order-detail-loja", orderId] });
     },
   });
+
+  const [feeInput, setFeeInput] = useState<string>("");
+  const [replyInput, setReplyInput] = useState<string>("");
+  const [savingFee, setSavingFee] = useState(false);
+  useEffect(() => {
+    if (order) {
+      setFeeInput(String(order.delivery_fee ?? order.delivery_fee_estimated ?? 0));
+      setReplyInput(order.establishment_reply ?? "");
+    }
+  }, [order?.id]);
+
+  const confirmFee = async () => {
+    if (!order) return;
+    const fee = Number(feeInput);
+    if (Number.isNaN(fee) || fee < 0) { toast.error("Informe uma taxa válida"); return; }
+    setSavingFee(true);
+    const newTotal = Number(order.subtotal || 0) + fee;
+    const { error } = await supabase.from("orders").update({
+      delivery_fee: fee,
+      final_total: newTotal,
+      establishment_reply: replyInput || null,
+    }).eq("id", order.id);
+    setSavingFee(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Total confirmado para o cliente");
+    queryClient.invalidateQueries({ queryKey: ["order-detail-loja", orderId] });
+  };
 
   if (isLoading) return <div className="p-20 flex justify-center"><Loader2 className="animate-spin" /></div>;
   if (!order) return <div className="p-20 text-center">Pedido não encontrado.</div>;
@@ -171,6 +202,26 @@ export default function PedidoDetalhesLoja() {
                   <span>Total:</span>
                   <span>{brl(Number(order.total_estimated || order.total))}</span>
                 </div>
+                {order.final_total != null && (
+                  <div className="mt-1 flex justify-between text-xs text-emerald-700">
+                    <span>Total confirmado:</span>
+                    <span className="font-semibold">{brl(Number(order.final_total))}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-3 border-t space-y-2">
+                <Label className="text-xs font-bold uppercase">Confirmar taxa de entrega</Label>
+                <div className="flex gap-2">
+                  <Input type="number" step="0.01" min="0" value={feeInput} onChange={(e) => setFeeInput(e.target.value)} placeholder="0,00" />
+                  <Button size="sm" variant="outline" onClick={() => setFeeInput(String(order.delivery_fee_estimated ?? 0))}>App</Button>
+                </div>
+                <Textarea rows={2} placeholder="Mensagem para o cliente (opcional)" value={replyInput} onChange={(e) => setReplyInput(e.target.value)} />
+                <Button className="w-full" size="sm" disabled={savingFee} onClick={confirmFee}>
+                  {savingFee ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+                  Confirmar total para o cliente
+                </Button>
+                <p className="text-[10px] text-muted-foreground">O cliente vê o valor atualizado na hora na página do pedido.</p>
               </div>
 
               <div className="flex flex-col gap-2">
