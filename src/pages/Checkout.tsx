@@ -178,7 +178,7 @@ const CheckoutPage = () => {
           whatsapp_sent_at: new Date().toISOString(),
           sent_to_whatsapp_at: new Date().toISOString(),
           whatsapp_message: "", // Filled later
-          delivery_fee_estimated: v2 && type === "entrega" ? (v2DeliveryInfo?.fee ?? 0) : 0,
+          delivery_fee_estimated: type === "entrega" ? (deliveryInfo?.fee ?? 0) : 0,
           total_estimated: total
         };
 
