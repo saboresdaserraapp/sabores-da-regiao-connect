@@ -24,7 +24,7 @@ import { toast } from "sonner";
 import { Heart, MapPin, Home, Receipt, CreditCard, UserRound, Plus, Trash2, Loader2, LogOut, Star, Video, Info, ShoppingBag, MessageCircle, Store, AlertCircle } from "lucide-react";
 import { brl } from "@/lib/format";
 import { PageHeader } from "@/components/ui/page-header";
-import { SectionHeading } from "@/components/ui/section-heading";
+import { SectionHeading } from "@/components/ui/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 
 export default function MinhaConta() {
