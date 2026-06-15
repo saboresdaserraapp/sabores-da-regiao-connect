@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Loader2, Receipt, ShoppingBag } from "lucide-react";
 import { useUserOrders } from "@/hooks/useOrders";
@@ -6,10 +6,31 @@ import { brl } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { STATUS_LABEL } from "@/components/orders/OrderStatusStepper";
+import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/useAuth";
 
 export function PedidosTab() {
   const { data: orders = [], isLoading, error, refetch } = useUserOrders();
   const navigate = useNavigate();
+  const qc = useQueryClient();
+  const { user } = useAuth();
+
+  useEffect(() => {
+    if (!user?.id) return;
+    const channel = supabase
+      .channel(`user-orders-${user.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "orders", filter: `user_id=eq.${user.id}` },
+        () => {
+          qc.invalidateQueries({ queryKey: ["orders-user", user.id] });
+          qc.invalidateQueries({ queryKey: ["active-orders", user.id] });
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user?.id, qc]);
 
   if (isLoading) return (
     <div className="flex flex-col items-center justify-center p-12 space-y-4">
