@@ -20,6 +20,7 @@ export function ProductCard({ p, variant = "grid" }: Props) {
   const isPromo = p.promo && p.promotional_price && Number(p.promotional_price) < Number(p.price);
   const oldPrice = isPromo ? p.price : null;
   const displayPrice = isPromo ? p.promotional_price : p.price;
+  const unavailable = !e.openNow;
 
   const handleClick = (ev: React.MouseEvent) => {
     ev.preventDefault();
@@ -33,10 +34,18 @@ export function ProductCard({ p, variant = "grid" }: Props) {
         <Link
           to={href}
           onClick={handleClick}
-          className="group flex gap-4 overflow-hidden rounded-2xl border border-border/60 bg-card p-3 shadow-card transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2"
+          className={cn(
+            "group flex gap-4 overflow-hidden rounded-2xl border border-border/60 bg-card p-3 shadow-card transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2",
+            unavailable && "opacity-75 saturate-[0.85]"
+          )}
         >
           <div className="relative h-28 w-28 shrink-0 overflow-hidden rounded-xl sm:h-32 sm:w-32">
-            <img src={p.image} alt={p.name} loading="lazy" className="size-full object-cover transition-transform duration-500 group-hover:scale-105" />
+            <img src={p.image} alt={p.name} loading="lazy" className={cn("size-full object-cover transition-transform duration-500 group-hover:scale-105", unavailable && "grayscale-[0.35]")} />
+            {unavailable && (
+              <span className="absolute inset-x-1 bottom-1 rounded-md bg-background/85 px-1.5 py-0.5 text-center text-[10px] font-semibold text-foreground backdrop-blur">
+                Loja fechada
+              </span>
+            )}
             {isPromo && (
               <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground">
                 <Flame className="size-3" /> {p.promotion_label || "Promo"}
@@ -77,11 +86,19 @@ export function ProductCard({ p, variant = "grid" }: Props) {
         onClick={handleClick}
         className={cn(
           "group block overflow-hidden rounded-2xl border border-border/60 bg-card shadow-card transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2",
-          variant === "compact" ? "w-56 shrink-0" : ""
+          variant === "compact" ? "w-56 shrink-0" : "",
+          unavailable && "opacity-75 saturate-[0.85]"
         )}
       >
         <div className="relative h-40 overflow-hidden">
-          <img src={p.image} alt={p.name} loading="lazy" className="size-full object-cover transition-transform duration-500 group-hover:scale-105" />
+          <img src={p.image} alt={p.name} loading="lazy" className={cn("size-full object-cover transition-transform duration-500 group-hover:scale-105", unavailable && "grayscale-[0.35] brightness-90")} />
+          {unavailable && (
+            <div className="pointer-events-none absolute inset-0 flex items-end justify-center pb-2">
+              <span className="rounded-full bg-background/90 px-2.5 py-0.5 text-[11px] font-semibold text-foreground shadow-sm backdrop-blur">
+                Indisponível — loja fechada
+              </span>
+            </div>
+          )}
           <div className="absolute inset-x-0 top-0 flex items-start justify-between p-2">
             <div className="flex flex-col gap-1">
               {isPromo && (

@@ -89,7 +89,11 @@ const Loja = () => {
         out = out.sort((a, b) => Number(b.promo ?? 0) - Number(a.promo ?? 0));
         break;
     }
-    return out;
+    // Disponíveis (loja aberta) primeiro; indisponíveis bem ranqueados depois
+    return out.slice().sort((a, b) => {
+      if (a.establishment.openNow === b.establishment.openNow) return 0;
+      return a.establishment.openNow ? -1 : 1;
+    });
   }, [all, query, filters, sort]);
 
   const activeChips: { key: string; label: string; remove: () => void }[] = [
