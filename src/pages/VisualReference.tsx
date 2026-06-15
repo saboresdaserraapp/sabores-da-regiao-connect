@@ -11,39 +11,22 @@ const VisualReferencePage = () => {
     queryKey: ["visual-ref-link", token],
     enabled: !!token,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("order_visual_reference_links")
-        .select("*")
-        .eq("private_token", token!)
-        .maybeSingle();
-
+      const { data, error } = await supabase.rpc("get_visual_reference_by_token", { _token: token! });
       if (error || !data) throw new Error("Link inválido ou expirado");
-
-      if (data.expires_at && new Date(data.expires_at) < new Date()) {
-        throw new Error("Este link de referência expirou por segurança.");
-      }
-
-      const [orderRes, addressRes, houseRes] = await Promise.all([
-        supabase.from("orders").select("tracking_code, customer_name, customer_phone, address_id").eq("id", data.order_id).maybeSingle(),
-        supabase.from("addresses").select("*").eq("id", data.address_id).maybeSingle(),
-        supabase.from("house_references").select("*, media:house_reference_media(*)").eq("id", data.visual_reference_id).maybeSingle()
-      ]);
-
-      const referenceData = houseRes.data;
-      if (referenceData && referenceData.media) {
-        const media = (referenceData as any).media || [];
+      const payload = data as any;
+      const referenceData = payload.reference;
+      if (referenceData?.media) {
+        const media = referenceData.media || [];
         const photos = media.filter((m: any) => m.media_type === 'photo').map((m: any) => m.media_url);
         const video = media.find((m: any) => m.media_type === 'video')?.media_url;
-        
         referenceData.media_urls = photos.length > 0 ? photos : (Array.isArray(referenceData.media_urls) ? referenceData.media_urls : []);
         referenceData.video_url = video || referenceData.video_url;
       }
-
       return {
-        ...data,
-        order: orderRes.data,
-        address: addressRes.data,
-        reference: referenceData
+        ...payload.link,
+        order: payload.order,
+        address: payload.address,
+        reference: referenceData,
       };
     },
   });
