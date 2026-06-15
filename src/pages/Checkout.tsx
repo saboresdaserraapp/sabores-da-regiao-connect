@@ -19,9 +19,6 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
-const SPECIAL_UNKNOWN = "__unknown__";
-const SPECIAL_NOT_LISTED = "__not_listed__";
-
 const CheckoutPage = () => {
   const { slug } = useParams();
   const navigate = useNavigate();
