@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { lovable } from "@/integrations/lovable/index";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +16,7 @@ const AdminLogin = () => {
   const [email, setEmail] = useState("");
   const [pwd, setPwd] = useState("");
   const [busy, setBusy] = useState(false);
+  const [googleBusy, setGoogleBusy] = useState(false);
 
   if (loading) return null;
   if (user && isOfficialAdmin) return <Navigate to="/admin" replace />;
@@ -34,6 +36,22 @@ const AdminLogin = () => {
       toast.error(err.message ?? "Erro ao autenticar");
     } finally {
       setBusy(false);
+    }
+  };
+
+  const google = async () => {
+    setGoogleBusy(true);
+    try {
+      const r = await lovable.auth.signInWithOAuth("google", {
+        redirect_uri: window.location.origin + "/admin",
+      });
+      if (r.error) throw new Error(r.error.message ?? "Erro ao autenticar com Google");
+      if (r.redirected) return;
+      nav("/admin");
+    } catch (err: any) {
+      toast.error(err.message ?? "Erro ao autenticar com Google");
+    } finally {
+      setGoogleBusy(false);
     }
   };
 
@@ -74,6 +92,17 @@ const AdminLogin = () => {
             Entrar
           </Button>
         </form>
+
+        <div className="my-4 flex items-center gap-3 text-xs text-muted-foreground">
+          <div className="h-px flex-1 bg-border" />
+          ou
+          <div className="h-px flex-1 bg-border" />
+        </div>
+
+        <Button type="button" variant="outline" className="w-full" onClick={google} disabled={googleBusy}>
+          {googleBusy && <Loader2 className="mr-2 size-4 animate-spin" />}
+          Entrar com Google
+        </Button>
 
         <p className="mt-6 rounded-lg bg-muted/60 p-3 text-xs text-muted-foreground">
           Acesso restrito ao administrador oficial da plataforma. Lojistas devem usar a área
