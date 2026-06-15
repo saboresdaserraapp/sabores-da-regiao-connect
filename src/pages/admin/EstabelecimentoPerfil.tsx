@@ -133,6 +133,7 @@ export default function EstabelecimentoPerfil() {
           <TabsTrigger value="metrics">Métricas</TabsTrigger>
           <TabsTrigger value="reviews">Avaliações</TabsTrigger>
           <TabsTrigger value="insights">Recomendações</TabsTrigger>
+          <TabsTrigger value="team">Equipe</TabsTrigger>
           <TabsTrigger value="history">Histórico</TabsTrigger>
           <TabsTrigger value="settings">Configurações</TabsTrigger>
         </TabsList>
