@@ -25,7 +25,6 @@ import { Heart, MapPin, Home, Receipt, CreditCard, UserRound, Plus, Trash2, Load
 import { brl } from "@/lib/format";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionHeading } from "@/components/ui/page-header";
-import { EmptyState } from "@/components/ui/empty-state";
 
 export default function MinhaConta() {
   const { user, loading, signOut } = useAuth();
