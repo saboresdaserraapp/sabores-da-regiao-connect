@@ -382,7 +382,7 @@ function CategoriesTab() {
     qc.invalidateQueries({ queryKey: ["site-cats"] });
   }
 
-  async function updateCat(key: string, patch: Record<string, any>) {
+  async function updateCat(key: string, patch: { label?: string; emoji?: string | null; position?: number; visible?: boolean }) {
     const { error } = await supabase.from("site_categories").update(patch).eq("key", key);
     if (error) return toast.error(error.message);
     qc.invalidateQueries({ queryKey: ["site-cats"] });
