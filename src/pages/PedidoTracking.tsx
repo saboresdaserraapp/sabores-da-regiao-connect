@@ -3,6 +3,7 @@ import { ArrowLeft, MessageCircle, Loader2, Clock } from "lucide-react";
 import { useOrderTracking } from "@/hooks/useOrderTracking";
 import { OrderStatusStepper } from "@/components/orders/OrderStatusStepper";
 import { OrderDetailsPanel } from "@/components/orders/OrderDetailsPanel";
+import { CustomerReferencesPanel } from "@/components/orders/CustomerReferencesPanel";
 import { brl } from "@/lib/format";
 
 const PedidoTracking = () => {
@@ -90,6 +91,8 @@ const PedidoTracking = () => {
           <h3 className="mb-3 font-display text-base font-semibold">Detalhes do pedido</h3>
           <OrderDetailsPanel order={order} />
         </section>
+
+        <CustomerReferencesPanel orderId={order.id} />
 
         <div className="text-center">
           <Link to={`/e/${order.establishment_slug}`} replace
