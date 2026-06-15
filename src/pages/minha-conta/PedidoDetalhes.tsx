@@ -1,4 +1,6 @@
 import { useEffect, useMemo } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { useParams, Link } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { OrderStatusStepper } from "@/components/orders/OrderStatusStepper";
@@ -16,14 +18,29 @@ export default function PedidoDetalhesCliente() {
   const { orderId } = useParams();
   const { user } = useAuth();
   const { data: order, isLoading, error, refetch } = useOrderDetails(orderId);
+  const qc = useQueryClient();
 
-  // Auto-refresh when viewing details to see status changes
+  // Real-time updates + fallback polling
   useEffect(() => {
-    const interval = setInterval(() => {
-      refetch();
-    }, 10000);
-    return () => clearInterval(interval);
-  }, [refetch]);
+    if (!orderId) return;
+    const channel = supabase
+      .channel(`order-detail-${orderId}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "orders", filter: `id=eq.${orderId}` },
+        () => {
+          refetch();
+          qc.invalidateQueries({ queryKey: ["orders-user"] });
+          qc.invalidateQueries({ queryKey: ["active-orders"] });
+        }
+      )
+      .subscribe();
+    const interval = setInterval(() => refetch(), 30000);
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(interval);
+    };
+  }, [orderId, refetch, qc]);
 
   if (!user) return (
     <div className="min-h-screen grid place-items-center bg-gradient-cream">
