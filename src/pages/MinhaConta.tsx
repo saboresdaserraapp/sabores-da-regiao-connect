@@ -94,6 +94,7 @@ function PerfilTab() {
   }
 
   return (
+    <div className="space-y-6">
     <div className="grid gap-6 rounded-2xl border border-border bg-card p-6 md:grid-cols-[200px_1fr]">
       <div>
         <label className="mb-2 block text-xs font-medium text-muted-foreground">Avatar</label>
@@ -113,6 +114,64 @@ function PerfilTab() {
           <Input value={f.phone || ""} onChange={(e) => setForm({ ...f, phone: e.target.value })} placeholder="(11) 99999-0000" />
         </div>
         <Button onClick={save}>Salvar perfil</Button>
+      </div>
+    </div>
+    <SenhaCard />
+    </div>
+  );
+}
+
+function SenhaCard() {
+  const [hasPassword, setHasPassword] = useState<boolean | null>(null);
+  const [pwd, setPwd] = useState("");
+  const [pwd2, setPwd2] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function loadIdentities() {
+    const { data } = await supabase.auth.getUser();
+    const identities = (data.user?.identities ?? []) as Array<{ provider: string }>;
+    setHasPassword(identities.some((i) => i.provider === "email"));
+  }
+
+  useEffect(() => { loadIdentities(); }, []);
+
+  async function save() {
+    if (pwd.length < 8) return toast.error("A senha deve ter pelo menos 8 caracteres");
+    if (pwd !== pwd2) return toast.error("As senhas não coincidem");
+    setSaving(true);
+    const { error } = await supabase.auth.updateUser({ password: pwd });
+    setSaving(false);
+    if (error) return toast.error(error.message);
+    toast.success(hasPassword ? "Senha alterada com sucesso" : "Senha definida com sucesso");
+    setPwd(""); setPwd2("");
+    loadIdentities();
+  }
+
+  return (
+    <div className="rounded-2xl border border-border bg-card p-6">
+      <h3 className="font-display text-lg font-semibold">
+        {hasPassword === false ? "Definir senha de acesso" : "Alterar senha"}
+      </h3>
+      <p className="mt-1 text-sm text-muted-foreground">
+        {hasPassword === false
+          ? "Você entrou via Google. Defina uma senha para também poder acessar com e-mail + senha caso o login Google falhe."
+          : "Atualize sua senha de acesso. Use no mínimo 8 caracteres."}
+      </p>
+      <div className="mt-4 grid gap-3 md:max-w-md">
+        <div>
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">Nova senha</label>
+          <Input type="password" value={pwd} onChange={(e) => setPwd(e.target.value)} autoComplete="new-password" />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">Confirmar nova senha</label>
+          <Input type="password" value={pwd2} onChange={(e) => setPwd2(e.target.value)} autoComplete="new-password" />
+        </div>
+        <div>
+          <Button onClick={save} disabled={saving || hasPassword === null}>
+            {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
+            {hasPassword === false ? "Definir senha" : "Alterar senha"}
+          </Button>
+        </div>
       </div>
     </div>
   );
