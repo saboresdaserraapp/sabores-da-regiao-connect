@@ -136,4 +136,5 @@
   .hover-lift { @apply transition-transform duration-200 ease-out hover:-translate-y-0.5 hover:shadow-elevated; }
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  .table-scroll { @apply -mx-2 overflow-x-auto sm:mx-0; }
 }
