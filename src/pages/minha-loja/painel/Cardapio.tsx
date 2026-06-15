@@ -62,6 +62,12 @@ export default function Cardapio() {
   return (
     <PainelSection title="Cardápio" subtitle="Categorias do seu cardápio — alterações aplicam-se em tempo real no app">
       <div className="space-y-4">
+        {cats.length === 0 && (
+          <div className="rounded-lg border border-dashed border-border bg-muted/30 p-3 text-sm text-muted-foreground">
+            Você ainda não criou categorias. Produtos sem categoria aparecem na vitrine
+            agrupados como <strong>"Cardápio"</strong>. Crie categorias para organizar melhor.
+          </div>
+        )}
         <div className="flex gap-2">
           <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Nova categoria (ex: Pizzas Salgadas)" />
           <Button onClick={add}><Plus className="size-4 mr-1" />Adicionar</Button>
