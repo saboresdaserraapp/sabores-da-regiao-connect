@@ -53,10 +53,21 @@ const Index = () => {
     });
   }, [establishments, query, activeCat, filters]);
 
-  const abertos = list.filter(e => e.openNow);
-  const promos = list.filter(e => e.badges.includes("promocao"));
-  const recomendados = list.filter(e => e.badges.includes("recomendado"));
-  const turismo = list.filter(e => e.badges.includes("turistas"));
+  // Abertos primeiro, fechados (mas bem ranqueados) depois — em todas as seções
+  const orderByOpenThenRating = (arr: typeof list) =>
+    arr.slice().sort((a, b) => {
+      if (a.openNow !== b.openNow) return a.openNow ? -1 : 1;
+      if (b.rating !== a.rating) return b.rating - a.rating;
+      return b.reviewsCount - a.reviewsCount;
+    });
+  const destaques = orderByOpenThenRating(list);
+  const promos = orderByOpenThenRating(list.filter(e => e.badges.includes("promocao")));
+  const recomendados = orderByOpenThenRating(list.filter(e => e.badges.includes("recomendado")));
+  const turismo = orderByOpenThenRating(list.filter(e => e.badges.includes("turistas")));
+  const maisPedidos = list.slice().sort((a, b) => {
+    if (a.openNow !== b.openNow) return a.openNow ? -1 : 1;
+    return b.reviewsCount - a.reviewsCount;
+  });
 
   return (
     <div className="min-h-screen bg-gradient-cream pb-20">
@@ -156,7 +167,7 @@ const Index = () => {
           />
         </section>
       ) : (
-        <Section title="Abertos agora" items={abertos} />
+        <Section title="Em destaque agora" items={destaques} />
       )}
 
       <ProductsSections activeCat={activeCat} />
@@ -168,7 +179,7 @@ const Index = () => {
 
       <Section title="Promoções de hoje" items={promos} />
       <Section title="Recomendados por moradores" items={recomendados} />
-      <Section title="Mais pedidos da região" items={list.slice().sort((a,b)=>b.reviewsCount-a.reviewsCount)} />
+      <Section title="Mais pedidos da região" items={maisPedidos} />
       <Section title="Visitando a região" items={turismo} />
 
 
@@ -202,11 +213,16 @@ function ProductsSections({ activeCat }: { activeCat: string | null }) {
     () => (activeCat ? all.filter(p => p.establishment.category === activeCat) : all),
     [all, activeCat]
   );
-  const vendidos = scoped.filter(p => p.popular)
-    .sort((a, b) => b.establishment.reviewsCount - a.establishment.reviewsCount);
-  const avaliados = scoped.filter(p => p.establishment.rating >= 4.7)
-    .sort((a, b) => b.establishment.rating - a.establishment.rating);
-  const promos = scoped.filter(p => p.promo);
+  // Disponíveis (loja aberta) primeiro, indisponíveis bem ranqueados depois
+  const openFirst = <T extends { establishment: { openNow: boolean } }>(arr: T[]) =>
+    arr.slice().sort((a, b) => (a.establishment.openNow === b.establishment.openNow ? 0 : a.establishment.openNow ? -1 : 1));
+  const vendidos = openFirst(
+    scoped.filter(p => p.popular).sort((a, b) => b.establishment.reviewsCount - a.establishment.reviewsCount)
+  );
+  const avaliados = openFirst(
+    scoped.filter(p => p.establishment.rating >= 4.7).sort((a, b) => b.establishment.rating - a.establishment.rating)
+  );
+  const promos = openFirst(scoped.filter(p => p.promo));
 
   return (
     <>

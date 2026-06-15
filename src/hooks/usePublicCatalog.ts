@@ -57,9 +57,7 @@ export function usePublicEstablishments() {
       const { data, error } = await supabase
         .from("establishments")
         .select("*")
-        .eq("status", "ativo")
         .eq("approval_status", "approved")
-        .eq("is_public", true)
         .order("rating", { ascending: false });
       if (error) throw error;
       return (data ?? []).map(mapEstab);
@@ -75,9 +73,7 @@ export function usePublicProducts() {
       const { data: estabs, error: e1 } = await supabase
         .from("establishments")
         .select("*")
-        .eq("status", "ativo")
-        .eq("approval_status", "approved")
-        .eq("is_public", true);
+        .eq("approval_status", "approved");
       if (e1) throw e1;
       const ids = (estabs ?? []).map((e) => e.id);
       if (!ids.length) return [];

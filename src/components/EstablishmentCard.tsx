@@ -5,13 +5,33 @@ import type { Establishment } from "@/data/mockData";
 import { FavoriteButton } from "./FavoriteButton";
 
 export function EstablishmentCard({ e }: { e: Establishment }) {
+  const closed = !e.openNow;
   return (
     <Link
       to={`/e/${e.slug}`}
-      className="group block overflow-hidden rounded-3xl border border-border/60 bg-card shadow-card transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2"
+      className={
+        "group relative block overflow-hidden rounded-3xl border border-border/60 bg-card shadow-card transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2" +
+        (closed ? " opacity-75 saturate-[0.85]" : "")
+      }
+      aria-label={closed ? `${e.name} (fechado agora)` : e.name}
     >
       <div className="relative h-44 overflow-hidden">
-        <img src={e.cover} alt={e.name} loading="lazy" className="size-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.06]" />
+        <img
+          src={e.cover}
+          alt={e.name}
+          loading="lazy"
+          className={
+            "size-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.06]" +
+            (closed ? " grayscale-[0.35] brightness-90" : "")
+          }
+        />
+        {closed && (
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-background/30">
+            <span className="rounded-full bg-background/85 px-3 py-1 text-xs font-semibold text-foreground shadow-sm backdrop-blur">
+              Fechada agora
+            </span>
+          </div>
+        )}
         <div className="absolute inset-x-0 top-0 flex items-start justify-between p-3">
           <StatusBadge variant={e.openNow ? "aberto" : "fechado"} />
           <div className="flex items-center gap-2">
