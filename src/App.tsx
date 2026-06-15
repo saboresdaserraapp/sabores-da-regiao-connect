@@ -19,10 +19,12 @@ import PedidoDetalhesLoja from "./pages/minha-loja/pedidos/PedidoDetalhes.tsx";
 import PedidoTracking from "./pages/PedidoTracking.tsx";
 import VisualReference from "./pages/VisualReference.tsx";
 import DeliveryReference from "./pages/DeliveryReference.tsx";
-import CatalogDebug from "./pages/CatalogDebug.tsx";
-import StorageDebug from "./pages/StorageDebug.tsx";
-import TesteStorage from "./pages/TesteStorage.tsx";
-import VisualReferenceFallbackTest from "./pages/VisualReferenceFallbackTest.tsx";
+import { lazy, Suspense } from "react";
+const CatalogDebug = lazy(() => import("./pages/CatalogDebug.tsx"));
+const StorageDebug = lazy(() => import("./pages/StorageDebug.tsx"));
+const TesteStorage = lazy(() => import("./pages/TesteStorage.tsx"));
+const VisualReferenceFallbackTest = lazy(() => import("./pages/VisualReferenceFallbackTest.tsx"));
+const IS_DEV = import.meta.env.DEV;
 
 
 import { AuthProvider } from "@/hooks/useAuth";
@@ -101,10 +103,14 @@ const App = () => (
             <Route path="/pedido/:code" element={<PedidoTracking />} />
             <Route path="/referencia/:token" element={<VisualReference />} />
             <Route path="/referencias-entrega/:token" element={<DeliveryReference />} />
-            <Route path="/debug/catalogo" element={<CatalogDebug />} />
-            <Route path="/debug/storage" element={<StorageDebug />} />
-            <Route path="/teste-storage" element={<TesteStorage />} />
-            <Route path="/debug/visual-fallback" element={<VisualReferenceFallbackTest />} />
+            {IS_DEV && (
+              <>
+                <Route path="/debug/catalogo" element={<Suspense fallback={null}><CatalogDebug /></Suspense>} />
+                <Route path="/debug/storage" element={<Suspense fallback={null}><StorageDebug /></Suspense>} />
+                <Route path="/teste-storage" element={<Suspense fallback={null}><TesteStorage /></Suspense>} />
+                <Route path="/debug/visual-fallback" element={<Suspense fallback={null}><VisualReferenceFallbackTest /></Suspense>} />
+              </>
+            )}
 
 
             <Route path="/admin/login" element={<AdminLogin />} />
