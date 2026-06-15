@@ -23,6 +23,9 @@ import { PedidosTab } from "@/components/profile/PedidosTab";
 import { toast } from "sonner";
 import { Heart, MapPin, Home, Receipt, CreditCard, UserRound, Plus, Trash2, Loader2, LogOut, Star, Video, Info, ShoppingBag, MessageCircle, Store, AlertCircle } from "lucide-react";
 import { brl } from "@/lib/format";
+import { PageHeader } from "@/components/ui/page-header";
+import { SectionHeading } from "@/components/ui/section-heading";
+import { EmptyState } from "@/components/ui/empty-state";
 
 export default function MinhaConta() {
   const { user, loading, signOut } = useAuth();
@@ -36,18 +39,18 @@ export default function MinhaConta() {
     <div className="min-h-screen bg-gradient-cream">
       <Header />
       <main className="container py-8">
-        <div className="mb-6 flex items-center justify-between gap-4">
-          <div>
-            <h1 className="font-display text-3xl font-bold">Minha conta</h1>
-            <p className="text-sm text-muted-foreground">{user.email}</p>
-          </div>
-          <Button variant="outline" onClick={async () => { await signOut(); }}>
-            <LogOut className="mr-2 size-4" /> Sair
-          </Button>
-        </div>
+        <PageHeader
+          title="Minha conta"
+          description={user.email ?? undefined}
+          actions={
+            <Button variant="outline" onClick={async () => { await signOut(); }}>
+              <LogOut className="mr-2 size-4" /> Sair
+            </Button>
+          }
+        />
 
         <Tabs value={currentTab} onValueChange={(v) => setSearchParams({ tab: v })} className="space-y-6">
-          <TabsList className="flex flex-wrap h-auto">
+          <TabsList className="flex flex-wrap h-auto gap-1 bg-muted/60 p-1 rounded-xl">
             <TabsTrigger value="perfil"><UserRound className="mr-1.5 size-4" /> Perfil</TabsTrigger>
             <TabsTrigger value="favoritos"><Heart className="mr-1.5 size-4" /> Favoritos</TabsTrigger>
             <TabsTrigger value="enderecos"><MapPin className="mr-1.5 size-4" /> Endereços</TabsTrigger>
