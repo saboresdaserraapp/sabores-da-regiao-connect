@@ -419,3 +419,100 @@ function StatBox({ label, value, hint }: { label: string; value: string | number
     </div>
   );
 }
+
+const ROLE_OPTIONS = [
+  { value: "owner", label: "Dono" },
+  { value: "manager", label: "Gerente" },
+  { value: "attendant", label: "Atendente" },
+  { value: "menu_editor", label: "Editor de cardápio" },
+  { value: "finance", label: "Financeiro" },
+];
+
+function TeamSection({ establishmentId }: { establishmentId: string }) {
+  const qc = useQueryClient();
+  const { data: members } = useQuery({
+    queryKey: ["admin-team", establishmentId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("establishment_owners")
+        .select("id,user_id,role,created_at,profiles:user_id(display_name)")
+        .eq("establishment_id", establishmentId);
+      return data ?? [];
+    },
+  });
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState("manager");
+  const [loading, setLoading] = useState(false);
+
+  async function add() {
+    if (!email.trim()) return;
+    setLoading(true);
+    try {
+      const { data: uid, error: e1 } = await supabase.rpc("admin_find_user_by_email", { _email: email.trim() });
+      if (e1) throw e1;
+      if (!uid) { toast.error("Usuário não encontrado."); return; }
+      const { error } = await supabase.from("establishment_owners").insert({
+        establishment_id: establishmentId,
+        user_id: uid as string,
+        role: role as never,
+      });
+      if (error) throw error;
+      toast.success("Membro adicionado");
+      setEmail("");
+      qc.invalidateQueries({ queryKey: ["admin-team", establishmentId] });
+    } catch (e: any) {
+      toast.error(e?.message ?? "Erro");
+    } finally { setLoading(false); }
+  }
+
+  async function changeRole(id: string, newRole: string) {
+    const { error } = await supabase.from("establishment_owners").update({ role: newRole as never }).eq("id", id);
+    if (error) return toast.error(error.message);
+    qc.invalidateQueries({ queryKey: ["admin-team", establishmentId] });
+  }
+
+  async function remove(id: string) {
+    if (!confirm("Remover este membro?")) return;
+    const { error } = await supabase.from("establishment_owners").delete().eq("id", id);
+    if (error) return toast.error(error.message);
+    qc.invalidateQueries({ queryKey: ["admin-team", establishmentId] });
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-2xl border border-border bg-card p-4 space-y-2">
+        <div className="text-sm font-medium">Adicionar membro</div>
+        <div className="flex flex-wrap gap-2">
+          <Input className="flex-1 min-w-[240px]" placeholder="E-mail do usuário" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <Select value={role} onValueChange={setRole}>
+            <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {ROLE_OPTIONS.map((r) => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Button onClick={add} disabled={loading}><Plus className="size-4 mr-1" /> Adicionar</Button>
+        </div>
+        <p className="text-[11px] text-muted-foreground">Como admin, você pode atribuir qualquer papel sem restrição de plano.</p>
+      </div>
+
+      <div className="rounded-2xl border border-border bg-card divide-y divide-border">
+        {(members ?? []).map((m: any) => (
+          <div key={m.id} className="flex flex-wrap items-center gap-2 p-3">
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-medium truncate">{m.profiles?.display_name ?? "—"}</div>
+              <div className="font-mono text-[11px] text-muted-foreground truncate">{m.user_id}</div>
+            </div>
+            <Select value={m.role} onValueChange={(v) => changeRole(m.id, v)}>
+              <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {ROLE_OPTIONS.map((r) => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Button size="icon" variant="ghost" onClick={() => remove(m.id)}><Trash2 className="size-4 text-destructive" /></Button>
+          </div>
+        ))}
+        {(members ?? []).length === 0 && <div className="p-6 text-center text-sm text-muted-foreground">Nenhum membro vinculado.</div>}
+      </div>
+    </div>
+  );
+}
