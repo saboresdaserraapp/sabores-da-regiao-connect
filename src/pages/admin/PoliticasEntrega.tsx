@@ -208,8 +208,8 @@ export default function PoliticasEntrega() {
                     {row.regions.length === 0 ? (
                       <p className="text-xs text-muted-foreground">Nenhuma região cadastrada.</p>
                     ) : (
-                      <div className="rounded-xl border border-border overflow-hidden">
-                        <table className="w-full text-xs">
+                      <div className="rounded-xl border border-border overflow-x-auto">
+                        <table className="w-full min-w-[520px] text-xs">
                           <thead className="bg-muted/40 text-muted-foreground">
                             <tr>
                               <th className="px-3 py-1.5 text-left font-medium">Região</th>
