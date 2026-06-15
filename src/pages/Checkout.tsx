@@ -365,6 +365,25 @@ const CheckoutPage = () => {
           <Row label="Taxa" value={taxa ? brl(taxa) : "a confirmar"} />
           <div className="my-2 border-t border-border" />
           <Row label="Total estimado" value={brl(total)} strong />
+          {type === "entrega" && deliveryInfo?.notice && (
+            <div className={cn(
+              "mt-3 rounded-xl px-3 py-2 text-xs flex items-start gap-2",
+              deliveryInfo.blocked ? "bg-destructive/10 text-destructive" : "bg-muted text-muted-foreground"
+            )}>
+              <AlertCircle className="size-3.5 mt-0.5 shrink-0" />
+              <span>{deliveryInfo.notice}</span>
+            </div>
+          )}
+          {type === "entrega" && deliveryInfo?.region && deliveryInfo.autoMatched && !deliveryInfo.blocked && (
+            <div className="mt-2 text-[11px] text-muted-foreground flex items-center gap-1">
+              <MapPin className="size-3" /> Região detectada: <strong className="text-foreground">{deliveryInfo.region.name}</strong>
+            </div>
+          )}
+          {type === "entrega" && deliveryInfo?.manual && deliveryInfo.fee != null && !deliveryInfo.blocked && (
+            <div className="mt-2 text-[11px] text-amber-700">
+              Valor estimado — o estabelecimento confirmará pelo WhatsApp.
+            </div>
+          )}
         </section>
 
         {type === "entrega" && (
