@@ -143,10 +143,39 @@ export default function EstablishmentPage() {
           .order("name"),
       ]);
       
-      return (cats ?? []).map(c => ({
+      const allProducts = products ?? [];
+      const sortProds = (arr: any[]) =>
+        arr.slice().sort((a, b) => {
+          const av = a.is_available === false ? 1 : 0;
+          const bv = b.is_available === false ? 1 : 0;
+          if (av !== bv) return av - bv;
+          const ao = a.display_order ?? 9999;
+          const bo = b.display_order ?? 9999;
+          if (ao !== bo) return ao - bo;
+          return String(a.name).localeCompare(String(b.name));
+        });
+
+      const catList = (cats ?? []).map((c) => ({
         ...c,
-        products: (products ?? []).filter(p => p.menu_category_id === c.id)
-      })).filter(c => c.products.length > 0);
+        products: sortProds(allProducts.filter((p) => p.menu_category_id === c.id)),
+      }));
+
+      const knownIds = new Set((cats ?? []).map((c) => c.id));
+      const orphanProducts = allProducts.filter(
+        (p) => !p.menu_category_id || !knownIds.has(p.menu_category_id),
+      );
+
+      const result = catList.filter((c) => c.products.length > 0);
+      if (orphanProducts.length > 0) {
+        result.push({
+          id: "__uncategorized__",
+          establishment_id: est!.id,
+          name: result.length === 0 ? "Cardápio" : "Outros",
+          position: 9999,
+          products: sortProds(orphanProducts),
+        } as any);
+      }
+      return result;
     }
   });
 
