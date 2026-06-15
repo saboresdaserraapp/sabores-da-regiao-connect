@@ -32,30 +32,13 @@ export function ActiveEstablishmentProvider({ children }: { children: ReactNode 
         role = (m?.role as EstablishmentRole) ?? null;
       }
 
-      const { data: sub } = await supabase
-        .from("establishment_subscriptions")
-        .select("status, plan_id, plans(id,name,slug,features_json)")
-        .eq("establishment_id", id)
-        .in("status", ["active","trial"])
-        .order("started_at", { ascending: false })
-        .limit(1).maybeSingle();
-
-      let planId: string | null = null, planName: string | null = null, planSlug: PlanSlug | null = null;
-      let features: Record<string, any> = {};
-      let subscriptionStatus: string | null = null;
-
-      if (sub?.plans) {
-        const p: any = sub.plans;
-        planId = p.id; planName = p.name; planSlug = p.slug; features = p.features_json ?? {};
-        subscriptionStatus = sub.status;
-      } else if ((est as any).plans) {
-        const p: any = (est as any).plans;
-        planId = p.id; planName = p.name; planSlug = p.slug;
-        // se há plano direto na loja, carregar features
-        const { data: pf } = await supabase.from("plans").select("features_json").eq("id", p.id).maybeSingle();
-        features = (pf as any)?.features_json ?? {};
-        subscriptionStatus = "active";
-      }
+      const { data: planInfo } = await supabase.rpc("get_establishment_plan_info", { _estab_id: id });
+      const info: any = planInfo ?? {};
+      const planId: string | null = info.plan_id ?? null;
+      const planName: string | null = info.plan_name ?? null;
+      const planSlug: PlanSlug | null = (info.plan_slug as PlanSlug) ?? null;
+      const features: Record<string, any> = info.features_json ?? {};
+      const subscriptionStatus: string | null = info.subscription_status ?? null;
 
       return {
         establishmentId: est.id,
