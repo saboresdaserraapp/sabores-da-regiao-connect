@@ -5,12 +5,14 @@ import { ProductCard } from "@/components/ProductCard";
 import { LojaFilters, DEFAULT_FILTERS, type LojaFiltersState } from "@/components/LojaFilters";
 import { CATEGORIES, type CategoryKey } from "@/data/mockData";
 import { usePublicProducts } from "@/hooks/usePublicCatalog";
-import { Search, SlidersHorizontal, LayoutGrid, List, ShoppingBag } from "lucide-react";
+import { Search, SlidersHorizontal, LayoutGrid, List, ShoppingBag, SearchX } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { BannerCarousel } from "@/components/banners/BannerCarousel";
+import { LoadingState } from "@/components/ui/loading-state";
+import { EmptyState } from "@/components/ui/empty-state";
 
 type SortKey = "relevancia" | "vendidos" | "avaliados" | "preco-asc" | "preco-desc" | "perto" | "promo";
 
@@ -132,20 +134,21 @@ const Loja = () => {
       {/* Hero */}
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-warm opacity-95" />
-        <div className="container relative py-8 sm:py-10">
+        <div className="container relative py-10 sm:py-12">
           <div className="max-w-2xl text-primary-foreground">
-            <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs backdrop-blur">
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-medium backdrop-blur-md">
               <ShoppingBag className="size-3.5" /> Loja completa
             </div>
-            <h1 className="font-display text-3xl font-bold sm:text-4xl">Todos os produtos da região</h1>
-            <p className="mt-2 text-primary-foreground/90">Combine filtros e ordenações pra achar exatamente o que você quer.</p>
-            <div className="mt-4 flex items-center gap-2 rounded-2xl bg-card p-2 shadow-soft">
+            <h1 className="font-display text-3xl font-bold tracking-tight sm:text-4xl lg:text-5xl">Todos os produtos da região</h1>
+            <p className="mt-3 max-w-xl text-primary-foreground/90">Combine filtros e ordenações pra achar exatamente o que você quer.</p>
+            <div className="mt-5 flex items-center gap-2 rounded-2xl bg-card p-2 shadow-elevated ring-1 ring-black/5">
               <Search className="ml-2 size-5 text-muted-foreground" />
               <input
                 value={query}
                 onChange={e => setQuery(e.target.value)}
                 placeholder="Buscar produto, descrição ou loja..."
                 className="flex-1 bg-transparent py-2 text-foreground outline-none placeholder:text-muted-foreground"
+                aria-label="Buscar produtos"
               />
             </div>
           </div>
@@ -222,12 +225,12 @@ const Loja = () => {
                   <button
                     key={c.key}
                     onClick={c.remove}
-                    className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary hover:bg-primary/20"
+                    className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/20"
                   >
                     {c.label} <span className="text-base leading-none">×</span>
                   </button>
                 ))}
-                <button onClick={reset} className="text-xs font-medium text-muted-foreground underline">
+                <button onClick={reset} className="text-xs font-medium text-muted-foreground underline underline-offset-2 hover:text-foreground">
                   Limpar tudo
                 </button>
               </div>
@@ -235,15 +238,14 @@ const Loja = () => {
 
             {/* Results */}
             {isLoading ? (
-              <div className="flex justify-center py-20">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-              </div>
+              <LoadingState variant="page" label="Carregando produtos..." />
             ) : filtered.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-border bg-card p-12 text-center">
-                <p className="font-display text-lg font-semibold">Nenhum produto encontrado</p>
-                <p className="mt-1 text-sm text-muted-foreground">Tente ajustar os filtros ou a busca.</p>
-                <Button onClick={reset} variant="outline" className="mt-4">Limpar filtros</Button>
-              </div>
+              <EmptyState
+                icon={SearchX}
+                title="Nenhum produto encontrado"
+                description="Tente ajustar os filtros ou a busca para encontrar o que procura."
+                action={<Button onClick={reset} variant="outline" size="sm">Limpar filtros</Button>}
+              />
             ) : view === "grid" ? (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {filtered.map(p => (

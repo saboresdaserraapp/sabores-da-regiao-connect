@@ -1,10 +1,13 @@
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, MessageCircle, Loader2, Clock } from "lucide-react";
+import { ArrowLeft, MessageCircle, Clock, Search } from "lucide-react";
 import { useOrderTracking } from "@/hooks/useOrderTracking";
 import { OrderStatusStepper } from "@/components/orders/OrderStatusStepper";
 import { OrderDetailsPanel } from "@/components/orders/OrderDetailsPanel";
 import { CustomerReferencesPanel } from "@/components/orders/CustomerReferencesPanel";
 import { brl } from "@/lib/format";
+import { LoadingState } from "@/components/ui/loading-state";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Button } from "@/components/ui/button";
 
 const PedidoTracking = () => {
   const { code } = useParams();
@@ -12,18 +15,21 @@ const PedidoTracking = () => {
 
   if (loading) {
     return (
-      <div className="grid min-h-screen place-items-center bg-gradient-cream">
-        <Loader2 className="size-8 animate-spin text-primary" />
+      <div className="min-h-screen bg-gradient-cream">
+        <LoadingState variant="page" label="Buscando seu pedido..." />
       </div>
     );
   }
   if (!order) {
     return (
       <div className="min-h-screen bg-gradient-cream">
-        <div className="container py-20 text-center">
-          <h1 className="font-display text-2xl">Pedido não encontrado</h1>
-          <p className="mt-2 text-muted-foreground">Confira o código de acompanhamento.</p>
-          <Link to="/" className="mt-6 inline-block rounded-full bg-primary px-5 py-2.5 text-primary-foreground">Voltar ao início</Link>
+        <div className="container py-16">
+          <EmptyState
+            icon={Search}
+            title="Pedido não encontrado"
+            description="Confira se o código de acompanhamento está correto."
+            action={<Button asChild><Link to="/">Voltar ao início</Link></Button>}
+          />
         </div>
       </div>
     );
@@ -51,25 +57,25 @@ const PedidoTracking = () => {
       </header>
 
       <div className="container space-y-5 py-6">
-        <section className="rounded-3xl bg-card p-5 shadow-card">
-          <h2 className="mb-4 font-display text-lg font-semibold">Status do pedido</h2>
+        <section className="rounded-3xl border border-border/60 bg-card p-5 shadow-card">
+          <h2 className="mb-4 font-display text-lg font-semibold tracking-tight">Status do pedido</h2>
           <OrderStatusStepper status={order.status} />
         </section>
 
-        <section className="rounded-3xl bg-card p-5 shadow-card">
-          <h3 className="mb-2 font-display text-base font-semibold">Resposta do estabelecimento</h3>
+        <section className="rounded-3xl border border-border/60 bg-card p-5 shadow-card">
+          <h3 className="mb-2 font-display text-base font-semibold tracking-tight">Resposta do estabelecimento</h3>
           {order.establishment_reply || order.estimated_minutes || order.final_total ? (
             <div className="space-y-2 text-sm">
               {order.establishment_reply && <p>{order.establishment_reply}</p>}
               <div className="grid gap-2 sm:grid-cols-2">
                 {order.estimated_minutes != null && (
-                  <div className="flex items-center gap-2 rounded-xl bg-primary/10 p-3 text-primary">
+                  <div className="flex items-center gap-2 rounded-xl border border-primary/20 bg-primary/10 p-3 text-primary">
                     <Clock className="size-4" />
                     <span className="text-sm font-semibold">Prazo: ~{order.estimated_minutes} min</span>
                   </div>
                 )}
                 {order.final_total != null && (
-                  <div className="rounded-xl bg-emerald-500/10 p-3 text-emerald-700">
+                  <div className="rounded-xl border border-success/30 bg-success/10 p-3 text-success">
                     <div className="text-[10px] uppercase tracking-wide">Total confirmado</div>
                     <div className="font-display text-lg font-bold">{brl(Number(order.final_total))}</div>
                   </div>
@@ -81,14 +87,14 @@ const PedidoTracking = () => {
           )}
           {waLink && (
             <a href={waLink} target="_blank" rel="noreferrer"
-              className="mt-4 inline-flex items-center gap-2 rounded-full bg-gradient-warm px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-glow">
+              className="mt-4 inline-flex items-center gap-2 rounded-full bg-gradient-warm px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-glow transition-all duration-150 ease-out hover:brightness-110 active:scale-[0.98]">
               <MessageCircle className="size-4" /> Abrir conversa no WhatsApp
             </a>
           )}
         </section>
 
-        <section className="rounded-3xl bg-card p-5 shadow-card">
-          <h3 className="mb-3 font-display text-base font-semibold">Detalhes do pedido</h3>
+        <section className="rounded-3xl border border-border/60 bg-card p-5 shadow-card">
+          <h3 className="mb-3 font-display text-base font-semibold tracking-tight">Detalhes do pedido</h3>
           <OrderDetailsPanel order={order} />
         </section>
 
