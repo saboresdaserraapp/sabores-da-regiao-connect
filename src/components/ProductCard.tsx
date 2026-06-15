@@ -33,7 +33,7 @@ export function ProductCard({ p, variant = "grid" }: Props) {
         <Link
           to={href}
           onClick={handleClick}
-          className="group flex gap-4 overflow-hidden rounded-2xl bg-card p-3 shadow-card transition-all hover:shadow-soft hover:-translate-y-0.5"
+          className="group flex gap-4 overflow-hidden rounded-2xl border border-border/60 bg-card p-3 shadow-card transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2"
         >
           <div className="relative h-28 w-28 shrink-0 overflow-hidden rounded-xl sm:h-32 sm:w-32">
             <img src={p.image} alt={p.name} loading="lazy" className="size-full object-cover transition-transform duration-500 group-hover:scale-105" />
@@ -76,7 +76,7 @@ export function ProductCard({ p, variant = "grid" }: Props) {
         to={href}
         onClick={handleClick}
         className={cn(
-          "group block overflow-hidden rounded-2xl bg-card shadow-card transition-all hover:shadow-soft hover:-translate-y-0.5",
+          "group block overflow-hidden rounded-2xl border border-border/60 bg-card shadow-card transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2",
           variant === "compact" ? "w-56 shrink-0" : ""
         )}
       >
@@ -102,7 +102,7 @@ export function ProductCard({ p, variant = "grid" }: Props) {
             </div>
             <div className="flex items-center gap-1.5">
               <FavoriteButton kind="product" targetId={p.id} size="sm" />
-              <div className="flex items-center gap-1 rounded-full bg-white/95 px-2 py-0.5 text-[11px] font-semibold">
+              <div className="flex items-center gap-1 rounded-full bg-background/90 px-2 py-0.5 text-[11px] font-semibold text-foreground backdrop-blur">
                 <Star className="size-3 fill-accent text-accent" /> {e.rating.toFixed(1)}
               </div>
             </div>
