@@ -1,0 +1,1 @@
+ALTER TYPE public.order_status RENAME VALUE 'enviado_whatsapp' TO 'enviado';

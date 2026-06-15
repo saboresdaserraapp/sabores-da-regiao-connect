@@ -1,0 +1,173 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { Toaster as Sonner } from "@/components/ui/sonner";
+import { Toaster } from "@/components/ui/toaster";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import Index from "./pages/Index.tsx";
+import NotFound from "./pages/NotFound.tsx";
+import Establishment from "./pages/Establishment.tsx";
+import Checkout from "./pages/Checkout.tsx";
+import Dashboard from "./pages/Dashboard.tsx";
+import Loja from "./pages/Loja.tsx";
+import Login from "./pages/Login.tsx";
+import Cadastro from "./pages/Cadastro.tsx";
+import RecuperarSenha from "./pages/RecuperarSenha.tsx";
+import ResetPassword from "./pages/ResetPassword.tsx";
+import MinhaConta from "./pages/MinhaConta.tsx";
+import PedidoDetalhesCliente from "./pages/minha-conta/PedidoDetalhes.tsx";
+import PedidoDetalhesLoja from "./pages/minha-loja/pedidos/PedidoDetalhes.tsx";
+import PedidoTracking from "./pages/PedidoTracking.tsx";
+import VisualReference from "./pages/VisualReference.tsx";
+import DeliveryReference from "./pages/DeliveryReference.tsx";
+import CatalogDebug from "./pages/CatalogDebug.tsx";
+import StorageDebug from "./pages/StorageDebug.tsx";
+import TesteStorage from "./pages/TesteStorage.tsx";
+import VisualReferenceFallbackTest from "./pages/VisualReferenceFallbackTest.tsx";
+
+
+import { AuthProvider } from "@/hooks/useAuth";
+import { ProtectedAdminRoute } from "@/components/admin/ProtectedAdminRoute";
+import AdminLayout from "@/components/admin/AdminLayout";
+import AdminLogin from "./pages/admin/AdminLogin.tsx";
+import AdminDashboard from "./pages/admin/Dashboard.tsx";
+import AdminEstabelecimentos from "./pages/admin/Estabelecimentos.tsx";
+import EstabelecimentoPerfil from "./pages/admin/EstabelecimentoPerfil.tsx";
+import AdminAvaliacoes from "./pages/admin/Avaliacoes.tsx";
+import AdminDenuncias from "./pages/admin/Denuncias.tsx";
+import AdminComunicados from "./pages/admin/Comunicados.tsx";
+import AdminSite from "./pages/admin/SiteAdmin.tsx";
+import AdminUsuarios from "./pages/admin/Usuarios.tsx";
+import AdminAuditoria from "./pages/admin/Auditoria.tsx";
+import AdminInteligencia from "./pages/admin/Inteligencia.tsx";
+import AdminRelatorios from "./pages/admin/Relatorios.tsx";
+import AdminBenchmark from "./pages/admin/Benchmark.tsx";
+import AdminPoliticaDados from "./pages/admin/PoliticaDados.tsx";
+import AdminPoliticasEntrega from "./pages/admin/PoliticasEntrega.tsx";
+import AdminAprovacaoEstabelecimentos from "./pages/admin/AprovacaoEstabelecimentos.tsx";
+import MinhaLojaDispatcher from "./pages/minha-loja/Dispatcher.tsx";
+import MinhaLojaSelecionar from "./pages/minha-loja/Selecionar.tsx";
+import MinhaLojaStatus from "./pages/minha-loja/Status.tsx";
+import MinhaLojaCadastrar from "./pages/minha-loja/Cadastrar.tsx";
+import MinhaLojaPainelLayout from "./pages/minha-loja/PainelLayout.tsx";
+import PainelVisaoGeral from "./pages/minha-loja/painel/VisaoGeral.tsx";
+import PainelDados from "./pages/minha-loja/painel/DadosLoja.tsx";
+import PainelHorarios from "./pages/minha-loja/painel/Horarios.tsx";
+import PainelCardapio from "./pages/minha-loja/painel/Cardapio.tsx";
+import PainelProdutos from "./pages/minha-loja/painel/Produtos.tsx";
+import PainelAdicionais from "./pages/minha-loja/painel/Adicionais.tsx";
+import PainelPromocoes from "./pages/minha-loja/painel/Promocoes.tsx";
+import PainelEntrega from "./pages/minha-loja/painel/Entrega.tsx";
+import PainelPedidos from "./pages/minha-loja/painel/Pedidos.tsx";
+import PainelAvaliacoes from "./pages/minha-loja/painel/Avaliacoes.tsx";
+import PainelMetricas from "./pages/minha-loja/painel/Metricas.tsx";
+import PainelInteligencia from "./pages/minha-loja/painel/Inteligencia.tsx";
+import PainelPersonalizacao from "./pages/minha-loja/painel/Personalizacao.tsx";
+import PainelPlano from "./pages/minha-loja/painel/PlanoAssinatura.tsx";
+import PainelPlanosComparar from "./pages/minha-loja/painel/PlanosComparar.tsx";
+import PainelConfiguracoes from "./pages/minha-loja/painel/Configuracoes.tsx";
+import PainelFinanceiro from "./pages/minha-loja/painel/Financeiro.tsx";
+import PainelEstoque from "./pages/minha-loja/painel/Estoque.tsx";
+import PainelMidia from "./pages/minha-loja/painel/Midia.tsx";
+import PainelEditarProduto from "./pages/minha-loja/painel/EditarProduto.tsx";
+import PainelEquipe from "./pages/minha-loja/painel/Equipe.tsx";
+import PainelMotoboys from "./pages/minha-loja/painel/Motoboys.tsx";
+import { FloatingOrdersButton } from "./components/FloatingOrdersButton";
+import { Navigate } from "react-router-dom";
+
+const queryClient = new QueryClient();
+
+const App = () => (
+  <QueryClientProvider client={queryClient}>
+    <TooltipProvider>
+      <Toaster />
+      <Sonner />
+      <BrowserRouter>
+        <AuthProvider>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/loja" element={<Loja />} />
+            <Route path="/e/:slug" element={<Establishment />} />
+            <Route path="/e/:slug/checkout" element={<Checkout />} />
+            <Route path="/loja/:slug" element={<Establishment />} />
+            <Route path="/loja/:slug/checkout" element={<Checkout />} />
+
+            <Route path="/painel" element={<Dashboard />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/cadastro" element={<Cadastro />} />
+            <Route path="/recuperar-senha" element={<RecuperarSenha />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/minha-conta" element={<MinhaConta />} />
+            <Route path="/minha-conta/pedidos/:orderId" element={<PedidoDetalhesCliente />} />
+            <Route path="/pedido/:code" element={<PedidoTracking />} />
+            <Route path="/referencia/:token" element={<VisualReference />} />
+            <Route path="/referencias-entrega/:token" element={<DeliveryReference />} />
+            <Route path="/debug/catalogo" element={<CatalogDebug />} />
+            <Route path="/debug/storage" element={<StorageDebug />} />
+            <Route path="/teste-storage" element={<TesteStorage />} />
+            <Route path="/debug/visual-fallback" element={<VisualReferenceFallbackTest />} />
+
+
+            <Route path="/admin/login" element={<AdminLogin />} />
+            <Route element={<ProtectedAdminRoute />}>
+              <Route element={<AdminLayout />}>
+                <Route path="/admin" element={<AdminDashboard />} />
+                <Route path="/admin/estabelecimentos" element={<AdminEstabelecimentos />} />
+                <Route path="/admin/estabelecimentos/:id" element={<EstabelecimentoPerfil />} />
+                <Route path="/admin/avaliacoes" element={<AdminAvaliacoes />} />
+                <Route path="/admin/denuncias" element={<AdminDenuncias />} />
+                <Route path="/admin/comunicados" element={<AdminComunicados />} />
+                <Route path="/admin/site" element={<AdminSite />} />
+                <Route path="/admin/usuarios" element={<AdminUsuarios />} />
+                <Route path="/admin/auditoria" element={<AdminAuditoria />} />
+                <Route path="/admin/inteligencia" element={<AdminInteligencia />} />
+                <Route path="/admin/relatorios" element={<AdminRelatorios />} />
+                <Route path="/admin/relatorios/:id" element={<AdminRelatorios />} />
+                <Route path="/admin/benchmark" element={<AdminBenchmark />} />
+                <Route path="/admin/politica-dados" element={<AdminPoliticaDados />} />
+                <Route path="/admin/politicas-entrega" element={<AdminPoliticasEntrega />} />
+                <Route path="/admin/aprovacao-estabelecimentos" element={<AdminAprovacaoEstabelecimentos />} />
+              </Route>
+            </Route>
+
+            <Route path="/minha-loja" element={<MinhaLojaDispatcher />} />
+            <Route path="/minha-loja/selecionar" element={<MinhaLojaSelecionar />} />
+            <Route path="/minha-loja/status" element={<MinhaLojaStatus />} />
+            <Route path="/minha-loja/cadastrar" element={<MinhaLojaCadastrar />} />
+            <Route path="/minha-loja/:id/painel" element={<Navigate to=".." relative="path" replace />} />
+            <Route path="/minha-loja/:establishmentId" element={<MinhaLojaPainelLayout />}>
+              <Route index element={<PainelVisaoGeral />} />
+              <Route path="dados" element={<PainelDados />} />
+              <Route path="horarios" element={<PainelHorarios />} />
+              <Route path="cardapio" element={<PainelCardapio />} />
+              <Route path="produtos" element={<PainelProdutos />} />
+              <Route path="produtos/:productId/editar" element={<PainelEditarProduto />} />
+              <Route path="adicionais" element={<PainelAdicionais />} />
+              <Route path="promocoes" element={<PainelPromocoes />} />
+              <Route path="entrega" element={<PainelEntrega />} />
+              <Route path="pedidos" element={<PainelPedidos />} />
+              <Route path="pedidos/:orderId" element={<PedidoDetalhesLoja />} />
+              <Route path="avaliacoes" element={<PainelAvaliacoes />} />
+              <Route path="metricas" element={<PainelMetricas />} />
+              <Route path="inteligencia" element={<PainelInteligencia />} />
+              <Route path="personalizacao" element={<PainelPersonalizacao />} />
+              <Route path="plano" element={<PainelPlano />} />
+              <Route path="planos" element={<PainelPlanosComparar />} />
+              <Route path="financeiro" element={<PainelFinanceiro />} />
+              <Route path="estoque" element={<PainelEstoque />} />
+              <Route path="midia" element={<PainelMidia />} />
+              <Route path="equipe" element={<PainelEquipe />} />
+              <Route path="motoboys" element={<PainelMotoboys />} />
+              <Route path="configuracoes" element={<PainelConfiguracoes />} />
+            </Route>
+
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+          <FloatingOrdersButton />
+        </AuthProvider>
+      </BrowserRouter>
+    </TooltipProvider>
+  </QueryClientProvider>
+);
+
+export default App;
