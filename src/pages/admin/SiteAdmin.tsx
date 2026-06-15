@@ -367,19 +367,84 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 function CategoriesTab() {
   const qc = useQueryClient();
   const { data } = useQuery({ queryKey: ["site-cats"], queryFn: async () => (await supabase.from("site_categories").select("*").order("position")).data ?? [] });
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({ key: "", label: "", emoji: "", position: 0 });
+  const list = data ?? [];
+
+  async function createCat() {
+    const key = (form.key || form.label).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    if (!key || !form.label) { toast.error("Informe nome e chave."); return; }
+    const pos = form.position || (list.length + 1);
+    const { error } = await supabase.from("site_categories").insert({ key, label: form.label, emoji: form.emoji || null, position: pos, visible: true });
+    if (error) return toast.error(error.message);
+    toast.success("Categoria criada");
+    setOpen(false); setForm({ key: "", label: "", emoji: "", position: 0 });
+    qc.invalidateQueries({ queryKey: ["site-cats"] });
+  }
+
+  async function updateCat(key: string, patch: { label?: string; emoji?: string | null; position?: number; visible?: boolean }) {
+    const { error } = await supabase.from("site_categories").update(patch).eq("key", key);
+    if (error) return toast.error(error.message);
+    qc.invalidateQueries({ queryKey: ["site-cats"] });
+  }
+
+  async function moveCat(idx: number, dir: -1 | 1) {
+    const a = list[idx]; const b = list[idx + dir];
+    if (!a || !b) return;
+    await supabase.from("site_categories").update({ position: b.position }).eq("key", a.key);
+    await supabase.from("site_categories").update({ position: a.position }).eq("key", b.key);
+    qc.invalidateQueries({ queryKey: ["site-cats"] });
+  }
+
+  async function deleteCat(key: string) {
+    const { count } = await supabase.from("establishments").select("id", { count: "exact", head: true }).eq("category", key);
+    if ((count ?? 0) > 0) { toast.error(`Não é possível excluir: ${count} estabelecimento(s) usam esta categoria.`); return; }
+    if (!confirm("Excluir esta categoria?")) return;
+    const { error } = await supabase.from("site_categories").delete().eq("key", key);
+    if (error) return toast.error(error.message);
+    toast.success("Categoria removida");
+    qc.invalidateQueries({ queryKey: ["site-cats"] });
+  }
+
   return (
-    <div className="rounded-2xl border border-border bg-card divide-y divide-border">
-      {(data ?? []).map((c) => (
-        <div key={c.key} className="flex items-center gap-3 p-3">
-          <span className="text-xl">{c.emoji}</span>
-          <span className="flex-1 font-medium">{c.label}</span>
-          <span className="text-xs text-muted-foreground">{c.key}</span>
-          <Switch checked={c.visible} onCheckedChange={async (v) => {
-            await supabase.from("site_categories").update({ visible: v }).eq("key", c.key);
-            qc.invalidateQueries({ queryKey: ["site-cats"] });
-          }} />
+    <div className="space-y-3">
+      <div className="flex justify-end">
+        <Button size="sm" onClick={() => setOpen(true)}><Plus className="size-4 mr-1" /> Nova categoria</Button>
+      </div>
+      <div className="rounded-2xl border border-border bg-card divide-y divide-border">
+        {list.map((c, idx) => (
+          <div key={c.key} className="flex flex-wrap items-center gap-2 p-3">
+            <Input className="w-16 text-center" defaultValue={c.emoji ?? ""} onBlur={(e) => e.target.value !== (c.emoji ?? "") && updateCat(c.key, { emoji: e.target.value || null })} />
+            <Input className="flex-1 min-w-[180px]" defaultValue={c.label} onBlur={(e) => e.target.value !== c.label && updateCat(c.key, { label: e.target.value })} />
+            <span className="font-mono text-xs text-muted-foreground w-32 truncate">{c.key}</span>
+            <Button size="icon" variant="ghost" disabled={idx === 0} onClick={() => moveCat(idx, -1)}><ArrowUp className="size-4" /></Button>
+            <Button size="icon" variant="ghost" disabled={idx === list.length - 1} onClick={() => moveCat(idx, 1)}><ArrowDown className="size-4" /></Button>
+            <Switch checked={c.visible} onCheckedChange={(v) => updateCat(c.key, { visible: v })} />
+            <Button size="icon" variant="ghost" onClick={() => deleteCat(c.key)}><Trash2 className="size-4 text-destructive" /></Button>
+          </div>
+        ))}
+        {list.length === 0 && <div className="p-6 text-center text-sm text-muted-foreground">Nenhuma categoria. Clique em "Nova categoria".</div>}
+      </div>
+
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setOpen(false)}>
+          <div className="w-full max-w-md rounded-2xl bg-card border border-border p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-display text-lg font-semibold">Nova categoria</h3>
+            <div className="space-y-2">
+              <label className="text-xs text-muted-foreground">Nome exibido</label>
+              <Input value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} placeholder="Ex: Sorvetes" />
+              <label className="text-xs text-muted-foreground">Chave (slug, opcional)</label>
+              <Input value={form.key} onChange={(e) => setForm({ ...form, key: e.target.value })} placeholder="auto a partir do nome" />
+              <label className="text-xs text-muted-foreground">Emoji</label>
+              <Input value={form.emoji} onChange={(e) => setForm({ ...form, emoji: e.target.value })} placeholder="🍦" />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" onClick={() => setOpen(false)}>Cancelar</Button>
+              <Button onClick={createCat}>Criar</Button>
+            </div>
+          </div>
         </div>
-      ))}
+      )}
     </div>
   );
 }

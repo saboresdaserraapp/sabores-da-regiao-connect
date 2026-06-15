@@ -2349,6 +2349,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_find_user_by_email: { Args: { _email: string }; Returns: string }
       can_manage: { Args: { _user_id: string }; Returns: boolean }
       can_user_access_order: { Args: { order_uuid: string }; Returns: boolean }
       create_notification: {
