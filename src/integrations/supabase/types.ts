@@ -439,6 +439,7 @@ export type Database = {
           fee: number
           id: string
           internal_note: string | null
+          min_order_value: number
           name: string
           public_note: string | null
           requires_manual_confirmation: boolean
@@ -453,6 +454,7 @@ export type Database = {
           fee?: number
           id?: string
           internal_note?: string | null
+          min_order_value?: number
           name: string
           public_note?: string | null
           requires_manual_confirmation?: boolean
@@ -467,6 +469,7 @@ export type Database = {
           fee?: number
           id?: string
           internal_note?: string | null
+          min_order_value?: number
           name?: string
           public_note?: string | null
           requires_manual_confirmation?: boolean
