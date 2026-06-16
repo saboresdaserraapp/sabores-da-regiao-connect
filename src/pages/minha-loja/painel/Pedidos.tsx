@@ -48,6 +48,27 @@ function isStagnant(o: Order) {
   return mins >= STAGNANT_MIN;
 }
 
+function formatPhoneBR(raw: string | null) {
+  if (!raw) return "—";
+  const d = raw.replace(/\D/g, "");
+  if (d.length === 11) return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+  if (d.length === 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+  return raw;
+}
+function shortDate(iso: string) {
+  const d = new Date(iso);
+  return `${d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })} ${d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`;
+}
+function relativeTime(iso: string) {
+  const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+  if (mins < 1) return "agora";
+  if (mins < 60) return `há ${mins}min`;
+  const h = Math.floor(mins / 60);
+  if (h < 24) return `há ${h}h`;
+  const days = Math.floor(h / 24);
+  return `há ${days}d`;
+}
+
 export default function Pedidos() {
   const { ctx } = useActiveEstablishment();
   const [orders, setOrders] = useState<Order[]>([]);
@@ -121,6 +142,109 @@ export default function Pedidos() {
   if (!ctx) return null;
   const filtered = filter === "all" ? orders : orders.filter(o => o.status === filter);
   const stagnantCount = orders.filter(isStagnant).length;
+
+  const renderKanbanCard = (o: Order) => (
+    <div
+      key={o.id}
+      className={`w-full rounded-xl border bg-card p-2.5 text-sm shadow-sm transition-shadow hover:shadow-md ${
+        isStagnant(o) ? "border-red-300 bg-red-50/50" : "border-border/70"
+      }`}
+    >
+      {/* Top row: tracking + total */}
+      <div className="flex items-start justify-between gap-2">
+        <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground truncate">
+          {o.tracking_code ?? o.id.slice(0, 8)}
+        </span>
+        <span className="text-sm font-bold tabular-nums">R$ {Number(o.total).toFixed(2)}</span>
+      </div>
+
+      {/* Customer */}
+      <div className="mt-1 flex items-center gap-1">
+        {isStagnant(o) && <AlertTriangle className="size-3.5 shrink-0 text-red-600" />}
+        <div className="truncate text-sm font-semibold">{o.customer_name ?? "Cliente"}</div>
+      </div>
+      <div className="truncate text-[11px] text-muted-foreground">
+        {formatPhoneBR(o.customer_phone)} · {o.payment_method ?? "—"}
+      </div>
+      <div className="text-[11px] text-muted-foreground">
+        {shortDate(o.created_at)} <span className="opacity-70">· {relativeTime(o.created_at)}</span>
+      </div>
+
+      {/* Divider */}
+      <div className="my-2 h-px bg-border/70" />
+
+      {/* Status badges */}
+      <div className="flex flex-wrap items-center gap-1">
+        <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-normal">
+          {STATUS_LABEL[o.status] ?? o.status}
+        </Badge>
+        {o.payment_status === "paid" ? (
+          <Badge className="bg-emerald-600 text-[10px] px-1.5 py-0 font-normal">Pago</Badge>
+        ) : (
+          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-normal">A receber</Badge>
+        )}
+      </div>
+
+      {/* Money breakdown */}
+      <div className="mt-1.5 text-[11px] text-muted-foreground tabular-nums">
+        Sub R$ {Number(o.subtotal).toFixed(2)} · Taxa R$ {Number(o.delivery_fee).toFixed(2)}
+      </div>
+
+      {o.notes && (
+        <div className="mt-1 text-[11px] text-foreground/80 line-clamp-2">
+          <span className="font-medium">Obs:</span> {o.notes}
+        </div>
+      )}
+
+      {o.assigned_driver_name && (
+        <div className="mt-1 flex items-center gap-1 text-[10px] font-medium text-primary">
+          <Smartphone className="size-3" /> {o.assigned_driver_name}
+          {o.driver_reference_sent_at && (
+            <span className="text-muted-foreground font-normal">
+              · {new Date(o.driver_reference_sent_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Divider */}
+      <div className="my-2 h-px bg-border/70" />
+
+      {/* Actions */}
+      <Select value={o.status} onValueChange={(v) => updateStatus(o, v)}>
+        <SelectTrigger className="h-8 w-full text-xs"><SelectValue /></SelectTrigger>
+        <SelectContent>
+          {STATUS_OPTIONS.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+        </SelectContent>
+      </Select>
+
+      <div className={`mt-1.5 grid gap-1.5 ${o.payment_status !== "paid" ? "grid-cols-2" : "grid-cols-1"}`}>
+        <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => openWhats(o)}>
+          <MessageCircle className="size-3.5 mr-1" /> WhatsApp
+        </Button>
+        {o.payment_status !== "paid" && (
+          <Button size="sm" variant="outline" className="h-8 text-xs text-emerald-700" onClick={() => markPaid(o)}>
+            <CheckCircle2 className="size-3.5 mr-1" /> Pago
+          </Button>
+        )}
+      </div>
+
+      {o.address_id && (
+        <Button
+          size="sm"
+          variant="ghost"
+          className="mt-1 h-8 w-full text-xs text-primary hover:bg-primary/10"
+          onClick={() => setExpandedRef(expandedRef === o.id ? null : o.id)}
+        >
+          <ImageIcon className="size-3.5 mr-1" /> Referências
+          {expandedRef === o.id ? <ChevronUp className="size-3.5 ml-1" /> : <ChevronDown className="size-3.5 ml-1" />}
+        </Button>
+      )}
+      {expandedRef === o.id && o.address_id && (
+        <div className="mt-2"><OrderReferencesPanel orderId={o.id} /></div>
+      )}
+    </div>
+  );
 
   const renderCard = (o: Order) => (
     <div key={o.id} className={`rounded-xl border p-3 text-sm transition-shadow hover:shadow-sm ${isStagnant(o) ? "border-red-300 bg-red-50/40" : "border-border/70"}`}>
@@ -220,19 +344,24 @@ export default function Pedidos() {
         </TabsContent>
 
         <TabsContent value="kanban">
-          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-5">
+          <div className="flex gap-3 overflow-x-auto pb-2 snap-x -mx-1 px-1">
             {KANBAN_GROUPS.map(group => {
               const items = orders.filter(o => group.statuses.includes(o.status));
               return (
-                <div key={group.key} className="rounded-xl bg-muted/30 p-2 min-h-[120px]">
-                  <div className="px-2 pb-2 pt-1 flex items-center justify-between">
-                    <div className="text-xs font-bold uppercase tracking-wider">{group.label}</div>
-                    <Badge variant="secondary" className="text-[10px]">{items.length}</Badge>
+                <div
+                  key={group.key}
+                  className="flex-1 min-w-[280px] max-w-[320px] snap-start rounded-2xl bg-muted/40 p-2 flex flex-col max-h-[calc(100vh-280px)]"
+                >
+                  <div className="sticky top-0 z-[1] flex items-center justify-between rounded-lg bg-muted/40 px-2 py-1.5 backdrop-blur">
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-foreground/80">{group.label}</div>
+                    <Badge variant="secondary" className="h-5 min-w-5 justify-center px-1.5 text-[10px]">{items.length}</Badge>
                   </div>
-                  <div className="space-y-2">
+                  <div className="mt-1 space-y-2 overflow-y-auto pr-0.5">
                     {items.length === 0 ? (
-                      <div className="text-[11px] text-muted-foreground italic px-2 py-3">Vazio</div>
-                    ) : items.map(renderCard)}
+                      <div className="rounded-lg border border-dashed border-border/60 py-6 text-center text-[11px] text-muted-foreground">
+                        Sem pedidos
+                      </div>
+                    ) : items.map(renderKanbanCard)}
                   </div>
                 </div>
               );
