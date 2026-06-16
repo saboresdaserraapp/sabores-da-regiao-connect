@@ -72,7 +72,7 @@ export function LojaFilters({ value, onChange, onReset }: Props) {
               <button
                 key={c.key}
                 onClick={() => onChange({ ...value, cats: toggleArr(value.cats, c.key) })}
-                className={`rounded-full border px-2.5 py-1 text-xs transition-colors ${
+                className={`rounded-full border px-2.5 py-1 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 ${
                   active ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:border-primary/40"
                 }`}
               >
@@ -120,7 +120,7 @@ export function LojaFilters({ value, onChange, onReset }: Props) {
             <button
               key={r.value}
               onClick={() => onChange({ ...value, minRating: r.value })}
-              className={`rounded-full border px-3 py-1 text-xs transition-colors ${
+              className={`rounded-full border px-3 py-1 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 ${
                 value.minRating === r.value ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:border-primary/40"
               }`}
             >
