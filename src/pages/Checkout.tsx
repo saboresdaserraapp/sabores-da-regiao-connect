@@ -303,7 +303,7 @@ const CheckoutPage = () => {
 
   return (
     <div className="min-h-screen bg-gradient-cream pb-32">
-      <header className="sticky top-0 z-30 border-b border-border bg-background/85 backdrop-blur">
+      <header className="sticky top-0 z-30 border-b border-border/60 bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/70">
         <div className="container flex h-14 items-center gap-3">
           <button onClick={goBackToMenu} className="grid size-9 place-items-center rounded-full hover:bg-muted"><ArrowLeft className="size-5" /></button>
           <div className="truncate font-display text-base font-semibold">{e.name}</div>
