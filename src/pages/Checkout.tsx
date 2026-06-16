@@ -19,6 +19,9 @@ import { INITIAL_ORDER_STATUS, whatsappSentTimestamps } from "@/lib/orderStatus"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useProfile } from "@/hooks/useProfile";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 
 const CheckoutPage = () => {
   const { slug } = useParams();
@@ -62,9 +65,12 @@ const CheckoutPage = () => {
 
   const { data: addresses } = useAddresses();
   const { save: saveAddress } = useAddressMutations();
+  const { data: profile } = useProfile();
   const [selectedAddressId, setSelectedAddressId] = useState<string | "">("");
   const [editingAddress, setEditingAddress] = useState<Partial<Address> | null>(null);
   const [selectedRegion, setSelectedRegion] = useState<string>("");
+  const [editContact, setEditContact] = useState(false);
+  const [changeFor, setChangeFor] = useState("");
 
   const { data: addressSpecificRef, isLoading: isLoadingAddrRef } = useHouseReference(selectedAddressId || undefined);
   const { data: globalRef, isLoading: isLoadingGlobalRef } = useHouseReference(undefined);
@@ -79,8 +85,8 @@ const CheckoutPage = () => {
     setSelectedAddressId(def.id);
     setData((d) => ({
       ...d,
-      name: def.customer_name || d.name,
-      phone: def.customer_phone || d.phone,
+      name: def.customer_name || profile?.display_name || d.name,
+      phone: def.customer_phone || profile?.phone || d.phone,
       neighborhood: def.neighborhood ?? "",
       street: def.street,
       number: def.number ?? "",
@@ -90,16 +96,26 @@ const CheckoutPage = () => {
       popular_location_name: def.popular_location_name || "",
       delivery_instructions: def.delivery_instructions || "",
     }));
-  }, [addresses, selectedAddressId]);
+  }, [addresses, selectedAddressId, profile]);
+
+  // Prefill name/phone from profile even without saved address (pickup/dine-in or guest first-time)
+  useEffect(() => {
+    if (!profile) return;
+    setData((d) => ({
+      ...d,
+      name: d.name || profile.display_name || "",
+      phone: d.phone || profile.phone || "",
+    }));
+  }, [profile]);
 
   const subtotal = cart.subtotal();
 
-  // Auto-match region by neighborhood the moment user types it
+  // Auto-match region by neighborhood / popular location whenever the relevant inputs change
   useEffect(() => {
-    if (type !== "entrega" || selectedRegion) return;
+    if (type !== "entrega") return;
     const m = matchRegionByName(regions, data.neighborhood, data.popular_location_name);
-    if (m) setSelectedRegion(m.id);
-  }, [type, regions, data.neighborhood, data.popular_location_name, selectedRegion]);
+    if (m && m.id !== selectedRegion) setSelectedRegion(m.id);
+  }, [type, regions, data.neighborhood, data.popular_location_name, selectedAddressId]);
 
   const deliveryInfo = useMemo(() => {
     if (type !== "entrega") return null;
