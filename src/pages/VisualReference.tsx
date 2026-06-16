@@ -1,6 +1,6 @@
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Clock, MapPin, Video, Info } from "lucide-react";
+import { ArrowLeft, Clock, MapPin, Video, Info, MessageCircle, Phone } from "lucide-react";
 import { Link } from "react-router-dom";
 import { fetchReferenceByToken } from "@/lib/referenceLinks";
 
@@ -31,6 +31,12 @@ const VisualReferencePage = () => {
 
   const { address, reference, order } = refLink;
   const selectedMedias: string[] = [];
+  const customerPhoneDigits = (order?.customer_phone || "").replace(/\D/g, "");
+  const waLink = customerPhoneDigits
+    ? `https://wa.me/${customerPhoneDigits}?text=${encodeURIComponent(
+        `Olá, ${order?.customer_name || ""}! Sou da entrega do pedido #${order?.tracking_code || ""}.`,
+      )}`
+    : null;
 
   return (
     <div className="min-h-screen bg-slate-50 pb-10">
@@ -65,6 +71,25 @@ const VisualReferencePage = () => {
               <p className="font-medium">{order?.customer_phone || "-"}</p>
             </div>
           </div>
+
+          {waLink && (
+            <div className="grid grid-cols-2 gap-2 pt-2">
+              <a
+                href={waLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 rounded-xl bg-green-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-green-700"
+              >
+                <MessageCircle className="size-4" /> WhatsApp
+              </a>
+              <a
+                href={`tel:${customerPhoneDigits}`}
+                className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                <Phone className="size-4" /> Ligar
+              </a>
+            </div>
+          )}
         </section>
 
         {/* Localização Popular e Referência */}

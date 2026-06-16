@@ -1,6 +1,6 @@
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Clock, MapPin, Video, Info, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Clock, MapPin, Video, Info, AlertTriangle, MessageCircle, Phone } from "lucide-react";
 import { Link } from "react-router-dom";
 import { fetchReferenceByToken } from "@/lib/referenceLinks";
 
@@ -32,6 +32,12 @@ const DeliveryReferencePage = () => {
 
   const { address, reference, order, selected_media_json } = shareLink;
   const selectedMedias = Array.isArray(selected_media_json) ? (selected_media_json as string[]) : [];
+  const customerPhoneDigits = (order?.customer_phone || "").replace(/\D/g, "");
+  const waLink = customerPhoneDigits
+    ? `https://wa.me/${customerPhoneDigits}?text=${encodeURIComponent(
+        `Olá, ${order?.customer_name || ""}! Sou da entrega do pedido #${order?.tracking_code || ""}.`,
+      )}`
+    : null;
 
   return (
     <div className="min-h-screen bg-slate-50 pb-10">
@@ -69,7 +75,32 @@ const DeliveryReferencePage = () => {
               <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Cliente</p>
               <p className="font-medium text-sm">{order?.customer_name || "-"}</p>
             </div>
+            {order?.customer_phone && (
+              <div>
+                <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Telefone</p>
+                <p className="font-medium text-sm">{order.customer_phone}</p>
+              </div>
+            )}
           </div>
+
+          {waLink && (
+            <div className="grid grid-cols-2 gap-2 pt-2">
+              <a
+                href={waLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 rounded-xl bg-green-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-green-700"
+              >
+                <MessageCircle className="size-4" /> WhatsApp
+              </a>
+              <a
+                href={`tel:${customerPhoneDigits}`}
+                className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                <Phone className="size-4" /> Ligar
+              </a>
+            </div>
+          )}
         </section>
 
         {/* Localização Popular e Referência */}
