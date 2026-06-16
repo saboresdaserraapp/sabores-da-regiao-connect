@@ -81,6 +81,7 @@ const queryClient = new QueryClient();
 
 function GlobalCartButton() {
   const { pathname } = useLocation();
+  if (/\/checkout(\/|$)/.test(pathname)) return null;
   const allowed =
     pathname === "/" ||
     pathname === "/loja" ||

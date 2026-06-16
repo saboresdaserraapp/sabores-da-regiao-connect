@@ -384,7 +384,17 @@ const CheckoutPage = () => {
           const addrSelected = type === "entrega" && !!selectedAddressId;
           const contactPrefilled = !!user && hasContact && (addrSelected || type !== "entrega") && !editContact;
           const addressPrefilled = addrSelected && !editContact;
-          const paymentOptions: string[] = (e.payments && e.payments.length > 0) ? e.payments : ["Pix", "Dinheiro"];
+          const basePayments: string[] = (e.payments && e.payments.length > 0)
+            ? e.payments
+            : ["Pix", "Dinheiro"];
+          // Ensure card options are always available so customers can flag
+          // when the motoboy needs to bring the card machine, and so the
+          // establishment can track payment methods financially.
+          const paymentOptions: string[] = Array.from(new Set([
+            ...basePayments,
+            "Cartão de crédito",
+            "Cartão de débito",
+          ]));
           return (
             <section className="rounded-3xl bg-card p-4 shadow-card space-y-3">
               <div className="flex items-center justify-between">
