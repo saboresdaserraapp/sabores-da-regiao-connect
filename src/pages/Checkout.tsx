@@ -171,9 +171,8 @@ const CheckoutPage = () => {
             item_note: i.note,
             total_price: i.unitPrice * i.quantity,
           })) as never,
-          status: "waiting_business_confirmation" as any,
-          whatsapp_sent_at: new Date().toISOString(),
-          sent_to_whatsapp_at: new Date().toISOString(),
+          status: INITIAL_ORDER_STATUS as any,
+          ...whatsappSentTimestamps(),
           whatsapp_message: "", // Filled later
           delivery_fee_estimated: type === "entrega" ? (deliveryInfo?.fee ?? 0) : 0,
           total_estimated: total
