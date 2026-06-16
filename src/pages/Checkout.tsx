@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { useProfile } from "@/hooks/useProfile";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import { consumeReorderPrefill } from "@/lib/reorder";
 
 const CheckoutPage = () => {
   const { slug } = useParams();
@@ -71,6 +72,25 @@ const CheckoutPage = () => {
   const [selectedRegion, setSelectedRegion] = useState<string>("");
   const [editContact, setEditContact] = useState(false);
   const [changeFor, setChangeFor] = useState("");
+  const [prefill] = useState(() => consumeReorderPrefill());
+  const [prefillApplied, setPrefillApplied] = useState(false);
+
+  // Apply reorder prefill once — runs after addresses load so address_id can be honored.
+  useEffect(() => {
+    if (!prefill || prefillApplied) return;
+    if (addresses === undefined) return;
+    if (prefill.address_id && addresses?.some((a) => a.id === prefill.address_id)) {
+      setSelectedAddressId(prefill.address_id);
+    }
+    setData((d) => ({
+      ...d,
+      payment: prefill.payment ?? d.payment,
+      note: prefill.note ?? d.note,
+    }));
+    if (prefill.change_for) setChangeFor(String(prefill.change_for));
+    setPrefillApplied(true);
+    toast.success("Pedido pré-preenchido. Revise antes de confirmar.");
+  }, [prefill, prefillApplied, addresses]);
 
   const { data: addressSpecificRef, isLoading: isLoadingAddrRef } = useHouseReference(selectedAddressId || undefined);
   const { data: globalRef, isLoading: isLoadingGlobalRef } = useHouseReference(undefined);
