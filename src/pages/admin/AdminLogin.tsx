@@ -56,8 +56,8 @@ const AdminLogin = () => {
   };
 
   return (
-    <div className="min-h-screen grid place-items-center bg-gradient-cream p-4">
-      <div className="w-full max-w-md rounded-3xl bg-card p-8 shadow-soft">
+    <div className="min-h-screen grid place-items-center bg-gradient-cream p-4 safe-bottom">
+      <div className="w-full max-w-md rounded-3xl bg-card p-8 shadow-soft ring-1 ring-black/[0.03]">
         <div className="mb-6 flex items-center gap-3">
           <div className="grid size-11 place-items-center rounded-xl bg-gradient-warm shadow-glow">
             <UtensilsCrossed className="size-6 text-primary-foreground" />

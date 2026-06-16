@@ -82,7 +82,7 @@ export default function AdminLayout() {
         {footer}
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
-        <div className="sticky top-0 z-40 flex items-center justify-between gap-2 border-b border-border/70 bg-card/80 px-4 py-2 backdrop-blur lg:hidden">
+        <div className="sticky top-0 z-40 flex items-center justify-between gap-2 border-b border-border/70 bg-card/80 px-4 py-2 backdrop-blur supports-[backdrop-filter]:bg-card/70 lg:hidden">
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-sm font-medium">
               <Menu className="size-4" /> Admin
