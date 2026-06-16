@@ -107,7 +107,6 @@ function ProductGallery({ images, defaultImage, name }: { images?: any[], defaul
 export default function EstablishmentPage() {
   const { slug } = useParams();
   const navigate = useNavigate();
-  const cartState = useCart();
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [productOptions, setProductOptions] = useState<any[]>([]);
   const [quantity, setQuantity] = useState(1);
