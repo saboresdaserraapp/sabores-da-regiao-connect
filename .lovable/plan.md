@@ -1,45 +1,78 @@
-# Remover Histórico de Pedidos do perfil do cliente
+# Histórico de pedidos do cliente — do zero
 
-Objetivo: eliminar por completo a área "Histórico de Pedidos" e tudo que a alimenta no lado do cliente, mantendo intactos:
-- Painel da Loja (`/minha-loja/painel/pedidos` e `/minha-loja/pedidos/:orderId`)
-- Painel Admin
-- Tabela `orders` no banco (continua sendo usada pela loja/admin)
-- Notificações, chat de pedido, tracking público por código
+Objetivo: o usuário logado consegue listar todos os pedidos que já fez, ver o detalhe de cada um e **repetir** ("Pedir de novo") replicando produtos, adicionais, observações, endereço e forma de pagamento. Não mexer em painel da loja, painel admin nem na tabela `orders`.
 
-## O que será removido
+## UX/Funcional
 
-### 1. UI do perfil (`src/pages/MinhaConta.tsx`)
-- Remover a aba `Histórico de Pedidos` (TabsTrigger + TabsContent `pedidos`).
-- Remover imports `useUserOrders`, `useActiveOrders`, `PedidosTab`, `Receipt` (se não usado em outro lugar).
-- Ajustar grid de tabs para o novo número de abas.
+### Aba "Meus pedidos" em `/minha-conta`
+Nova `TabsTrigger value="pedidos"` com ícone `Receipt`. Conteúdo:
 
-### 2. Página de detalhe do pedido do cliente
-- Deletar `src/pages/minha-conta/PedidoDetalhes.tsx`.
-- Em `src/App.tsx`: remover import `PedidoDetalhesCliente` e a rota `/minha-conta/pedidos/:orderId`.
+- **Filtros rápidos** (chips): Todos · Em andamento · Concluídos · Cancelados.
+- **Busca** simples por nome da loja ou código (`tracking_code`).
+- **Agrupamento** por mês (ex.: "Novembro 2026").
+- **Cartão de pedido** com:
+  - Logo + nome do estabelecimento, status colorido (usa `STATUS_LABEL` existente).
+  - Data/hora, código `SDS-XXXXX`, total `brl`.
+  - 1–2 itens resumidos ("2x Pizza Margherita · +3 itens").
+  - Ações: **Ver detalhes**, **Pedir de novo**, **Abrir WhatsApp da loja** (quando aplicável), **Acompanhar** (link para `/pedido/:tracking_code` se ainda ativo).
+- Paginação "Carregar mais" (lotes de 20).
+- Estado vazio amigável ("Você ainda não fez pedidos — explore a região").
 
-### 3. Componente da aba e botões flutuantes do cliente
-- Deletar `src/components/profile/PedidosTab.tsx`.
-- Deletar `src/components/FloatingOrdersButton.tsx`.
-- Em `src/pages/Index.tsx`: remover import e uso de `<FloatingOrdersButton />`.
-- Verificar `src/components/OrderFloatingButton.tsx` — se for usado só pelo cliente para abrir histórico, remover também; se for o botão genérico do painel da loja, manter.
+### Drawer/Dialog de detalhes
+Modal (sem nova rota) com:
+- Cabeçalho com loja, status (`OrderStatusStepper`), código.
+- Lista de itens com adicionais, removidos, observação e preço unitário.
+- Resumo: subtotal, taxa de entrega, descontos, total.
+- Endereço de entrega (snapshot do pedido) + forma de pagamento + troco (se houver).
+- Botões: **Pedir de novo** e **Falar no WhatsApp**.
 
-### 4. Hooks e serviços de pedidos do usuário
-- Deletar `src/hooks/useOrders.ts` (expõe `useUserOrders`, `useActiveOrders`, `useOrderById` voltados ao cliente).
-- Deletar `src/lib/userOrders.ts` (`userOrdersService`).
+### "Pedir de novo" (reorder)
+Fluxo cliente-side, sem alterar banco:
+1. Confirmação se o carrinho atual de outra loja for descartado.
+2. `cart.setEstablishment(order.establishment_id, slug)` → limpa carrinho atual.
+3. Para cada item de `order.items`, revalidar contra catálogo atual:
+   - Produto existe, ativo e disponível?
+   - Cada adicional ainda existe e está ativo?
+   - Preço pode ter mudado — usa preço atual, avisa via toast se diferença > 0.
+4. Itens inválidos vão para um aviso ("3 itens indisponíveis foram ignorados") com lista.
+5. Pré-seleciona no checkout:
+   - `address_id` do pedido (se ainda pertence ao usuário e está ativo).
+   - `payment_method` (e `change_for` quando dinheiro).
+   - `notes` do pedido.
+6. Redireciona para `/loja/:slug/checkout?reorder=1` (Checkout lê parâmetros pré-preenchidos via `sessionStorage` chave `sdr_reorder_prefill`).
+7. Cliente revisa e confirma normalmente — gera um pedido novo no fluxo existente.
 
-### 5. Notificações (`src/components/NotificationCenter.tsx`)
-- Remover apenas links/ações que abrem `/minha-conta/pedidos/...` (a rota deixará de existir). Manter a notificação em si; trocar o destino por algo neutro (ex.: fechar dropdown) ou remover o link. Não alterar a lógica de notificações da loja.
+## Arquitetura técnica
 
-## O que NÃO será alterado
-- `src/pages/minha-loja/painel/Pedidos.tsx` e `src/pages/minha-loja/pedidos/PedidoDetalhes.tsx`
-- Componentes em `src/components/orders/*` usados pelo painel da loja
-- Tabela `orders`, `order_messages`, `order_status_history`, `order_confirmation_proposals` no banco
-- Rastreio público por código (`/pedido/:tracking_code`)
-- Checkout, carrinho, referências
+### Dados (somente leitura — sem migrations)
+- Usa `orders` já existente com RLS atual (`user_id = auth.uid()`).
+- Campos lidos: `id, tracking_code, establishment_id, items (jsonb), subtotal, delivery_fee, total, final_total, status, payment_method, change_for, notes, address_id, created_at`.
+- Join virtual: segunda query em `establishments` (`id, name, slug, logo, whatsapp`) por `IN (...)` para evitar dependência de RLS de embed.
 
-## Detalhes técnicos
-- Migration: nenhuma. Não vamos apagar registros do banco porque a loja precisa deles para gestão. "Remover o histórico do usuário" se resolve removendo toda a superfície de leitura/UI no lado cliente — o usuário não terá mais nenhuma forma de listar/visualizar seus pedidos pelo perfil.
-- Após as exclusões, rodar busca por imports órfãos (`useUserOrders`, `useActiveOrders`, `PedidosTab`, `userOrdersService`, `FloatingOrdersButton`, `PedidoDetalhesCliente`) para garantir build limpo.
+### Novos arquivos
+- `src/hooks/useAuthReady.ts` — gate de auth (getSession + onAuthStateChange) para evitar o loop infinito que o histórico antigo tinha.
+- `src/hooks/useOrderHistory.ts` — `useOrderHistory({ filter, search, pageSize })` com React Query (`enabled: isReady && !!user`), `keepPreviousData`, sem `refetchOnWindowFocus`. Realtime opcional via canal `orders:user_id=eq.{uid}` invalidando a query.
+- `src/lib/reorder.ts` — `buildReorderPayload(order)`: busca produtos/opções atuais, monta lista válida + lista de descartados + diffs de preço.
+- `src/components/profile/OrderHistoryTab.tsx` — UI da aba (filtros, lista, cartões, paginação, estado vazio/erro).
+- `src/components/profile/OrderHistoryCard.tsx` — cartão individual.
+- `src/components/profile/OrderHistoryDetailsDialog.tsx` — modal de detalhes.
 
-## Confirmação necessária
-Está ok manter os registros da tabela `orders` (pois a loja/admin dependem deles) e remover apenas a superfície do cliente? Se quiser também esconder pedidos antigos do painel da loja, é outro escopo.
+### Edições
+- `src/pages/MinhaConta.tsx`: voltar a importar `Receipt`, adicionar `TabsTrigger`/`TabsContent` `pedidos` apontando para `OrderHistoryTab`.
+- `src/pages/Checkout.tsx`: na montagem, ler `sessionStorage.getItem("sdr_reorder_prefill")` e aplicar `address_id`, `payment_method`, `change_for`, `notes`. Limpar a chave após uso.
+- `src/components/NotificationCenter.tsx`: nada (continuamos sem link, está ok).
+
+### Anti-loop
+Causa raiz do bug anterior: queries disparavam antes do `auth.uid()` estar disponível, RLS bloqueava, React Query tentava de novo. Mitigações:
+- `useAuthReady` aguarda `getSession()` antes de `enabled: true`.
+- `staleTime: 30_000`, `refetchOnWindowFocus: false`, `retry: 1`.
+- Sem polling. Realtime via Supabase channel, opt-in.
+
+## Fora de escopo
+- Nada de mudança em `orders`, `order_messages`, `order_status_history`, painel loja/admin.
+- Sem novas colunas no banco. Sem migrations.
+- Sem reabertura/cancelamento pelo cliente nesta entrega (só listar, ver, repetir).
+
+## Perguntas (opcional)
+1. Quer também o botão "Avaliar pedido" para concluídos? (posso integrar com `reviews`)
+2. Em "Pedir de novo", se a loja estiver fechada, bloqueio ou só aviso?
