@@ -558,31 +558,11 @@ function ReferenciaCasaTab({ addressId, onSaved }: { addressId?: string, onSaved
 
 
 function PagamentosTab() {
-  const { data: orders = [] } = useUserOrders();
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-dashed border-border bg-card/40 p-4 text-sm text-muted-foreground">
-        Os pedidos hoje são finalizados via WhatsApp diretamente com o estabelecimento. Esta área lista os valores declarados em cada pedido.
+      <div className="rounded-2xl border border-dashed border-border bg-card/40 p-6 text-sm text-muted-foreground text-center">
+        Em breve você poderá gerenciar seus métodos de pagamento por aqui.
       </div>
-      {orders.length === 0 ? <Empty msg="Sem registros de pagamento." /> : (
-        <div className="overflow-x-auto rounded-2xl border border-border bg-card">
-          <table className="w-full min-w-[520px] text-sm">
-            <thead className="bg-muted/40 text-left text-xs uppercase text-muted-foreground">
-              <tr><th className="p-3">Data</th><th className="p-3">Estabelecimento</th><th className="p-3">Método</th><th className="p-3 text-right">Total</th></tr>
-            </thead>
-            <tbody>
-              {orders.map((o: any) => (
-                <tr key={o.id} className="border-t border-border">
-                  <td className="p-3">{new Date(o.created_at).toLocaleDateString("pt-BR")}</td>
-                  <td className="p-3">{o.establishments?.name}</td>
-                  <td className="p-3 capitalize">{o.payment_method || "—"}</td>
-                  <td className="p-3 text-right font-semibold">{brl(Number(o.total))}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
     </div>
   );
 }
