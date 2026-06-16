@@ -152,6 +152,7 @@ const CheckoutPage = () => {
   const onSend = async () => {
     if (!data.name?.trim()) { toast.error("Informe seu nome"); return; }
     if (type !== "local" && !data.phone?.trim()) { toast.error("Informe seu telefone"); return; }
+    if (type !== "local" && !data.payment) { toast.error("Selecione a forma de pagamento"); return; }
     if (type === "entrega") {
       if (deliveryInfo?.blocked) { toast.error(deliveryInfo.notice || "Não é possível entregar neste momento."); return; }
       if (!data.street || !data.number || !data.neighborhood) {
