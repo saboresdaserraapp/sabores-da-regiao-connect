@@ -36,9 +36,9 @@ export default function Promocoes() {
             <div className="space-y-2">
               {products.length === 0 && <p className="text-sm text-muted-foreground">Nenhum produto.</p>}
               {products.map((p) => (
-                <div key={p.id} className="flex items-center justify-between rounded-lg border border-border bg-card p-3">
+                <div key={p.id} className="flex items-center justify-between rounded-xl border border-border/70 bg-card p-3 transition-shadow hover:shadow-sm">
                   <div>
-                    <div className="text-sm font-medium">{p.name}</div>
+                    <div className="text-sm font-medium text-balance">{p.name}</div>
                     <div className="text-xs text-muted-foreground">R$ {Number(p.price).toFixed(2)}</div>
                   </div>
                   <div className="flex items-center gap-2">
