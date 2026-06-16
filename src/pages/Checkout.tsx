@@ -342,9 +342,27 @@ const CheckoutPage = () => {
               <h2 className="font-display text-lg font-semibold">Endereço de entrega</h2>
               <div className="grid gap-2">
                 {addresses?.map(a => (
-                  <button key={a.id} onClick={() => { setSelectedAddressId(a.id); setData(d => ({ ...d, street: a.street, number: a.number, neighborhood: a.neighborhood, city: a.city, name: a.customer_name || d.name, phone: a.customer_phone || d.phone })); }} className={cn("text-left p-3 border rounded-2xl", selectedAddressId === a.id ? "border-primary bg-primary/5" : "border-border")}>
+                  <button key={a.id} onClick={() => {
+                    setSelectedAddressId(a.id);
+                    setData(d => ({
+                      ...d,
+                      street: a.street,
+                      number: a.number ?? "",
+                      neighborhood: a.neighborhood ?? "",
+                      city: a.city ?? "",
+                      complement: a.complement ?? "",
+                      reference: a.reference ?? "",
+                      zip: a.zip ?? "",
+                      popular_location_name: a.popular_location_name || "",
+                      delivery_instructions: a.delivery_instructions || "",
+                      name: a.customer_name || profile?.display_name || d.name,
+                      phone: a.customer_phone || profile?.phone || d.phone,
+                    }));
+                    const m = matchRegionByName(regions, a.neighborhood, a.popular_location_name);
+                    setSelectedRegion(m?.id ?? "");
+                  }} className={cn("text-left p-3 border rounded-2xl", selectedAddressId === a.id ? "border-primary bg-primary/5" : "border-border")}>
                     <div className="font-bold text-sm">{a.label}</div>
-                    <div className="text-xs text-muted-foreground">{a.street}, {a.number}</div>
+                    <div className="text-xs text-muted-foreground">{a.street}, {a.number} · {a.neighborhood}</div>
                   </button>
                 ))}
                 <Button size="sm" variant="outline" onClick={() => setEditingAddress({ label: "Casa" })}><Plus className="mr-1 size-4" /> Novo endereço</Button>
