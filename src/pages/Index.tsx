@@ -30,6 +30,7 @@ const Index = () => {
   const [activeCat, setActiveCat] = useState<string | null>(null);
   const [filters, setFilters] = useState<string[]>([]);
   const { data: establishments = [] } = usePublicEstablishments();
+  const { data: allProducts = [] } = usePublicProducts();
 
   useEffect(() => { trackEvent("pageview", { meta: { route: "/" } }); }, []);
 
@@ -38,8 +39,22 @@ const Index = () => {
     setFilters(f => f.includes(k) ? f.filter(x => x !== k) : [...f, k]);
 
   const list = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const estabIdsByProduct = q
+      ? new Set(
+          allProducts
+            .filter(p => p.name.toLowerCase().includes(q) || (p.description ?? "").toLowerCase().includes(q))
+            .map(p => p.establishment.id)
+        )
+      : null;
     return establishments.filter(e => {
-      if (query && !e.name.toLowerCase().includes(query.toLowerCase()) && !e.categoryLabel.toLowerCase().includes(query.toLowerCase())) return false;
+      if (q) {
+        const matches =
+          e.name.toLowerCase().includes(q) ||
+          e.categoryLabel.toLowerCase().includes(q) ||
+          (estabIdsByProduct?.has(e.id) ?? false);
+        if (!matches) return false;
+      }
       if (activeCat && e.category !== activeCat) return false;
       if (filters.includes("aberto") && !e.openNow) return false;
       if (filters.includes("entrega") && !e.services.includes("entrega")) return false;
@@ -51,7 +66,7 @@ const Index = () => {
       if (filters.includes("perto") && e.distanceKm > 2) return false;
       return true;
     });
-  }, [establishments, query, activeCat, filters]);
+  }, [establishments, allProducts, query, activeCat, filters]);
 
   // Abertos primeiro, fechados (mas bem ranqueados) depois — em todas as seções
   const orderByOpenThenRating = (arr: typeof list) =>
@@ -170,7 +185,7 @@ const Index = () => {
         <Section title="Em destaque agora" items={destaques} />
       )}
 
-      <ProductsSections activeCat={activeCat} />
+      <ProductsSections activeCat={activeCat} query={query} />
 
       {/* Banner meio da home — estilo portal */}
       <section className="container py-2">
@@ -207,12 +222,23 @@ function Section({ title, items }: { title: string; items: any[] }) {
   );
 }
 
-function ProductsSections({ activeCat }: { activeCat: string | null }) {
+function ProductsSections({ activeCat, query }: { activeCat: string | null; query: string }) {
   const { data: all = [] } = usePublicProducts();
-  const scoped = useMemo(
-    () => (activeCat ? all.filter(p => p.establishment.category === activeCat) : all),
-    [all, activeCat]
-  );
+  const scoped = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return all.filter(p => {
+      if (activeCat && p.establishment.category !== activeCat) return false;
+      if (q) {
+        const matches =
+          p.name.toLowerCase().includes(q) ||
+          (p.description ?? "").toLowerCase().includes(q) ||
+          p.establishment.name.toLowerCase().includes(q) ||
+          p.establishment.categoryLabel.toLowerCase().includes(q);
+        if (!matches) return false;
+      }
+      return true;
+    });
+  }, [all, activeCat, query]);
   // Disponíveis (loja aberta) primeiro, indisponíveis bem ranqueados depois
   const openFirst = <T extends { establishment: { openNow: boolean } }>(arr: T[]) =>
     arr.slice().sort((a, b) => (a.establishment.openNow === b.establishment.openNow ? 0 : a.establishment.openNow ? -1 : 1));
