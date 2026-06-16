@@ -7,7 +7,6 @@ import { ScrollArea } from "./ui/scroll-area";
 import { Badge } from "./ui/badge";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
 export function NotificationCenter() {
@@ -64,15 +63,6 @@ export function NotificationCenter() {
                         <span className="text-[10px] text-muted-foreground">
                           {format(new Date(n.created_at), "dd 'de' MMM, HH:mm", { locale: ptBR })}
                         </span>
-                        {/* Accessing dynamic fields from 'data' JSON if needed, or if types are updated */}
-                        {n.data && ((n.data as any).order_id || (n.data as any).related_order_id) && (
-                          <Link 
-                            to={`/minha-conta/pedidos/${(n.data as any).order_id || (n.data as any).related_order_id}`}
-                            className="text-[10px] font-bold text-primary hover:underline"
-                          >
-                            VER PEDIDO
-                          </Link>
-                        )}
                       </div>
                     </div>
                   </div>

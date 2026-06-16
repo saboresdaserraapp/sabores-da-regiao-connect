@@ -18,10 +18,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useFavorites } from "@/hooks/useFavorites";
 import { useAddresses, useAddressMutations, type Address } from "@/hooks/useAddresses";
 import { useHouseReference, useHouseReferenceSave, type HouseReference } from "@/hooks/useHouseReference";
-import { useUserOrders, useActiveOrders } from "@/hooks/useOrders";
-import { PedidosTab } from "@/components/profile/PedidosTab";
 import { toast } from "sonner";
-import { Heart, MapPin, Home, Receipt, CreditCard, UserRound, Plus, Trash2, Loader2, LogOut, Star, Video, Info, ShoppingBag, MessageCircle, Store, AlertCircle } from "lucide-react";
+import { Heart, MapPin, Home, CreditCard, UserRound, Plus, Trash2, Loader2, LogOut, Star, Video, Info, ShoppingBag, MessageCircle, Store, AlertCircle } from "lucide-react";
 import { brl } from "@/lib/format";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionHeading } from "@/components/ui/page-header";
@@ -54,7 +52,6 @@ export default function MinhaConta() {
             <TabsTrigger value="favoritos"><Heart className="mr-1.5 size-4" /> Favoritos</TabsTrigger>
             <TabsTrigger value="enderecos"><MapPin className="mr-1.5 size-4" /> Endereços</TabsTrigger>
             <TabsTrigger value="casa"><Home className="mr-1.5 size-4" /> Referência global</TabsTrigger>
-            <TabsTrigger value="pedidos"><Receipt className="mr-1.5 size-4" /> Histórico de Pedidos</TabsTrigger>
             <TabsTrigger value="pagamentos"><CreditCard className="mr-1.5 size-4" /> Pagamentos</TabsTrigger>
           </TabsList>
 
@@ -62,7 +59,6 @@ export default function MinhaConta() {
           <TabsContent value="favoritos"><FavoritosTab /></TabsContent>
           <TabsContent value="enderecos"><EnderecosTab /></TabsContent>
           <TabsContent value="casa"><ReferenciaCasaTab onSaved={() => toast.success("Referência global salva")} /></TabsContent>
-          <TabsContent value="pedidos"><PedidosTab /></TabsContent>
           <TabsContent value="pagamentos"><PagamentosTab /></TabsContent>
         </Tabs>
       </main>

@@ -14,7 +14,6 @@ import Cadastro from "./pages/Cadastro.tsx";
 import RecuperarSenha from "./pages/RecuperarSenha.tsx";
 import ResetPassword from "./pages/ResetPassword.tsx";
 import MinhaConta from "./pages/MinhaConta.tsx";
-import PedidoDetalhesCliente from "./pages/minha-conta/PedidoDetalhes.tsx";
 import PedidoDetalhesLoja from "./pages/minha-loja/pedidos/PedidoDetalhes.tsx";
 import PedidoTracking from "./pages/PedidoTracking.tsx";
 import VisualReference from "./pages/VisualReference.tsx";
@@ -73,7 +72,6 @@ import PainelMidia from "./pages/minha-loja/painel/Midia.tsx";
 import PainelEditarProduto from "./pages/minha-loja/painel/EditarProduto.tsx";
 import PainelEquipe from "./pages/minha-loja/painel/Equipe.tsx";
 import PainelMotoboys from "./pages/minha-loja/painel/Motoboys.tsx";
-import { FloatingOrdersButton } from "./components/FloatingOrdersButton";
 import { Navigate, useLocation } from "react-router-dom";
 import { CartFloatingButton } from "./components/CartFloatingButton";
 
@@ -113,7 +111,6 @@ const App = () => (
             <Route path="/recuperar-senha" element={<RecuperarSenha />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/minha-conta" element={<MinhaConta />} />
-            <Route path="/minha-conta/pedidos/:orderId" element={<PedidoDetalhesCliente />} />
             <Route path="/pedido/:code" element={<PedidoTracking />} />
             <Route path="/referencia/:token" element={<VisualReference />} />
             <Route path="/referencias-entrega/:token" element={<DeliveryReference />} />
@@ -183,7 +180,6 @@ const App = () => (
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
-          <FloatingOrdersButton />
           <GlobalCartButton />
         </AuthProvider>
       </BrowserRouter>

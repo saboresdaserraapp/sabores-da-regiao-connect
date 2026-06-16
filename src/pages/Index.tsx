@@ -8,7 +8,6 @@ import { Search, Filter, Sparkles, SearchX } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { trackEvent } from "@/lib/track";
 import { BannerCarousel } from "@/components/banners/BannerCarousel";
-import { FloatingOrdersButton } from "@/components/FloatingOrdersButton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 
