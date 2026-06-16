@@ -50,8 +50,8 @@ export function EstablishmentCard({ e }: { e: Establishment }) {
       <div className="space-y-2 p-4">
         <div className="flex items-start justify-between gap-2">
           <div>
-            <h3 className="font-display text-lg font-semibold leading-tight tracking-tight">{e.name}</h3>
-            <p className="text-xs text-muted-foreground">{e.categoryLabel}</p>
+            <h3 className="font-display text-lg font-semibold leading-tight tracking-tight text-balance">{e.name}</h3>
+            <p className="text-xs text-muted-foreground text-pretty">{e.categoryLabel}</p>
           </div>
         </div>
         <div className="flex flex-wrap gap-1.5">

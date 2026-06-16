@@ -55,13 +55,13 @@ export function ProductCard({ p, variant = "grid" }: Props) {
           </div>
           <div className="flex min-w-0 flex-1 flex-col gap-1.5">
             <div className="flex items-start justify-between gap-2">
-              <h3 className="font-display text-base font-semibold leading-tight">{p.name}</h3>
+              <h3 className="font-display text-base font-semibold leading-tight text-balance">{p.name}</h3>
               <div className="flex items-center gap-1 text-xs text-muted-foreground">
                 <Star className="size-3 fill-accent text-accent" />
                 {e.rating.toFixed(1)}
               </div>
             </div>
-            <p className="line-clamp-2 text-sm text-muted-foreground">{p.description}</p>
+            <p className="line-clamp-2 text-sm text-muted-foreground text-pretty">{p.description}</p>
             <div className="mt-auto flex items-center justify-between pt-1">
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <img src={e.logo} alt="" className="size-5 rounded-full object-cover" />
@@ -131,8 +131,8 @@ export function ProductCard({ p, variant = "grid" }: Props) {
           </div>
         </div>
         <div className="space-y-1.5 p-3">
-          <h3 className="line-clamp-1 font-display text-base font-semibold leading-tight">{p.name}</h3>
-          <p className="line-clamp-2 min-h-[2.5rem] text-xs text-muted-foreground">{p.description}</p>
+          <h3 className="line-clamp-1 font-display text-base font-semibold leading-tight text-balance">{p.name}</h3>
+          <p className="line-clamp-2 min-h-[2.5rem] text-xs text-muted-foreground text-pretty">{p.description}</p>
           <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
             <img src={e.logo} alt="" className="size-4 rounded-full object-cover" />
             <span className="truncate">{e.name}</span>
