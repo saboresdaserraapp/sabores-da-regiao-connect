@@ -14,7 +14,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useAddresses, useAddressMutations, type Address } from "@/hooks/useAddresses";
 import { useHouseReference } from "@/hooks/useHouseReference";
 import { useDeliveryRegions, useDeliverySettings, type DeliveryRegion } from "@/hooks/useDeliverySettings";
-import { resolveDeliveryFee, matchRegionByName } from "@/lib/deliveryFee";
+import { resolveDeliveryFee, matchRegionByName, haversineKm, estimateDistanceFee } from "@/lib/deliveryFee";
 import { INITIAL_ORDER_STATUS, whatsappSentTimestamps } from "@/lib/orderStatus";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -103,7 +103,7 @@ const CheckoutPage = () => {
 
   const deliveryInfo = useMemo(() => {
     if (type !== "entrega") return null;
-    return resolveDeliveryFee({
+    const base = resolveDeliveryFee({
       settings,
       regions,
       fixedFee: e?.deliveryFee != null ? Number(e.deliveryFee) : null,
@@ -112,7 +112,32 @@ const CheckoutPage = () => {
       neighborhood: data.neighborhood,
       popularLocationName: data.popular_location_name,
     });
-  }, [type, settings, regions, e?.deliveryFee, subtotal, selectedRegion, data.neighborhood, data.popular_location_name]);
+
+    // Distance-based fallback: only when no region matched and config exists
+    if (base.region || base.status === "unavailable" || base.status === "fixed" || base.status === "free") {
+      return base;
+    }
+    const s: any = settings || {};
+    const hasCfg = s.distance_base_fee != null || s.distance_per_km != null;
+    if (!hasCfg) return base;
+    const addr = addresses?.find((a) => a.id === selectedAddressId);
+    const origin = { latitude: (est as any)?.latitude, longitude: (est as any)?.longitude };
+    const dest = { latitude: (addr as any)?.latitude, longitude: (addr as any)?.longitude };
+    const km = haversineKm(origin, dest);
+    if (km == null) return base;
+    const fee = estimateDistanceFee(km, {
+      baseFee: Number(s.distance_base_fee ?? 0),
+      perKm: Number(s.distance_per_km ?? 0),
+      freeKm: Number(s.distance_free_km ?? 0),
+      maxKm: s.distance_max_km != null ? Number(s.distance_max_km) : undefined,
+    });
+    if (fee == null) {
+      return { ...base, status: "unavailable" as const, blocked: true,
+        notice: `Endereço fora do raio de entrega (${km.toFixed(1)} km).` };
+    }
+    return { ...base, fee, status: "estimated" as const, manual: true, autoMatched: true,
+      notice: `Taxa estimada por distância (~${km.toFixed(1)} km). A loja pode confirmar pelo WhatsApp.` };
+  }, [type, settings, regions, e?.deliveryFee, subtotal, selectedRegion, data.neighborhood, data.popular_location_name, addresses, selectedAddressId, est]);
 
   if (loadingEstab) {
     return (
