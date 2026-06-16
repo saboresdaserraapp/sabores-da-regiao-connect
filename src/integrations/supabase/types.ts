@@ -1624,6 +1624,9 @@ export type Database = {
           paid_at: string | null
           payment_method: string | null
           payment_method_intent: string | null
+          payment_note: string | null
+          payment_paid_at: string | null
+          payment_received_method: string | null
           payment_status: string | null
           sent_to_whatsapp_at: string | null
           status: Database["public"]["Enums"]["order_status"]
@@ -1668,6 +1671,9 @@ export type Database = {
           paid_at?: string | null
           payment_method?: string | null
           payment_method_intent?: string | null
+          payment_note?: string | null
+          payment_paid_at?: string | null
+          payment_received_method?: string | null
           payment_status?: string | null
           sent_to_whatsapp_at?: string | null
           status?: Database["public"]["Enums"]["order_status"]
@@ -1712,6 +1718,9 @@ export type Database = {
           paid_at?: string | null
           payment_method?: string | null
           payment_method_intent?: string | null
+          payment_note?: string | null
+          payment_paid_at?: string | null
+          payment_received_method?: string | null
           payment_status?: string | null
           sent_to_whatsapp_at?: string | null
           status?: Database["public"]["Enums"]["order_status"]
