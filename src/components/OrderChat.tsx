@@ -29,8 +29,8 @@ export function OrderChat({ orderId, senderType, establishmentId }: OrderChatPro
   if (isError) return <div className="p-4 text-center text-red-500">Erro ao carregar mensagens.</div>;
 
   return (
-    <div className="flex flex-col h-[400px] border rounded-xl bg-background overflow-hidden">
-      <div className="p-3 border-b flex justify-between items-center bg-muted/30">
+    <div className="flex flex-col h-[400px] border border-border/70 rounded-xl bg-background overflow-hidden shadow-sm">
+      <div className="p-3 border-b border-border/60 flex justify-between items-center bg-muted/40 backdrop-blur supports-[backdrop-filter]:bg-muted/30">
         <h3 className="font-semibold text-sm">Chat do Pedido</h3>
         <Button variant="ghost" size="icon" className="size-8" onClick={() => refetch()} disabled={isLoading}>
           <RefreshCw className={cn("size-4", isLoading && "animate-spin")} />
@@ -75,7 +75,7 @@ export function OrderChat({ orderId, senderType, establishmentId }: OrderChatPro
         </div>
       </ScrollArea>
 
-      <div className="p-3 border-t bg-muted/10 flex gap-2">
+      <div className="p-3 border-t border-border/60 bg-muted/20 flex gap-2 safe-bottom">
         <Input 
           placeholder="Digite sua mensagem..." 
           value={msg} 
