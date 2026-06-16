@@ -25,9 +25,9 @@ export default function Avaliacoes() {
       ) : (
         <div className="space-y-3">
           {reviews.map((r) => (
-            <div key={r.id} className="rounded-lg border border-border p-3 text-sm">
+            <div key={r.id} className="rounded-xl border border-border/70 p-3 text-sm transition-shadow hover:shadow-sm">
               <div className="flex justify-between"><strong>{r.author}</strong><span>★ {r.rating}</span></div>
-              <p className="mt-1 text-muted-foreground">{r.text}</p>
+              <p className="mt-1 text-muted-foreground text-pretty">{r.text}</p>
               {r.reply && <p className="mt-2 rounded bg-muted/40 p-2 text-xs"><strong>Resposta:</strong> {r.reply}</p>}
             </div>
           ))}
