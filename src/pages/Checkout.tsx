@@ -19,6 +19,9 @@ import { INITIAL_ORDER_STATUS, whatsappSentTimestamps } from "@/lib/orderStatus"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useProfile } from "@/hooks/useProfile";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 
 const CheckoutPage = () => {
   const { slug } = useParams();
@@ -62,9 +65,12 @@ const CheckoutPage = () => {
 
   const { data: addresses } = useAddresses();
   const { save: saveAddress } = useAddressMutations();
+  const { data: profile } = useProfile();
   const [selectedAddressId, setSelectedAddressId] = useState<string | "">("");
   const [editingAddress, setEditingAddress] = useState<Partial<Address> | null>(null);
   const [selectedRegion, setSelectedRegion] = useState<string>("");
+  const [editContact, setEditContact] = useState(false);
+  const [changeFor, setChangeFor] = useState("");
 
   const { data: addressSpecificRef, isLoading: isLoadingAddrRef } = useHouseReference(selectedAddressId || undefined);
   const { data: globalRef, isLoading: isLoadingGlobalRef } = useHouseReference(undefined);
@@ -79,8 +85,8 @@ const CheckoutPage = () => {
     setSelectedAddressId(def.id);
     setData((d) => ({
       ...d,
-      name: def.customer_name || d.name,
-      phone: def.customer_phone || d.phone,
+      name: def.customer_name || profile?.display_name || d.name,
+      phone: def.customer_phone || profile?.phone || d.phone,
       neighborhood: def.neighborhood ?? "",
       street: def.street,
       number: def.number ?? "",
@@ -90,16 +96,26 @@ const CheckoutPage = () => {
       popular_location_name: def.popular_location_name || "",
       delivery_instructions: def.delivery_instructions || "",
     }));
-  }, [addresses, selectedAddressId]);
+  }, [addresses, selectedAddressId, profile]);
+
+  // Prefill name/phone from profile even without saved address (pickup/dine-in or guest first-time)
+  useEffect(() => {
+    if (!profile) return;
+    setData((d) => ({
+      ...d,
+      name: d.name || profile.display_name || "",
+      phone: d.phone || profile.phone || "",
+    }));
+  }, [profile]);
 
   const subtotal = cart.subtotal();
 
-  // Auto-match region by neighborhood the moment user types it
+  // Auto-match region by neighborhood / popular location whenever the relevant inputs change
   useEffect(() => {
-    if (type !== "entrega" || selectedRegion) return;
+    if (type !== "entrega") return;
     const m = matchRegionByName(regions, data.neighborhood, data.popular_location_name);
-    if (m) setSelectedRegion(m.id);
-  }, [type, regions, data.neighborhood, data.popular_location_name, selectedRegion]);
+    if (m && m.id !== selectedRegion) setSelectedRegion(m.id);
+  }, [type, regions, data.neighborhood, data.popular_location_name, selectedAddressId]);
 
   const deliveryInfo = useMemo(() => {
     if (type !== "entrega") return null;
@@ -136,6 +152,7 @@ const CheckoutPage = () => {
   const onSend = async () => {
     if (!data.name?.trim()) { toast.error("Informe seu nome"); return; }
     if (type !== "local" && !data.phone?.trim()) { toast.error("Informe seu telefone"); return; }
+    if (type !== "local" && !data.payment) { toast.error("Selecione a forma de pagamento"); return; }
     if (type === "entrega") {
       if (deliveryInfo?.blocked) { toast.error(deliveryInfo.notice || "Não é possível entregar neste momento."); return; }
       if (!data.street || !data.number || !data.neighborhood) {
@@ -325,9 +342,27 @@ const CheckoutPage = () => {
               <h2 className="font-display text-lg font-semibold">Endereço de entrega</h2>
               <div className="grid gap-2">
                 {addresses?.map(a => (
-                  <button key={a.id} onClick={() => { setSelectedAddressId(a.id); setData(d => ({ ...d, street: a.street, number: a.number, neighborhood: a.neighborhood, city: a.city, name: a.customer_name || d.name, phone: a.customer_phone || d.phone })); }} className={cn("text-left p-3 border rounded-2xl", selectedAddressId === a.id ? "border-primary bg-primary/5" : "border-border")}>
+                  <button key={a.id} onClick={() => {
+                    setSelectedAddressId(a.id);
+                    setData(d => ({
+                      ...d,
+                      street: a.street,
+                      number: a.number ?? "",
+                      neighborhood: a.neighborhood ?? "",
+                      city: a.city ?? "",
+                      complement: a.complement ?? "",
+                      reference: a.reference ?? "",
+                      zip: a.zip ?? "",
+                      popular_location_name: a.popular_location_name || "",
+                      delivery_instructions: a.delivery_instructions || "",
+                      name: a.customer_name || profile?.display_name || d.name,
+                      phone: a.customer_phone || profile?.phone || d.phone,
+                    }));
+                    const m = matchRegionByName(regions, a.neighborhood, a.popular_location_name);
+                    setSelectedRegion(m?.id ?? "");
+                  }} className={cn("text-left p-3 border rounded-2xl", selectedAddressId === a.id ? "border-primary bg-primary/5" : "border-border")}>
                     <div className="font-bold text-sm">{a.label}</div>
-                    <div className="text-xs text-muted-foreground">{a.street}, {a.number}</div>
+                    <div className="text-xs text-muted-foreground">{a.street}, {a.number} · {a.neighborhood}</div>
                   </button>
                 ))}
                 <Button size="sm" variant="outline" onClick={() => setEditingAddress({ label: "Casa" })}><Plus className="mr-1 size-4" /> Novo endereço</Button>
@@ -344,21 +379,89 @@ const CheckoutPage = () => {
            </section>
         )}
 
-        <section className="rounded-3xl bg-card p-4 shadow-card space-y-3">
-          <h2 className="font-display text-lg font-semibold">Seus dados</h2>
-          <Field label="Nome" value={data.name} onChange={(v) => update({ name: v })} />
-          <Field label="WhatsApp" value={data.phone || ""} onChange={(v) => update({ phone: v })} />
-          {type === "entrega" && (
-            <>
-              <Field label="Rua" value={data.street || ""} onChange={(v) => update({ street: v })} />
-              <div className="grid grid-cols-2 gap-2">
-                <Field label="Número" value={data.number || ""} onChange={(v) => update({ number: v })} />
-                <Field label="Bairro" value={data.neighborhood || ""} onChange={(v) => update({ neighborhood: v })} />
+        {(() => {
+          const hasContact = !!(data.name?.trim() && data.phone?.trim());
+          const addrSelected = type === "entrega" && !!selectedAddressId;
+          const contactPrefilled = !!user && hasContact && (addrSelected || type !== "entrega") && !editContact;
+          const addressPrefilled = addrSelected && !editContact;
+          const paymentOptions: string[] = (e.payments && e.payments.length > 0) ? e.payments : ["Pix", "Dinheiro"];
+          return (
+            <section className="rounded-3xl bg-card p-4 shadow-card space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="font-display text-lg font-semibold">Seus dados</h2>
+                {(contactPrefilled || addressPrefilled) && (
+                  <button type="button" onClick={() => setEditContact(true)} className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+                    <Pencil className="size-3" /> Editar
+                  </button>
+                )}
               </div>
-            </>
-          )}
-          <Field label="Pagamento" value={data.payment || ""} onChange={(v) => update({ payment: v })} />
-        </section>
+
+              {contactPrefilled ? (
+                <div className="rounded-2xl border border-border bg-muted/40 px-3 py-2 text-sm">
+                  <div className="font-medium">{data.name}</div>
+                  <div className="text-xs text-muted-foreground">{data.phone}</div>
+                </div>
+              ) : (
+                <>
+                  <Field label="Nome" value={data.name} onChange={(v: string) => update({ name: v })} />
+                  <Field label="WhatsApp" value={data.phone || ""} onChange={(v: string) => update({ phone: v })} />
+                </>
+              )}
+
+              {type === "entrega" && (
+                addressPrefilled ? (
+                  <div className="rounded-2xl border border-border bg-muted/40 px-3 py-2 text-sm">
+                    <div className="text-xs font-bold uppercase text-muted-foreground">Endereço</div>
+                    <div>{data.street}, {data.number}</div>
+                    <div className="text-xs text-muted-foreground">{data.neighborhood}{data.city ? ` · ${data.city}` : ""}</div>
+                  </div>
+                ) : (
+                  <>
+                    <Field label="Rua" value={data.street || ""} onChange={(v: string) => update({ street: v })} />
+                    <div className="grid grid-cols-2 gap-2">
+                      <Field label="Número" value={data.number || ""} onChange={(v: string) => update({ number: v })} />
+                      <Field label="Bairro" value={data.neighborhood || ""} onChange={(v: string) => update({ neighborhood: v })} />
+                    </div>
+                  </>
+                )
+              )}
+
+              {type !== "local" && (
+                <div>
+                  <label className="mb-2 block text-[10px] font-bold uppercase text-muted-foreground">Forma de pagamento</label>
+                  <RadioGroup
+                    value={data.payment || ""}
+                    onValueChange={(v) => update({ payment: v })}
+                    className="grid grid-cols-2 gap-2"
+                  >
+                    {paymentOptions.map((p) => (
+                      <Label key={p} htmlFor={`pay-${p}`} className={cn(
+                        "flex cursor-pointer items-center gap-2 rounded-2xl border p-3 text-sm transition-all",
+                        data.payment === p ? "border-primary bg-primary/5 text-primary" : "border-border"
+                      )}>
+                        <RadioGroupItem id={`pay-${p}`} value={p} />
+                        <span className="font-medium">{p}</span>
+                      </Label>
+                    ))}
+                  </RadioGroup>
+                  {data.payment?.toLowerCase() === "dinheiro" && (
+                    <div className="mt-2">
+                      <Field
+                        label="Troco para (opcional)"
+                        placeholder="Ex.: R$ 50,00"
+                        value={changeFor}
+                        onChange={(v: string) => {
+                          setChangeFor(v);
+                          update({ note: v ? `Troco para ${v}` : "" });
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+            </section>
+          );
+        })()}
 
         <section className="rounded-3xl bg-card p-4 shadow-card">
           <Row label="Subtotal" value={brl(subtotal)} />
