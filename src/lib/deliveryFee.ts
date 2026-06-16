@@ -115,3 +115,48 @@ export function resolveDeliveryFee(input: ResolveInput): DeliveryResolution {
     autoMatched,
   };
 }
+
+// ============= Distance helpers (safe, opt-in) =============
+// Pure utilities for distance-based freight estimates. NOT wired into
+// resolveDeliveryFee yet — callers may use these to compute or display
+// a distance-based estimate without changing existing region logic.
+
+export interface LatLng {
+  latitude: number | null | undefined;
+  longitude: number | null | undefined;
+}
+
+/** Great-circle distance in kilometers between two coordinates, or null if missing. */
+export function haversineKm(a: LatLng, b: LatLng): number | null {
+  const lat1 = a?.latitude, lon1 = a?.longitude;
+  const lat2 = b?.latitude, lon2 = b?.longitude;
+  if (lat1 == null || lon1 == null || lat2 == null || lon2 == null) return null;
+  const R = 6371;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const s =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(s)));
+}
+
+export interface DistanceFeeOptions {
+  baseFee?: number;       // flat starting fee
+  perKm?: number;         // R$ per km after freeKm
+  freeKm?: number;        // km included in baseFee
+  minFee?: number;        // floor
+  maxKm?: number;         // beyond this, returns null (out of range)
+}
+
+/** Estimate a distance-based delivery fee. Returns null when distance is unknown or out of range. */
+export function estimateDistanceFee(
+  distanceKm: number | null,
+  opts: DistanceFeeOptions = {},
+): number | null {
+  if (distanceKm == null || !isFinite(distanceKm)) return null;
+  const { baseFee = 0, perKm = 0, freeKm = 0, minFee = 0, maxKm } = opts;
+  if (maxKm != null && distanceKm > maxKm) return null;
+  const billable = Math.max(0, distanceKm - freeKm);
+  return Math.max(minFee, baseFee + billable * perKm);
+}
