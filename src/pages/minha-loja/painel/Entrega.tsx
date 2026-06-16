@@ -192,6 +192,33 @@ export default function Entrega() {
           </section>
         )}
 
+        <section className="space-y-3 rounded-xl border bg-muted/30 p-4">
+          <div>
+            <h3 className="font-semibold">Frete por distância (opcional)</h3>
+            <p className="text-xs text-muted-foreground">
+              Usado como estimativa quando o endereço do cliente tem coordenadas e nenhuma região cadastrada corresponde. Deixe em branco para desativar.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <div>
+              <Label className="text-xs">Taxa base (R$)</Label>
+              <Input type="number" step="0.01" min="0" value={distBase} onChange={(e) => setDistBase(e.target.value)} placeholder="0,00" />
+            </div>
+            <div>
+              <Label className="text-xs">R$ por km</Label>
+              <Input type="number" step="0.01" min="0" value={distPerKm} onChange={(e) => setDistPerKm(e.target.value)} placeholder="0,00" />
+            </div>
+            <div>
+              <Label className="text-xs">Km grátis inclusos</Label>
+              <Input type="number" step="0.1" min="0" value={distFreeKm} onChange={(e) => setDistFreeKm(e.target.value)} placeholder="0" />
+            </div>
+            <div>
+              <Label className="text-xs">Raio máximo (km)</Label>
+              <Input type="number" step="0.1" min="0" value={distMaxKm} onChange={(e) => setDistMaxKm(e.target.value)} placeholder="—" />
+            </div>
+          </div>
+        </section>
+
         <section className="space-y-3">
           <h3 className="font-semibold">Mensagens automáticas</h3>
           <div className="grid gap-3 md:grid-cols-2">
