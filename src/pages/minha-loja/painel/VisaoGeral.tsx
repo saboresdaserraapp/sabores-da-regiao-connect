@@ -12,10 +12,10 @@ function Stat({ label, value, hint, tone }: { label: string; value: string; hint
               tone === "ok"   ? "border-emerald-300 bg-emerald-50" :
                                 "border-border bg-muted/30";
   return (
-    <div className={`rounded-xl border p-4 ${cls}`}>
+    <div className={`rounded-xl border p-4 shadow-sm transition-shadow hover:shadow-md ${cls}`}>
       <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="mt-1 text-xl font-semibold">{value}</div>
-      {hint && <div className="mt-0.5 text-[10px] text-muted-foreground">{hint}</div>}
+      <div className="mt-1 text-xl font-semibold text-balance">{value}</div>
+      {hint && <div className="mt-0.5 text-[10px] text-muted-foreground text-pretty">{hint}</div>}
     </div>
   );
 }
@@ -112,7 +112,7 @@ export default function VisaoGeral() {
           tone={(stats.lowStock + stats.missingPhoto) > 0 ? "warn" : "ok"} />
       </div>
 
-      <div className="rounded-2xl border border-border bg-card p-6">
+      <div className="rounded-2xl border border-border/70 bg-card p-6 shadow-sm">
         <h2 className="font-display text-lg font-bold mb-3">Atalhos rápidos</h2>
         <div className="flex flex-wrap gap-2">
           <Button asChild size="sm" variant="outline"><Link to={`/minha-loja/${ctx.establishmentId}/produtos`}><Plus className="size-4 mr-1" /> Adicionar produto</Link></Button>
@@ -140,7 +140,7 @@ export default function VisaoGeral() {
         </div>
       )}
 
-      <div className="rounded-2xl border border-border bg-card p-6">
+      <div className="rounded-2xl border border-border/70 bg-card p-6 shadow-sm">
         <div className="flex items-center justify-between mb-3">
           <h2 className="font-display text-lg font-bold">Avaliações recentes</h2>
           <Button asChild size="sm" variant="ghost"><Link to={`/minha-loja/${ctx.establishmentId}/avaliacoes`}>Ver todas</Link></Button>
