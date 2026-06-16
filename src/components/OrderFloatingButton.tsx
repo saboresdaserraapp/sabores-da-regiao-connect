@@ -43,7 +43,7 @@ export function OrderFloatingButton() {
   return (
     <Link 
       to="/minha-conta" 
-      className="fixed bottom-24 right-4 z-40 flex items-center gap-2 bg-primary text-primary-foreground px-4 py-3 rounded-full shadow-lg hover:scale-105 transition-transform animate-in fade-in slide-in-from-bottom-4"
+      className="safe-bottom fixed bottom-24 right-4 z-40 flex items-center gap-2 bg-primary text-primary-foreground px-4 py-3 rounded-full shadow-lg hover:scale-105 transition-transform animate-in fade-in slide-in-from-bottom-4"
     >
       <ShoppingBag className="size-5" />
       <span className="text-sm font-bold">Pedidos em andamento</span>

@@ -1,6 +1,6 @@
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { UtensilsCrossed, MapPin, Menu, Store, Flame, Award, Tag, Home, User as UserIcon, LogOut, Heart, Receipt, Building2, ShieldCheck } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
@@ -19,12 +19,25 @@ const NAV = [
 
 export function Header() {
   const [open, setOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const { user, signOut, isOfficialAdmin } = useAuth();
   const nav = useNavigate();
   const initial = (user?.email || "?").slice(0, 1).toUpperCase();
 
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 4);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   return (
-    <header className="sticky top-0 z-40 border-b border-border/60 bg-background/85 backdrop-blur-xl">
+    <header
+      className={cn(
+        "sticky top-0 z-40 border-b bg-background/85 backdrop-blur-xl transition-shadow duration-200",
+        scrolled ? "border-border/60 shadow-sm" : "border-transparent",
+      )}
+    >
       <div className="container flex h-16 items-center justify-between gap-4">
         <Link to="/" className="flex items-center gap-2">
           <div className="grid size-9 place-items-center rounded-xl bg-gradient-warm shadow-glow">
