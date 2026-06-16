@@ -41,10 +41,10 @@ export function OrderRow({ order, onChanged }: { order: any; onChanged?: () => v
     : null;
 
   return (
-    <div className="rounded-2xl border border-border bg-card">
+    <div className="rounded-2xl border border-border bg-card transition-shadow hover:shadow-sm">
       <button
         onClick={() => setOpen(o => !o)}
-        className="flex w-full items-center gap-3 p-3 text-left hover:bg-muted/30"
+        className="flex w-full items-center gap-3 p-3 text-left transition-colors hover:bg-muted/40 rounded-2xl"
       >
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">

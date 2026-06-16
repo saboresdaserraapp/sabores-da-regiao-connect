@@ -26,8 +26,8 @@ export function NotificationCenter() {
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-80 p-0" align="end">
-        <div className="p-3 border-b bg-muted/30 flex justify-between items-center">
+      <PopoverContent className="w-80 p-0 overflow-hidden" align="end">
+        <div className="p-3 border-b border-border/60 bg-muted/40 flex justify-between items-center">
           <h3 className="font-semibold text-sm">Notificações</h3>
           {unreadCount > 0 && (
             <span className="text-[10px] text-muted-foreground uppercase font-medium">
@@ -49,7 +49,7 @@ export function NotificationCenter() {
                   key={n.id} 
                   className={cn(
                     "p-3 text-sm transition-colors hover:bg-muted/50 relative",
-                    !n.read_at && "bg-primary/5"
+                    !n.read_at && "bg-primary/5 cursor-pointer"
                   )}
                   onClick={() => !n.read_at && markAsRead.mutate(n.id)}
                 >
