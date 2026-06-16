@@ -353,6 +353,7 @@ function AddressForm({ initial, onClose, onSave }: any) {
     id: initial.id, label: initial.label || "Casa", zip: initial.zip || "",
     street: initial.street || "", number: initial.number || "", complement: initial.complement || "",
     neighborhood: initial.neighborhood || "", city: initial.city || "", reference: initial.reference || "",
+    state: initial.state || "",
     is_default: initial.is_default || false,
   });
   return (
@@ -367,6 +368,7 @@ function AddressForm({ initial, onClose, onSave }: any) {
           <Input placeholder="Complemento" value={f.complement} onChange={(e) => setF({ ...f, complement: e.target.value })} />
           <Input placeholder="Bairro" value={f.neighborhood} onChange={(e) => setF({ ...f, neighborhood: e.target.value })} />
           <Input placeholder="Cidade" value={f.city} onChange={(e) => setF({ ...f, city: e.target.value })} />
+          <Input placeholder="UF (ex: SP)" maxLength={2} value={f.state} onChange={(e) => setF({ ...f, state: e.target.value.toUpperCase() })} />
           <Textarea className="md:col-span-2" placeholder="Ponto de referência (ex: portão azul, ao lado da padaria)" value={f.reference} onChange={(e) => setF({ ...f, reference: e.target.value })} />
           <label className="md:col-span-2 flex items-center justify-between rounded-xl border border-border p-3">
             <span className="text-sm">Definir como endereço padrão</span>
