@@ -25,10 +25,13 @@ export type Database = {
           id: string
           is_default: boolean
           label: string
+          latitude: number | null
+          longitude: number | null
           neighborhood: string | null
           number: string | null
           popular_location_name: string | null
           reference: string | null
+          state: string | null
           street: string
           updated_at: string
           user_id: string
@@ -44,10 +47,13 @@ export type Database = {
           id?: string
           is_default?: boolean
           label?: string
+          latitude?: number | null
+          longitude?: number | null
           neighborhood?: string | null
           number?: string | null
           popular_location_name?: string | null
           reference?: string | null
+          state?: string | null
           street: string
           updated_at?: string
           user_id: string
@@ -63,10 +69,13 @@ export type Database = {
           id?: string
           is_default?: boolean
           label?: string
+          latitude?: number | null
+          longitude?: number | null
           neighborhood?: string | null
           number?: string | null
           popular_location_name?: string | null
           reference?: string | null
+          state?: string | null
           street?: string
           updated_at?: string
           user_id?: string
