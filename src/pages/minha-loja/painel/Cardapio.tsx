@@ -76,7 +76,7 @@ export default function Cardapio() {
         <div className="space-y-2">
           {cats.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma categoria ainda.</p>}
           {cats.map((c, i) => (
-            <div key={c.id} className="flex items-center gap-2 rounded-lg border border-border bg-card p-2">
+            <div key={c.id} className="flex items-center gap-2 rounded-xl border border-border/70 bg-card p-2 transition-shadow hover:shadow-sm">
               {canOrder ? (
                 <div className="flex flex-col">
                   <button disabled={i === 0} onClick={() => move(c.id, -1)} className="text-muted-foreground hover:text-foreground disabled:opacity-30"><ArrowUp className="size-3" /></button>
