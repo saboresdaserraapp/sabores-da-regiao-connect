@@ -9,6 +9,7 @@ import { MessageCircle, ImageIcon, ChevronDown, ChevronUp, Smartphone, AlertTria
 import { toast } from "sonner";
 import { OrderReferencesPanel } from "@/components/orders/OrderReferencesPanel";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { OrderFreteActions, flowStatusBadge, requiresCustomerAcceptance } from "@/components/orders/OrderFreteActions";
 
 const STATUS_OPTIONS: { value: string; label: string; tone?: string }[] = [
   { value: "waiting_business_confirmation", label: "Aguardando confirmação" },
@@ -31,6 +32,8 @@ type Order = {
   payment_method: string | null; notes: string | null; items: any; address_id: string | null;
   assigned_driver_name: string | null; driver_reference_sent_at: string | null;
   payment_status: string | null; payment_paid_at: string | null;
+  final_delivery_fee?: number | null; final_total?: number | null;
+  confirmation_flow_status?: string | null; current_confirmation_proposal_id?: string | null;
 };
 
 const KANBAN_GROUPS: { key: string; label: string; statuses: string[] }[] = [
@@ -78,14 +81,31 @@ export default function Pedidos() {
   async function refresh() {
     if (!ctx) return;
     const { data } = await supabase.from("orders")
-      .select("id,tracking_code,customer_name,customer_phone,total,subtotal,delivery_fee,status,created_at,payment_method,notes,items,address_id,assigned_driver_name,driver_reference_sent_at,payment_status,payment_paid_at")
+      .select("id,tracking_code,customer_name,customer_phone,total,subtotal,delivery_fee,status,created_at,payment_method,notes,items,address_id,assigned_driver_name,driver_reference_sent_at,payment_status,payment_paid_at,final_delivery_fee,final_total,confirmation_flow_status,current_confirmation_proposal_id")
       .eq("establishment_id", ctx.establishmentId)
       .order("created_at", { ascending: false }).limit(100);
     setOrders((data ?? []) as any);
   }
   useEffect(() => { refresh(); /* eslint-disable-next-line */ }, [ctx?.establishmentId]);
 
+  const BLOCKED_WITHOUT_ACCEPTANCE = new Set([
+    "confirmed_by_business",
+    "preparing",
+    "ready_for_pickup",
+    "out_for_delivery",
+    "delivered",
+  ]);
+
   async function updateStatus(o: Order, status: string) {
+    if (
+      BLOCKED_WITHOUT_ACCEPTANCE.has(status) &&
+      requiresCustomerAcceptance({ addressId: o.address_id, flowStatus: o.confirmation_flow_status })
+    ) {
+      toast.error(
+        "Antes de confirmar este pedido, defina o valor final da entrega e aguarde o aceite do cliente."
+      );
+      return;
+    }
     const { error } = await supabase.from("orders").update({ status: status as any }).eq("id", o.id);
     if (error) { toast.error(error.message); return; }
     toast.success("Status atualizado");
