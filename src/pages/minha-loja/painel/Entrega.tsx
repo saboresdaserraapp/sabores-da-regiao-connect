@@ -47,6 +47,10 @@ export default function Entrega() {
   const [defaultMsg, setDefaultMsg] = useState("");
   const [outsideMsg, setOutsideMsg] = useState("");
   const [fixedFee, setFixedFee] = useState<string>("0");
+  const [distBase, setDistBase] = useState<string>("");
+  const [distPerKm, setDistPerKm] = useState<string>("");
+  const [distFreeKm, setDistFreeKm] = useState<string>("");
+  const [distMaxKm, setDistMaxKm] = useState<string>("");
 
   useEffect(() => {
     if (settings) {
@@ -55,6 +59,10 @@ export default function Entrega() {
       setAlwaysConfirm(!!settings.always_confirm_by_whatsapp);
       setDefaultMsg(settings.default_delivery_message ?? "");
       setOutsideMsg(settings.outside_area_message ?? "");
+      setDistBase(settings.distance_base_fee != null ? String(settings.distance_base_fee) : "");
+      setDistPerKm(settings.distance_per_km != null ? String(settings.distance_per_km) : "");
+      setDistFreeKm(settings.distance_free_km != null ? String(settings.distance_free_km) : "");
+      setDistMaxKm(settings.distance_max_km != null ? String(settings.distance_max_km) : "");
     }
   }, [settings]);
   useEffect(() => {
@@ -71,12 +79,17 @@ export default function Entrega() {
   if (!ctx) return null;
 
   const saveAll = async () => {
+    const num = (s: string) => (s.trim() === "" ? null : Number(s));
     await saveSettings({
       delivery_model: model,
       delivery_v2_enabled: v2,
       always_confirm_by_whatsapp: alwaysConfirm,
       default_delivery_message: defaultMsg || null,
       outside_area_message: outsideMsg || null,
+      distance_base_fee: num(distBase),
+      distance_per_km: num(distPerKm),
+      distance_free_km: num(distFreeKm),
+      distance_max_km: num(distMaxKm),
     });
     if (model === "fixed" && estabId) {
       const { error } = await supabase.from("establishments")
@@ -178,6 +191,33 @@ export default function Entrega() {
             )}
           </section>
         )}
+
+        <section className="space-y-3 rounded-xl border bg-muted/30 p-4">
+          <div>
+            <h3 className="font-semibold">Frete por distância (opcional)</h3>
+            <p className="text-xs text-muted-foreground">
+              Usado como estimativa quando o endereço do cliente tem coordenadas e nenhuma região cadastrada corresponde. Deixe em branco para desativar.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <div>
+              <Label className="text-xs">Taxa base (R$)</Label>
+              <Input type="number" step="0.01" min="0" value={distBase} onChange={(e) => setDistBase(e.target.value)} placeholder="0,00" />
+            </div>
+            <div>
+              <Label className="text-xs">R$ por km</Label>
+              <Input type="number" step="0.01" min="0" value={distPerKm} onChange={(e) => setDistPerKm(e.target.value)} placeholder="0,00" />
+            </div>
+            <div>
+              <Label className="text-xs">Km grátis inclusos</Label>
+              <Input type="number" step="0.1" min="0" value={distFreeKm} onChange={(e) => setDistFreeKm(e.target.value)} placeholder="0" />
+            </div>
+            <div>
+              <Label className="text-xs">Raio máximo (km)</Label>
+              <Input type="number" step="0.1" min="0" value={distMaxKm} onChange={(e) => setDistMaxKm(e.target.value)} placeholder="—" />
+            </div>
+          </div>
+        </section>
 
         <section className="space-y-3">
           <h3 className="font-semibold">Mensagens automáticas</h3>
