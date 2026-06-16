@@ -8,7 +8,8 @@ import { toast } from "sonner";
 
 type Order = {
   id: string; tracking_code: string | null; customer_name: string | null;
-  total: number; status: string; created_at: string; payment_method: string | null;
+  total: number; subtotal: number | null; delivery_fee: number | null;
+  status: string; created_at: string; payment_method: string | null;
 };
 type Mark = {
   order_id: string; paid_status: string; paid_at: string | null;
@@ -37,7 +38,7 @@ export default function Financeiro() {
     if (!ctx) return;
     setLoading(true);
     const { data: os } = await supabase.from("orders")
-      .select("id,tracking_code,customer_name,total,status,created_at,payment_method")
+      .select("id,tracking_code,customer_name,total,subtotal,delivery_fee,status,created_at,payment_method")
       .eq("establishment_id", ctx.establishmentId)
       .order("created_at", { ascending: false }).limit(100);
     const { data: ms } = await supabase.from("order_financial_marks")
@@ -58,14 +59,18 @@ export default function Financeiro() {
     const inRange = (iso: string, days: number) => now - new Date(iso).getTime() < days * day;
     let estTotal = 0, confTotal = 0, count = 0, conf = 0, canc = 0;
     let estDay = 0, confDay = 0, estWeek = 0, confWeek = 0, estMonth = 0, confMonth = 0;
+    let deliveryTotal = 0, deliveryMonth = 0, productsMonth = 0;
     for (const o of orders) {
       const m = marks[o.id];
       const isCancel = o.status === "cancelado" || m?.paid_status === "cancelado";
       if (isCancel) { canc++; continue; }
       estTotal += Number(o.total); count++;
+      const fee = Number(o.delivery_fee || 0);
+      const sub = Number(o.subtotal ?? (Number(o.total) - fee));
+      deliveryTotal += fee;
       if (inRange(o.created_at, 1))   estDay   += Number(o.total);
       if (inRange(o.created_at, 7))   estWeek  += Number(o.total);
-      if (inRange(o.created_at, 30))  estMonth += Number(o.total);
+      if (inRange(o.created_at, 30)) { estMonth += Number(o.total); deliveryMonth += fee; productsMonth += sub; }
       if (m?.paid_status === "recebido") {
         const v = Number(m.amount_received ?? o.total);
         confTotal += v; conf++;
@@ -77,6 +82,7 @@ export default function Financeiro() {
     return {
       estTotal, confTotal, count, conf, canc,
       estDay, confDay, estWeek, confWeek, estMonth, confMonth,
+      deliveryTotal, deliveryMonth, productsMonth,
       ticketEst: count ? estTotal / count : 0,
       ticketConf: conf ? confTotal / conf : 0,
     };
@@ -116,6 +122,12 @@ export default function Financeiro() {
           <Stat label="Hoje (estimado)"   value={brl(totals.estDay)}   hint={`Confirmado: ${brl(totals.confDay)}`} />
           <Stat label="Semana (estimado)" value={brl(totals.estWeek)}  hint={`Confirmado: ${brl(totals.confWeek)}`} />
           <Stat label="Mês (estimado)"    value={brl(totals.estMonth)} hint={`Confirmado: ${brl(totals.confMonth)}`} />
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-3 mb-4">
+          <Stat label="Produtos (mês)"   value={brl(totals.productsMonth)} hint="Soma dos subtotais" />
+          <Stat label="Entregas (mês)"   value={brl(totals.deliveryMonth)} hint="Soma das taxas de entrega" />
+          <Stat label="Entregas (total)" value={brl(totals.deliveryTotal)} hint="Receita separada para conciliar com motoboys" />
         </div>
 
         <div className="grid gap-3 sm:grid-cols-4 mb-4">
