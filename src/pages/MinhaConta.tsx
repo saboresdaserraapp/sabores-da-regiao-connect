@@ -19,7 +19,8 @@ import { useFavorites } from "@/hooks/useFavorites";
 import { useAddresses, useAddressMutations, type Address } from "@/hooks/useAddresses";
 import { useHouseReference, useHouseReferenceSave, type HouseReference } from "@/hooks/useHouseReference";
 import { toast } from "sonner";
-import { Heart, MapPin, Home, CreditCard, UserRound, Plus, Trash2, Loader2, LogOut, Star, Video, Info, ShoppingBag, MessageCircle, Store, AlertCircle } from "lucide-react";
+import { Heart, MapPin, Home, CreditCard, UserRound, Plus, Trash2, Loader2, LogOut, Star, Video, Info, ShoppingBag, MessageCircle, Store, AlertCircle, Receipt } from "lucide-react";
+import { OrderHistoryTab } from "@/components/profile/OrderHistoryTab";
 import { brl } from "@/lib/format";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionHeading } from "@/components/ui/page-header";
@@ -49,6 +50,7 @@ export default function MinhaConta() {
         <Tabs value={currentTab} onValueChange={(v) => setSearchParams({ tab: v })} className="space-y-6">
           <TabsList className="flex flex-wrap h-auto gap-1 bg-muted/60 p-1 rounded-xl">
             <TabsTrigger value="perfil"><UserRound className="mr-1.5 size-4" /> Perfil</TabsTrigger>
+            <TabsTrigger value="pedidos"><Receipt className="mr-1.5 size-4" /> Meus pedidos</TabsTrigger>
             <TabsTrigger value="favoritos"><Heart className="mr-1.5 size-4" /> Favoritos</TabsTrigger>
             <TabsTrigger value="enderecos"><MapPin className="mr-1.5 size-4" /> Endereços</TabsTrigger>
             <TabsTrigger value="casa"><Home className="mr-1.5 size-4" /> Referência global</TabsTrigger>
@@ -56,6 +58,7 @@ export default function MinhaConta() {
           </TabsList>
 
           <TabsContent value="perfil"><PerfilTab /></TabsContent>
+          <TabsContent value="pedidos"><OrderHistoryTab /></TabsContent>
           <TabsContent value="favoritos"><FavoritosTab /></TabsContent>
           <TabsContent value="enderecos"><EnderecosTab /></TabsContent>
           <TabsContent value="casa"><ReferenciaCasaTab onSaved={() => toast.success("Referência global salva")} /></TabsContent>
