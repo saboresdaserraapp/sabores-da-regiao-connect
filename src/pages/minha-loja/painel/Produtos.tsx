@@ -346,11 +346,11 @@ export default function Produtos() {
       <div className="space-y-2">
         {products.length === 0 && <p className="text-sm text-muted-foreground">Nenhum produto cadastrado.</p>}
         {products.map((p) => (
-          <div key={p.id} className="flex items-center gap-3 rounded-xl border border-border bg-card p-3">
+          <div key={p.id} className="flex items-center gap-3 rounded-xl border border-border/70 bg-card p-3 transition-shadow hover:shadow-sm">
             <div className="size-12 rounded-lg bg-muted bg-cover bg-center" style={{ backgroundImage: p.image ? `url(${p.image})` : undefined }} />
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5 flex-wrap">
-                <div className="font-medium text-sm truncate">{p.name}</div>
+                <div className="font-medium text-sm truncate text-balance">{p.name}</div>
                 {p.featured && <Badge variant="secondary" className="text-[9px]">Destaque</Badge>}
                 {p.promo && <Badge className="text-[9px] bg-primary/15 text-primary border-0">Promo</Badge>}
               </div>
