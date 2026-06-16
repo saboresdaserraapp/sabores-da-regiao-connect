@@ -379,21 +379,89 @@ const CheckoutPage = () => {
            </section>
         )}
 
-        <section className="rounded-3xl bg-card p-4 shadow-card space-y-3">
-          <h2 className="font-display text-lg font-semibold">Seus dados</h2>
-          <Field label="Nome" value={data.name} onChange={(v) => update({ name: v })} />
-          <Field label="WhatsApp" value={data.phone || ""} onChange={(v) => update({ phone: v })} />
-          {type === "entrega" && (
-            <>
-              <Field label="Rua" value={data.street || ""} onChange={(v) => update({ street: v })} />
-              <div className="grid grid-cols-2 gap-2">
-                <Field label="Número" value={data.number || ""} onChange={(v) => update({ number: v })} />
-                <Field label="Bairro" value={data.neighborhood || ""} onChange={(v) => update({ neighborhood: v })} />
+        {(() => {
+          const hasContact = !!(data.name?.trim() && data.phone?.trim());
+          const addrSelected = type === "entrega" && !!selectedAddressId;
+          const contactPrefilled = !!user && hasContact && (addrSelected || type !== "entrega") && !editContact;
+          const addressPrefilled = addrSelected && !editContact;
+          const paymentOptions: string[] = (e.payments && e.payments.length > 0) ? e.payments : ["Pix", "Dinheiro"];
+          return (
+            <section className="rounded-3xl bg-card p-4 shadow-card space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="font-display text-lg font-semibold">Seus dados</h2>
+                {(contactPrefilled || addressPrefilled) && (
+                  <button type="button" onClick={() => setEditContact(true)} className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+                    <Pencil className="size-3" /> Editar
+                  </button>
+                )}
               </div>
-            </>
-          )}
-          <Field label="Pagamento" value={data.payment || ""} onChange={(v) => update({ payment: v })} />
-        </section>
+
+              {contactPrefilled ? (
+                <div className="rounded-2xl border border-border bg-muted/40 px-3 py-2 text-sm">
+                  <div className="font-medium">{data.name}</div>
+                  <div className="text-xs text-muted-foreground">{data.phone}</div>
+                </div>
+              ) : (
+                <>
+                  <Field label="Nome" value={data.name} onChange={(v: string) => update({ name: v })} />
+                  <Field label="WhatsApp" value={data.phone || ""} onChange={(v: string) => update({ phone: v })} />
+                </>
+              )}
+
+              {type === "entrega" && (
+                addressPrefilled ? (
+                  <div className="rounded-2xl border border-border bg-muted/40 px-3 py-2 text-sm">
+                    <div className="text-xs font-bold uppercase text-muted-foreground">Endereço</div>
+                    <div>{data.street}, {data.number}</div>
+                    <div className="text-xs text-muted-foreground">{data.neighborhood}{data.city ? ` · ${data.city}` : ""}</div>
+                  </div>
+                ) : (
+                  <>
+                    <Field label="Rua" value={data.street || ""} onChange={(v: string) => update({ street: v })} />
+                    <div className="grid grid-cols-2 gap-2">
+                      <Field label="Número" value={data.number || ""} onChange={(v: string) => update({ number: v })} />
+                      <Field label="Bairro" value={data.neighborhood || ""} onChange={(v: string) => update({ neighborhood: v })} />
+                    </div>
+                  </>
+                )
+              )}
+
+              {type !== "local" && (
+                <div>
+                  <label className="mb-2 block text-[10px] font-bold uppercase text-muted-foreground">Forma de pagamento</label>
+                  <RadioGroup
+                    value={data.payment || ""}
+                    onValueChange={(v) => update({ payment: v })}
+                    className="grid grid-cols-2 gap-2"
+                  >
+                    {paymentOptions.map((p) => (
+                      <Label key={p} htmlFor={`pay-${p}`} className={cn(
+                        "flex cursor-pointer items-center gap-2 rounded-2xl border p-3 text-sm transition-all",
+                        data.payment === p ? "border-primary bg-primary/5 text-primary" : "border-border"
+                      )}>
+                        <RadioGroupItem id={`pay-${p}`} value={p} />
+                        <span className="font-medium">{p}</span>
+                      </Label>
+                    ))}
+                  </RadioGroup>
+                  {data.payment?.toLowerCase() === "dinheiro" && (
+                    <div className="mt-2">
+                      <Field
+                        label="Troco para (opcional)"
+                        placeholder="Ex.: R$ 50,00"
+                        value={changeFor}
+                        onChange={(v: string) => {
+                          setChangeFor(v);
+                          update({ note: v ? `Troco para ${v}` : "" });
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+            </section>
+          );
+        })()}
 
         <section className="rounded-3xl bg-card p-4 shadow-card">
           <Row label="Subtotal" value={brl(subtotal)} />
