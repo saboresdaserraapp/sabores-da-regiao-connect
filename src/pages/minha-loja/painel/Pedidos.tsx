@@ -107,7 +107,7 @@ export default function Pedidos() {
         </Select>
       }
     >
-      <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 mb-4">
+      <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 text-pretty mb-4 shadow-sm">
         ⚠️ Pedido enviado ao WhatsApp <strong>não é venda confirmada</strong>. Use os status abaixo para registrar o andamento real.
       </div>
 
@@ -116,7 +116,7 @@ export default function Pedidos() {
       ) : (
         <div className="space-y-2">
           {filtered.map((o) => (
-            <div key={o.id} className="rounded-lg border border-border p-3 text-sm">
+            <div key={o.id} className="rounded-xl border border-border/70 p-3 text-sm transition-shadow hover:shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="min-w-0">
                   <div className="font-medium">{o.customer_name ?? "Cliente"} · <span className="text-xs text-muted-foreground">{o.customer_phone ?? "—"}</span></div>
