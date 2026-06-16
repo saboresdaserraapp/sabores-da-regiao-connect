@@ -13,6 +13,9 @@ export interface Address {
   complement: string | null;
   neighborhood: string | null;
   city: string | null;
+  state: string | null;
+  latitude: number | null;
+  longitude: number | null;
   reference: string | null;
   is_default: boolean;
   customer_name: string | null;
