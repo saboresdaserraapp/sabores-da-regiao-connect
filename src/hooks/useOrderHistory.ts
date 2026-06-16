@@ -34,7 +34,6 @@ export interface HistoryOrder {
   confirmation_flow_status: string | null;
   status: string;
   payment_method: string | null;
-  change_for: number | null;
   notes: string | null;
   address_id: string | null;
   created_at: string;
