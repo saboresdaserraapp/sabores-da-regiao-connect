@@ -107,7 +107,7 @@ export default function Estoque() {
                 const low = qty <= min && (qty > 0 || min > 0);
                 const zero = qty === 0;
                 return (
-                  <div key={p.id} className="rounded-lg border border-border p-3 grid gap-2 sm:grid-cols-[1fr_auto_auto_auto] sm:items-center">
+                  <div key={p.id} className="rounded-xl border border-border/70 p-3 grid gap-2 sm:grid-cols-[1fr_auto_auto_auto] sm:items-center transition-shadow hover:shadow-sm">
                     <div className="min-w-0">
                       <div className="font-medium truncate">{p.name}</div>
                       <div className="flex gap-1 mt-1">
@@ -141,7 +141,7 @@ export default function Estoque() {
               <div className="space-y-2">
                 {movements.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma movimentação registrada.</p>}
                 {movements.map(m => (
-                  <div key={m.id} className="rounded-lg border border-border p-3 text-xs flex items-center justify-between gap-4">
+                  <div key={m.id} className="rounded-xl border border-border/70 p-3 text-xs flex items-center justify-between gap-4 transition-shadow hover:shadow-sm">
                     <div className="min-w-0">
                       <div className="font-medium">{(m.product as any)?.name ?? "Produto removido"}</div>
                       <div className="text-muted-foreground">{m.reason ?? "Ajuste"} · {new Date(m.created_at).toLocaleString()}</div>

@@ -68,7 +68,7 @@ export default function Adicionais() {
                     <p className="text-xs text-muted-foreground">Nenhum adicional cadastrado.</p>
                   )}
                   {options.map((o, i) => (o.type ?? "simple") === "simple" && (
-                    <div key={i} className="flex items-center gap-2 rounded-lg border border-border bg-card p-2">
+                    <div key={i} className="flex items-center gap-2 rounded-xl border border-border/70 bg-card p-2 transition-shadow hover:shadow-sm">
                       <Input value={o.name} onChange={(e) => upd(i, { name: e.target.value })} className="flex-1" />
                       <Input type="number" step="0.01" value={o.price} onChange={(e) => upd(i, { price: Number(e.target.value) })} className="w-24" />
                       <Button variant="ghost" size="icon" onClick={() => del(i)}><Trash2 className="size-4 text-destructive" /></Button>
@@ -86,7 +86,7 @@ export default function Adicionais() {
                   {options.filter((o) => o.type === "variation" || o.type === "combo").map((o, idx) => {
                     const i = options.indexOf(o);
                     return (
-                      <div key={i} className="flex items-center gap-2 rounded-lg border border-border bg-card p-2">
+                      <div key={i} className="flex items-center gap-2 rounded-xl border border-border/70 bg-card p-2 transition-shadow hover:shadow-sm">
                         <Select value={o.type} onValueChange={(v) => upd(i, { type: v as any })}>
                           <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
                           <SelectContent>
