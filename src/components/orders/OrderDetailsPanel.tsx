@@ -15,7 +15,7 @@ export function OrderDetailsPanel({ order }: { order: any }) {
     <div className="space-y-4 text-sm">
       <div>
         <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Itens</div>
-        <ul className="divide-y divide-border rounded-xl border border-border">
+        <ul className="divide-y divide-border/70 rounded-xl border border-border/60 bg-card/40">
           {items.map((i, idx) => (
             <li key={idx} className="p-3">
               <div className="flex items-start justify-between gap-2">

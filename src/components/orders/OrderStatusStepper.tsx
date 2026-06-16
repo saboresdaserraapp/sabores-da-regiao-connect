@@ -44,7 +44,7 @@ export function OrderStatusBadge({ status }: { status: string }) {
 export function OrderStatusStepper({ status }: { status: string }) {
   if (status.startsWith("canceled")) {
     return (
-      <div className="flex items-center gap-2 rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-destructive">
+      <div className="flex items-center gap-2 rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-destructive shadow-sm">
         <XCircle className="size-5" />
         <div>
           <div className="font-semibold">Pedido cancelado</div>
@@ -61,7 +61,7 @@ export function OrderStatusStepper({ status }: { status: string }) {
         const done = i < current;
         const active = i === current;
         return (
-          <li key={s.key} className="flex flex-col items-center text-center">
+          <li key={s.key} className="flex flex-col items-center text-center text-pretty">
             <div
               className={cn(
                 "grid size-9 place-items-center rounded-full border-2 transition-colors",
