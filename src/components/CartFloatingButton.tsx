@@ -63,7 +63,7 @@ export function CartFloatingButton() {
   }
 
   return (
-    <div className="fixed bottom-6 left-1/2 z-50 w-[calc(100%-2rem)] max-w-lg -translate-x-1/2">
+    <div className="safe-bottom fixed bottom-6 left-1/2 z-50 w-[calc(100%-2rem)] max-w-lg -translate-x-1/2">
       <Link
         to={`/e/${state.establishmentSlug}/checkout`}
         title={preview?.notice || undefined}

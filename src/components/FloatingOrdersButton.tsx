@@ -21,7 +21,7 @@ export function FloatingOrdersButton() {
   if (!user || !isVisible || activeOrders?.length === 0) return null;
 
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-[90%] sm:max-w-md animate-in fade-in slide-in-from-bottom-4 duration-300">
+    <div className="safe-bottom fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-[90%] sm:max-w-md animate-in fade-in slide-in-from-bottom-4 duration-300">
       <div className="bg-primary shadow-2xl rounded-2xl p-1 border border-primary-foreground/10 ring-4 ring-black/5">
         <Link 
           to="/minha-conta?tab=pedidos"
