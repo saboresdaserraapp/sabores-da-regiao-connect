@@ -18,10 +18,10 @@ interface Props {
 }
 
 export function OrderHistoryDetailsDialog({ order, onClose, onReorder, reordering }: Props) {
+  const qc = useQueryClient();
   if (!order) return null;
   const total = Number(order.final_total ?? order.total ?? 0);
   const whatsapp = order.establishment?.whatsapp;
-  const qc = useQueryClient();
   const finalFee = (order as any).final_delivery_fee;
   return (
     <Dialog open={!!order} onOpenChange={(v) => !v && onClose()}>
