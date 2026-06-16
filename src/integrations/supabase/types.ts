@@ -1176,6 +1176,93 @@ export type Database = {
           },
         ]
       }
+      order_confirmation_proposals: {
+        Row: {
+          accepted_at: string | null
+          business_note: string | null
+          canceled_at: string | null
+          created_at: string
+          created_by: string | null
+          customer_response_note: string | null
+          establishment_id: string
+          estimated_delivery_time_min: number | null
+          estimated_preparation_time_min: number | null
+          expires_at: string | null
+          id: string
+          order_id: string
+          proposed_delivery_fee: number | null
+          proposed_discount: number | null
+          proposed_extra_fee: number | null
+          proposed_subtotal: number | null
+          proposed_total: number | null
+          rejected_at: string | null
+          sent_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          business_note?: string | null
+          canceled_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_response_note?: string | null
+          establishment_id: string
+          estimated_delivery_time_min?: number | null
+          estimated_preparation_time_min?: number | null
+          expires_at?: string | null
+          id?: string
+          order_id: string
+          proposed_delivery_fee?: number | null
+          proposed_discount?: number | null
+          proposed_extra_fee?: number | null
+          proposed_subtotal?: number | null
+          proposed_total?: number | null
+          rejected_at?: string | null
+          sent_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          business_note?: string | null
+          canceled_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_response_note?: string | null
+          establishment_id?: string
+          estimated_delivery_time_min?: number | null
+          estimated_preparation_time_min?: number | null
+          expires_at?: string | null
+          id?: string
+          order_id?: string
+          proposed_delivery_fee?: number | null
+          proposed_discount?: number | null
+          proposed_extra_fee?: number | null
+          proposed_subtotal?: number | null
+          proposed_total?: number | null
+          rejected_at?: string | null
+          sent_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_confirmation_proposals_establishment_id_fkey"
+            columns: ["establishment_id"]
+            isOneToOne: false
+            referencedRelation: "establishments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_confirmation_proposals_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       order_financial_marks: {
         Row: {
           amount_received: number | null
@@ -1511,21 +1598,33 @@ export type Database = {
           assigned_driver_id: string | null
           assigned_driver_name: string | null
           assigned_driver_phone: string | null
+          business_confirmation_note: string | null
+          confirmation_flow_status: string | null
+          confirmed_at: string | null
           created_at: string
+          current_confirmation_proposal_id: string | null
+          customer_accepted_proposal_at: string | null
           customer_name: string | null
           customer_phone: string | null
+          customer_rejected_proposal_at: string | null
           delivery_fee: number
           delivery_fee_estimated: number | null
           driver_reference_sent_at: string | null
           establishment_id: string
           establishment_reply: string | null
           estimated_minutes: number | null
+          final_delivery_fee: number | null
+          final_discount: number | null
+          final_extra_fee: number | null
+          final_subtotal: number | null
           final_total: number | null
           id: string
           items: Json
           notes: string | null
+          paid_at: string | null
           payment_method: string | null
           payment_method_intent: string | null
+          payment_status: string | null
           sent_to_whatsapp_at: string | null
           status: Database["public"]["Enums"]["order_status"]
           status_history: Json
@@ -1543,21 +1642,33 @@ export type Database = {
           assigned_driver_id?: string | null
           assigned_driver_name?: string | null
           assigned_driver_phone?: string | null
+          business_confirmation_note?: string | null
+          confirmation_flow_status?: string | null
+          confirmed_at?: string | null
           created_at?: string
+          current_confirmation_proposal_id?: string | null
+          customer_accepted_proposal_at?: string | null
           customer_name?: string | null
           customer_phone?: string | null
+          customer_rejected_proposal_at?: string | null
           delivery_fee?: number
           delivery_fee_estimated?: number | null
           driver_reference_sent_at?: string | null
           establishment_id: string
           establishment_reply?: string | null
           estimated_minutes?: number | null
+          final_delivery_fee?: number | null
+          final_discount?: number | null
+          final_extra_fee?: number | null
+          final_subtotal?: number | null
           final_total?: number | null
           id?: string
           items?: Json
           notes?: string | null
+          paid_at?: string | null
           payment_method?: string | null
           payment_method_intent?: string | null
+          payment_status?: string | null
           sent_to_whatsapp_at?: string | null
           status?: Database["public"]["Enums"]["order_status"]
           status_history?: Json
@@ -1575,21 +1686,33 @@ export type Database = {
           assigned_driver_id?: string | null
           assigned_driver_name?: string | null
           assigned_driver_phone?: string | null
+          business_confirmation_note?: string | null
+          confirmation_flow_status?: string | null
+          confirmed_at?: string | null
           created_at?: string
+          current_confirmation_proposal_id?: string | null
+          customer_accepted_proposal_at?: string | null
           customer_name?: string | null
           customer_phone?: string | null
+          customer_rejected_proposal_at?: string | null
           delivery_fee?: number
           delivery_fee_estimated?: number | null
           driver_reference_sent_at?: string | null
           establishment_id?: string
           establishment_reply?: string | null
           estimated_minutes?: number | null
+          final_delivery_fee?: number | null
+          final_discount?: number | null
+          final_extra_fee?: number | null
+          final_subtotal?: number | null
           final_total?: number | null
           id?: string
           items?: Json
           notes?: string | null
+          paid_at?: string | null
           payment_method?: string | null
           payment_method_intent?: string | null
+          payment_status?: string | null
           sent_to_whatsapp_at?: string | null
           status?: Database["public"]["Enums"]["order_status"]
           status_history?: Json
@@ -1608,6 +1731,13 @@ export type Database = {
             columns: ["assigned_driver_id"]
             isOneToOne: false
             referencedRelation: "delivery_drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_current_confirmation_proposal_id_fkey"
+            columns: ["current_confirmation_proposal_id"]
+            isOneToOne: false
+            referencedRelation: "order_confirmation_proposals"
             referencedColumns: ["id"]
           },
         ]
@@ -2382,6 +2512,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_order_proposal: { Args: { _proposal_id: string }; Returns: Json }
       admin_find_user_by_email: { Args: { _email: string }; Returns: string }
       can_manage: { Args: { _user_id: string }; Returns: boolean }
       can_user_access_order: { Args: { order_uuid: string }; Returns: boolean }
@@ -2459,6 +2590,10 @@ export type Database = {
       make_unique_establishment_slug: {
         Args: { _name: string; _self_id: string }
         Returns: string
+      }
+      reject_order_proposal: {
+        Args: { _note?: string; _proposal_id: string }
+        Returns: Json
       }
       seed_initial_data: { Args: never; Returns: undefined }
       slugify: { Args: { _t: string }; Returns: string }

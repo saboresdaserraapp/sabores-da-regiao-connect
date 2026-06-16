@@ -12,9 +12,13 @@ import { ArrowLeft, MessageCircle, Loader2, User, Phone, MapPin, Receipt, Clock,
 import { OrderChat } from "@/components/OrderChat";
 import { OrderDetailsPanel } from "@/components/orders/OrderDetailsPanel";
 import { OrderReferencesPanel } from "@/components/orders/OrderReferencesPanel";
+import { SendProposalDialog } from "@/components/orders/SendProposalDialog";
+import { confirmWithoutChange, fetchActiveProposal, registerWhatsappAcceptance, OrderProposal } from "@/lib/orderProposals";
 import { toast } from "sonner";
 import { brl } from "@/lib/format";
 import { useEffect, useState } from "react";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { CheckCircle2, Send, Smartphone as SmartphoneIcon } from "lucide-react";
 
 const STATUS_OPTIONS: { value: string; label: string }[] = [
   { value: "waiting_business_confirmation", label: "Aguardando confirmação" },
@@ -82,12 +86,32 @@ export default function PedidoDetalhesLoja() {
   const [feeInput, setFeeInput] = useState<string>("");
   const [replyInput, setReplyInput] = useState<string>("");
   const [savingFee, setSavingFee] = useState(false);
+  const [activeProposal, setActiveProposal] = useState<OrderProposal | null>(null);
+  const [waNote, setWaNote] = useState("");
+  const [waOpen, setWaOpen] = useState(false);
+  const [busyAction, setBusyAction] = useState(false);
+
   useEffect(() => {
     if (order) {
       setFeeInput(String(order.delivery_fee ?? order.delivery_fee_estimated ?? 0));
       setReplyInput(order.establishment_reply ?? "");
     }
   }, [order?.id]);
+
+  useEffect(() => {
+    if (!orderId) return;
+    let cancelled = false;
+    fetchActiveProposal(orderId).then((p) => { if (!cancelled) setActiveProposal(p); }).catch(() => {});
+    const ch = supabase
+      .channel(`store-proposal-${orderId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "order_confirmation_proposals", filter: `order_id=eq.${orderId}` },
+        () => fetchActiveProposal(orderId).then(setActiveProposal).catch(() => {})
+      )
+      .subscribe();
+    return () => { cancelled = true; supabase.removeChannel(ch); };
+  }, [orderId]);
 
   const confirmFee = async () => {
     if (!order) return;
@@ -108,6 +132,38 @@ export default function PedidoDetalhesLoja() {
 
   if (isLoading) return <div className="p-20 flex justify-center"><Loader2 className="animate-spin" /></div>;
   if (!order) return <div className="p-20 text-center">Pedido não encontrado.</div>;
+
+  const isWaiting = order.status === "waiting_business_confirmation";
+
+  const onConfirmNoChange = async () => {
+    setBusyAction(true);
+    try {
+      await confirmWithoutChange(order.id);
+      toast.success("Pedido confirmado");
+      queryClient.invalidateQueries({ queryKey: ["order-detail-loja", orderId] });
+    } catch (e: any) {
+      toast.error(e.message || "Erro");
+    } finally { setBusyAction(false); }
+  };
+
+  const onRegisterWhatsappAccept = async () => {
+    if (!activeProposal) return;
+    setBusyAction(true);
+    try {
+      await registerWhatsappAcceptance({
+        proposalId: activeProposal.id,
+        orderId: order.id,
+        establishmentId: order.establishment_id,
+        note: waNote || undefined,
+      });
+      toast.success("Aceite registrado");
+      setWaOpen(false);
+      setWaNote("");
+      queryClient.invalidateQueries({ queryKey: ["order-detail-loja", orderId] });
+    } catch (e: any) {
+      toast.error(e.message || "Erro");
+    } finally { setBusyAction(false); }
+  };
 
   const openWhatsApp = () => {
     if (!order.customer_phone) return;
@@ -225,6 +281,51 @@ export default function PedidoDetalhesLoja() {
               </div>
 
               <div className="flex flex-col gap-2">
+                {isWaiting && (
+                  <>
+                    <SendProposalDialog
+                      orderId={order.id}
+                      establishmentId={order.establishment_id}
+                      defaultSubtotal={Number(order.subtotal ?? 0)}
+                      defaultDeliveryFee={Number(order.delivery_fee_estimated ?? order.delivery_fee ?? 0)}
+                      onSent={() => queryClient.invalidateQueries({ queryKey: ["order-detail-loja", orderId] })}
+                    />
+                    <Button variant="outline" className="w-full" onClick={onConfirmNoChange} disabled={busyAction}>
+                      <CheckCircle2 className="mr-2 size-4" /> Confirmar sem alteração
+                    </Button>
+                    {activeProposal && (
+                      <Dialog open={waOpen} onOpenChange={setWaOpen}>
+                        <DialogTrigger asChild>
+                          <Button variant="secondary" className="w-full">
+                            <SmartphoneIcon className="mr-2 size-4" /> Registrar aceite pelo WhatsApp
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Registrar aceite recebido pelo WhatsApp</DialogTitle>
+                          </DialogHeader>
+                          <p className="text-sm text-muted-foreground">
+                            Use somente se o cliente confirmou a proposta por mensagem fora do app.
+                            O pedido será marcado como confirmado e o histórico registrará esta ação manual.
+                          </p>
+                          <Textarea
+                            rows={3}
+                            placeholder="Observação (opcional)"
+                            value={waNote}
+                            onChange={(e) => setWaNote(e.target.value)}
+                          />
+                          <DialogFooter>
+                            <Button variant="outline" onClick={() => setWaOpen(false)} disabled={busyAction}>Cancelar</Button>
+                            <Button onClick={onRegisterWhatsappAccept} disabled={busyAction}>
+                              {busyAction ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+                              Confirmar aceite
+                            </Button>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
+                    )}
+                  </>
+                )}
                 <Button className="w-full" onClick={openWhatsApp}>
                   <MessageCircle className="mr-2 size-4" /> Conversar no WhatsApp
                 </Button>
