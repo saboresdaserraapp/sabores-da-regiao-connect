@@ -34,7 +34,6 @@ export interface HistoryOrder {
   confirmation_flow_status: string | null;
   status: string;
   payment_method: string | null;
-  change_for: number | null;
   notes: string | null;
   address_id: string | null;
   created_at: string;
@@ -60,7 +59,7 @@ export function useOrderHistory(filter: OrderHistoryFilter, search: string) {
       const { data, error } = await supabase
         .from("orders")
         .select(
-          "id, tracking_code, establishment_id, items, subtotal, delivery_fee, total, final_total, final_delivery_fee, confirmation_flow_status, status, payment_method, change_for, notes, address_id, created_at"
+          "id, tracking_code, establishment_id, items, subtotal, delivery_fee, total, final_total, final_delivery_fee, confirmation_flow_status, status, payment_method, notes, address_id, created_at"
         )
         .eq("user_id", user!.id)
         .order("created_at", { ascending: false })

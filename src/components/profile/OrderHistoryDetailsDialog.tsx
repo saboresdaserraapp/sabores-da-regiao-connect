@@ -93,9 +93,6 @@ export function OrderHistoryDetailsDialog({ order, onClose, onReorder, reorderin
             <div>
               <span className="text-muted-foreground">Pagamento: </span>
               <span className="font-medium capitalize">{order.payment_method ?? "—"}</span>
-              {order.change_for ? (
-                <span className="text-muted-foreground"> · Troco para {brl(Number(order.change_for))}</span>
-              ) : null}
             </div>
             {order.notes && (
               <div>
