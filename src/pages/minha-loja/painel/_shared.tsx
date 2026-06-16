@@ -10,8 +10,8 @@ export function PainelSection({ title, subtitle, children, action }: {
     <section className="space-y-4">
       <header className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0 space-y-1">
-          <h1 className="font-display text-2xl font-bold leading-tight sm:text-3xl">{title}</h1>
-          {subtitle && <p className="text-sm text-muted-foreground sm:max-w-2xl">{subtitle}</p>}
+          <h1 className="font-display text-2xl font-bold leading-tight text-balance sm:text-3xl">{title}</h1>
+          {subtitle && <p className="text-sm text-muted-foreground text-pretty sm:max-w-2xl">{subtitle}</p>}
         </div>
         {action && <div className="flex shrink-0 items-center gap-2">{action}</div>}
       </header>
