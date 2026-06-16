@@ -137,7 +137,7 @@ const CheckoutPage = () => {
     }
     return { ...base, fee, status: "estimated" as const, manual: true, autoMatched: true,
       notice: `Taxa estimada por distância (~${km.toFixed(1)} km). A loja pode confirmar pelo WhatsApp.` };
-  }, [type, settings, regions, e?.deliveryFee, subtotal, selectedRegion, data.neighborhood, data.popular_location_name]);
+  }, [type, settings, regions, e?.deliveryFee, subtotal, selectedRegion, data.neighborhood, data.popular_location_name, addresses, selectedAddressId, est]);
 
   if (loadingEstab) {
     return (
