@@ -1,8 +1,8 @@
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, Clock, MapPin, Video, Info, AlertTriangle } from "lucide-react";
 import { Link } from "react-router-dom";
+import { fetchReferenceByToken } from "@/lib/referenceLinks";
 
 const DeliveryReferencePage = () => {
   const { token } = useParams();
@@ -10,25 +10,7 @@ const DeliveryReferencePage = () => {
   const { data: shareLink, isLoading, error } = useQuery({
     queryKey: ["delivery-ref-link", token],
     enabled: !!token,
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc("get_share_link_by_token", { _token: token! });
-      if (error || !data) throw new Error("Link inválido ou expirado");
-      const payload = data as any;
-      const referenceData = payload.reference;
-      if (referenceData?.media) {
-        const media = referenceData.media || [];
-        const photos = media.filter((m: any) => m.media_type === 'photo').map((m: any) => m.media_url);
-        const video = media.find((m: any) => m.media_type === 'video')?.media_url;
-        referenceData.media_urls = photos.length > 0 ? photos : (Array.isArray(referenceData.media_urls) ? referenceData.media_urls : []);
-        referenceData.video_url = video || referenceData.video_url;
-      }
-      return {
-        ...payload.link,
-        order: payload.order,
-        address: payload.address,
-        reference: referenceData,
-      };
-    },
+    queryFn: () => fetchReferenceByToken("delivery", token!),
   });
 
   if (isLoading) return <div className="flex h-screen items-center justify-center">Carregando referências...</div>;
