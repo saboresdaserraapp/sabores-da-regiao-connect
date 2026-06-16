@@ -15,7 +15,6 @@ import { ThemeEditor } from "@/components/owner/ThemeEditor";
 import { Switch } from "@/components/ui/switch";
 import { MediaUploader } from "@/components/media/MediaUploader";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { useEstablishmentOrders } from "@/hooks/useOrders";
 import { brl } from "@/lib/format";
 import { OrderRow } from "@/components/orders/OrderRow";
 import { DeliverySettings } from "@/components/admin/DeliverySettings";
@@ -24,7 +23,19 @@ export default function EstabelecimentoPerfil() {
   const { id } = useParams<{ id: string }>();
   const qc = useQueryClient();
   const [editingProduct, setEditingProduct] = useState<any | null>(null);
-  const { data: orders } = useEstablishmentOrders(id);
+  const { data: orders } = useQuery({
+    queryKey: ["orders-estab", id],
+    enabled: !!id,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("orders")
+        .select("*")
+        .eq("establishment_id", id!)
+        .order("created_at", { ascending: false })
+        .limit(200);
+      return data ?? [];
+    },
+  });
 
   const { data: e, isLoading } = useQuery({
     queryKey: ["admin-estab", id],

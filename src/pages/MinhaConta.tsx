@@ -18,10 +18,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useFavorites } from "@/hooks/useFavorites";
 import { useAddresses, useAddressMutations, type Address } from "@/hooks/useAddresses";
 import { useHouseReference, useHouseReferenceSave, type HouseReference } from "@/hooks/useHouseReference";
-import { useUserOrders, useActiveOrders } from "@/hooks/useOrders";
-import { PedidosTab } from "@/components/profile/PedidosTab";
 import { toast } from "sonner";
-import { Heart, MapPin, Home, Receipt, CreditCard, UserRound, Plus, Trash2, Loader2, LogOut, Star, Video, Info, ShoppingBag, MessageCircle, Store, AlertCircle } from "lucide-react";
+import { Heart, MapPin, Home, CreditCard, UserRound, Plus, Trash2, Loader2, LogOut, Star, Video, Info, ShoppingBag, MessageCircle, Store, AlertCircle } from "lucide-react";
 import { brl } from "@/lib/format";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionHeading } from "@/components/ui/page-header";
@@ -54,7 +52,6 @@ export default function MinhaConta() {
             <TabsTrigger value="favoritos"><Heart className="mr-1.5 size-4" /> Favoritos</TabsTrigger>
             <TabsTrigger value="enderecos"><MapPin className="mr-1.5 size-4" /> Endereços</TabsTrigger>
             <TabsTrigger value="casa"><Home className="mr-1.5 size-4" /> Referência global</TabsTrigger>
-            <TabsTrigger value="pedidos"><Receipt className="mr-1.5 size-4" /> Histórico de Pedidos</TabsTrigger>
             <TabsTrigger value="pagamentos"><CreditCard className="mr-1.5 size-4" /> Pagamentos</TabsTrigger>
           </TabsList>
 
@@ -62,7 +59,6 @@ export default function MinhaConta() {
           <TabsContent value="favoritos"><FavoritosTab /></TabsContent>
           <TabsContent value="enderecos"><EnderecosTab /></TabsContent>
           <TabsContent value="casa"><ReferenciaCasaTab onSaved={() => toast.success("Referência global salva")} /></TabsContent>
-          <TabsContent value="pedidos"><PedidosTab /></TabsContent>
           <TabsContent value="pagamentos"><PagamentosTab /></TabsContent>
         </Tabs>
       </main>
@@ -562,31 +558,11 @@ function ReferenciaCasaTab({ addressId, onSaved }: { addressId?: string, onSaved
 
 
 function PagamentosTab() {
-  const { data: orders = [] } = useUserOrders();
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-dashed border-border bg-card/40 p-4 text-sm text-muted-foreground">
-        Os pedidos hoje são finalizados via WhatsApp diretamente com o estabelecimento. Esta área lista os valores declarados em cada pedido.
+      <div className="rounded-2xl border border-dashed border-border bg-card/40 p-6 text-sm text-muted-foreground text-center">
+        Em breve você poderá gerenciar seus métodos de pagamento por aqui.
       </div>
-      {orders.length === 0 ? <Empty msg="Sem registros de pagamento." /> : (
-        <div className="overflow-x-auto rounded-2xl border border-border bg-card">
-          <table className="w-full min-w-[520px] text-sm">
-            <thead className="bg-muted/40 text-left text-xs uppercase text-muted-foreground">
-              <tr><th className="p-3">Data</th><th className="p-3">Estabelecimento</th><th className="p-3">Método</th><th className="p-3 text-right">Total</th></tr>
-            </thead>
-            <tbody>
-              {orders.map((o: any) => (
-                <tr key={o.id} className="border-t border-border">
-                  <td className="p-3">{new Date(o.created_at).toLocaleDateString("pt-BR")}</td>
-                  <td className="p-3">{o.establishments?.name}</td>
-                  <td className="p-3 capitalize">{o.payment_method || "—"}</td>
-                  <td className="p-3 text-right font-semibold">{brl(Number(o.total))}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
     </div>
   );
 }
