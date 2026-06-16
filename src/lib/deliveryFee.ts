@@ -160,3 +160,57 @@ export function estimateDistanceFee(
   const billable = Math.max(0, distanceKm - freeKm);
   return Math.max(minFee, baseFee + billable * perKm);
 }
+
+// ============= Combined resolver with distance fallback =============
+// Single source of truth used by Checkout and the floating cart preview.
+// Applies region-based resolution first, then falls back to distance when:
+//   - no region matched
+//   - the model is not fixed/free/unavailable
+//   - the store has distance config and both ends have coordinates
+
+export interface ResolveWithDistanceInput extends ResolveInput {
+  origin?: LatLng | null;       // establishment coords
+  destination?: LatLng | null;  // selected address coords
+}
+
+export function resolveDeliveryFeeWithDistance(
+  input: ResolveWithDistanceInput,
+): DeliveryResolution {
+  const base = resolveDeliveryFee(input);
+  if (
+    base.region ||
+    base.status === "unavailable" ||
+    base.status === "fixed" ||
+    base.status === "free"
+  ) {
+    return base;
+  }
+  const s: any = input.settings || {};
+  const hasCfg = s.distance_base_fee != null || s.distance_per_km != null;
+  if (!hasCfg) return base;
+  const km = haversineKm(input.origin ?? { latitude: null, longitude: null },
+                         input.destination ?? { latitude: null, longitude: null });
+  if (km == null) return base;
+  const fee = estimateDistanceFee(km, {
+    baseFee: Number(s.distance_base_fee ?? 0),
+    perKm: Number(s.distance_per_km ?? 0),
+    freeKm: Number(s.distance_free_km ?? 0),
+    maxKm: s.distance_max_km != null ? Number(s.distance_max_km) : undefined,
+  });
+  if (fee == null) {
+    return {
+      ...base,
+      status: "unavailable",
+      blocked: true,
+      notice: `Endereço fora do raio de entrega (${km.toFixed(1)} km).`,
+    };
+  }
+  return {
+    ...base,
+    fee,
+    status: "estimated",
+    manual: true,
+    autoMatched: true,
+    notice: `Taxa estimada por distância (~${km.toFixed(1)} km). A loja pode confirmar pelo WhatsApp.`,
+  };
+}
