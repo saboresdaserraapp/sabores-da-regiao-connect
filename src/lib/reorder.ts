@@ -31,22 +31,30 @@ export async function reorderFromHistory(order: HistoryOrder): Promise<ReorderRe
   // Fetch current product state.
   const { data: products } = await supabase
     .from("products")
-    .select("id, name, description, price, promotional_price, image, category, active, is_available")
+    .select("id, name, description, price, promotional_price, image, options, removable, is_active, is_available, menu_category_id")
     .in("id", productIds.length ? productIds : ["00000000-0000-0000-0000-000000000000"]);
 
   const productsById = new Map<string, any>();
   (products ?? []).forEach((p: any) => productsById.set(p.id, p));
 
-  // Fetch current options (legacy product.options jsonb may have them too).
-  const { data: opts } = await supabase
-    .from("product_options")
-    .select("id, name, price, is_active, product_option_groups!inner(product_id)")
-    .in(
-      "product_option_groups.product_id",
-      productIds.length ? productIds : ["00000000-0000-0000-0000-000000000000"]
-    );
+  // Collect all option ids referenced by snapshot items and fetch current state.
+  const optionIds = Array.from(
+    new Set(
+      items.flatMap((i: any) =>
+        (i?.selected_options_snapshot_json?.options ?? [])
+          .map((o: any) => o?.id)
+          .filter(Boolean)
+      )
+    )
+  ) as string[];
   const optionById = new Map<string, any>();
-  (opts ?? []).forEach((o: any) => optionById.set(o.id, o));
+  if (optionIds.length) {
+    const { data: opts } = await supabase
+      .from("product_options")
+      .select("id, name, price, is_available")
+      .in("id", optionIds);
+    (opts ?? []).forEach((o: any) => optionById.set(o.id, o));
+  }
 
   // Reset cart to the order's establishment (this clears any other-store cart).
   cart.setEstablishment(order.establishment.id, order.establishment.slug);
@@ -63,7 +71,7 @@ export async function reorderFromHistory(order: HistoryOrder): Promise<ReorderRe
       skipped.push({ name, reason: "Produto não está mais disponível" });
       continue;
     }
-    if (product.active === false || product.is_available === false) {
+    if (product.is_active === false || product.is_available === false) {
       skipped.push({ name, reason: "Produto está indisponível agora" });
       continue;
     }
@@ -73,7 +81,7 @@ export async function reorderFromHistory(order: HistoryOrder): Promise<ReorderRe
     let optionsDropped = false;
     for (const so of snapshotOptions) {
       const current = so?.id ? optionById.get(so.id) : null;
-      if (current && current.is_active !== false) {
+      if (current && current.is_available !== false) {
         validOptions.push({
           id: current.id,
           name: current.name,
