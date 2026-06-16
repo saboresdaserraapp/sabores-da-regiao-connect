@@ -44,8 +44,8 @@ export default function Cadastro() {
   }
 
   return (
-    <div className="min-h-screen grid place-items-center bg-gradient-cream p-4">
-      <div className="w-full max-w-md rounded-2xl bg-card p-8 shadow-glow">
+    <div className="min-h-screen grid place-items-center bg-gradient-cream p-4 safe-bottom">
+      <div className="w-full max-w-md rounded-2xl border border-border/60 bg-card p-8 shadow-glow ring-1 ring-black/[0.03]">
         <Link to="/" className="mb-6 flex items-center gap-2">
           <div className="grid size-10 place-items-center rounded-xl bg-gradient-warm shadow-glow">
             <UtensilsCrossed className="size-5 text-primary-foreground" />

@@ -143,8 +143,8 @@ const Loja = () => {
             <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-medium backdrop-blur-md">
               <ShoppingBag className="size-3.5" /> Loja completa
             </div>
-            <h1 className="font-display text-3xl font-bold tracking-tight sm:text-4xl lg:text-5xl">Todos os produtos da região</h1>
-            <p className="mt-3 max-w-xl text-primary-foreground/90">Combine filtros e ordenações pra achar exatamente o que você quer.</p>
+            <h1 className="font-display text-3xl font-bold tracking-tight text-balance sm:text-4xl lg:text-5xl">Todos os produtos da região</h1>
+            <p className="mt-3 max-w-xl text-pretty text-primary-foreground/90">Combine filtros e ordenações pra achar exatamente o que você quer.</p>
             <div className="mt-5 flex items-center gap-2 rounded-2xl bg-card p-2 shadow-elevated ring-1 ring-black/5">
               <Search className="ml-2 size-5 text-muted-foreground" />
               <input

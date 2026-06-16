@@ -82,10 +82,10 @@ const Index = () => {
             <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-medium backdrop-blur-md">
               <Sparkles className="size-3.5" /> Plataforma regional de gastronomia
             </div>
-            <h1 className="font-display text-4xl font-bold leading-[1.05] tracking-tight sm:text-5xl lg:text-6xl">
+            <h1 className="font-display text-4xl font-bold leading-[1.05] tracking-tight text-balance sm:text-5xl lg:text-6xl">
               Descubra os sabores<br />da sua região
             </h1>
-            <p className="mt-4 max-w-xl text-primary-foreground/90 sm:text-lg">
+            <p className="mt-4 max-w-xl text-pretty text-primary-foreground/90 sm:text-lg">
               Restaurantes, pizzarias, cafés e mais — pedido pronto e enviado direto no WhatsApp do estabelecimento.
             </p>
             <div className="mt-7 flex items-center gap-2 rounded-2xl bg-card p-2 shadow-elevated ring-1 ring-black/5">
