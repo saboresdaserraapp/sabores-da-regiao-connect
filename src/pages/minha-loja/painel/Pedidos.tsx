@@ -150,10 +150,22 @@ export default function Pedidos() {
 
     // Valores
     msgStr += `*Subtotal:* R$ ${Number(o.subtotal).toFixed(2)}\n`;
-    msgStr += `*Taxa de entrega:* R$ ${Number(o.delivery_fee).toFixed(2)}\n`;
-    msgStr += `*TOTAL ESTIMADO:* R$ ${Number(o.total).toFixed(2)}\n\n`;
+    msgStr += `*Taxa de entrega estimada:* R$ ${Number(o.delivery_fee).toFixed(2)}\n`;
+    if (o.final_delivery_fee != null) {
+      msgStr += `*Taxa de entrega final:* R$ ${Number(o.final_delivery_fee).toFixed(2)}\n`;
+    }
+    if (o.final_total != null) {
+      msgStr += `*TOTAL FINAL:* R$ ${Number(o.final_total).toFixed(2)}\n\n`;
+    } else {
+      msgStr += `*TOTAL ESTIMADO:* R$ ${Number(o.total).toFixed(2)}\n\n`;
+    }
     msgStr += `*Forma de pagamento:* ${o.payment_method ?? "A combinar"}\n\n`;
-    msgStr += `_Por favor, confirme se os itens e valores acima estão corretos._`;
+    if (o.confirmation_flow_status === "proposal_sent_to_customer") {
+      msgStr += `_Enviamos a proposta com o valor final pelo app. Confirme por lá ou responda aqui se está de acordo._\n`;
+      msgStr += `_A taxa pode variar conforme endereço, acesso, distância, estrada ruim, chuva ou outras adversidades._`;
+    } else {
+      msgStr += `_Por favor, confirme se os itens e valores acima estão corretos._`;
+    }
 
     const msg = encodeURIComponent(msgStr);
     window.open(`https://wa.me/${num}?text=${msg}`, "_blank");
@@ -203,11 +215,20 @@ export default function Pedidos() {
         ) : (
           <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-normal">A receber</Badge>
         )}
+        {(() => {
+          const fb = flowStatusBadge(o.confirmation_flow_status);
+          return fb ? (
+            <Badge variant="outline" className={`text-[10px] px-1.5 py-0 font-normal ${fb.className}`}>{fb.label}</Badge>
+          ) : null;
+        })()}
       </div>
 
       {/* Money breakdown */}
       <div className="mt-1.5 text-[11px] text-muted-foreground tabular-nums">
-        Sub R$ {Number(o.subtotal).toFixed(2)} · Taxa R$ {Number(o.delivery_fee).toFixed(2)}
+        Sub R$ {Number(o.subtotal).toFixed(2)} · Taxa est R$ {Number(o.delivery_fee).toFixed(2)}
+        {o.final_delivery_fee != null && (
+          <> · <span className="text-foreground font-medium">Final R$ {Number(o.final_delivery_fee).toFixed(2)}</span></>
+        )}
       </div>
 
       {o.notes && (
@@ -250,6 +271,19 @@ export default function Pedidos() {
       </div>
 
       {o.address_id && (
+        <div className="mt-1.5 flex flex-wrap gap-1.5">
+          <OrderFreteActions
+            orderId={o.id}
+            establishmentId={ctx!.establishmentId}
+            subtotal={o.subtotal}
+            deliveryFee={o.final_delivery_fee ?? o.delivery_fee}
+            flowStatus={o.confirmation_flow_status}
+            onChanged={refresh}
+          />
+        </div>
+      )}
+
+      {o.address_id && (
         <Button
           size="sm"
           variant="ghost"
@@ -285,11 +319,20 @@ export default function Pedidos() {
           ) : (
             <Badge variant="secondary" className="text-[10px]">A receber</Badge>
           )}
-          <span className="font-semibold">R$ {Number(o.total).toFixed(2)}</span>
+          {(() => {
+            const fb = flowStatusBadge(o.confirmation_flow_status);
+            return fb ? (
+              <Badge variant="outline" className={`text-[10px] ${fb.className}`}>{fb.label}</Badge>
+            ) : null;
+          })()}
+          <span className="font-semibold">R$ {Number(o.final_total ?? o.total).toFixed(2)}</span>
         </div>
       </div>
       <div className="mt-1 text-xs text-muted-foreground">
         Subtotal R$ {Number(o.subtotal).toFixed(2)} · Taxa estimada R$ {Number(o.delivery_fee).toFixed(2)}
+        {o.final_delivery_fee != null && (
+          <> · <span className="text-foreground font-medium">Taxa final R$ {Number(o.final_delivery_fee).toFixed(2)}</span></>
+        )}
         {o.notes && <> · Obs: {o.notes}</>}
         {o.assigned_driver_name && (
           <div className="mt-1 text-[10px] text-primary font-medium flex items-center gap-1">
@@ -310,6 +353,16 @@ export default function Pedidos() {
           <Button size="sm" variant="outline" className="text-emerald-700" onClick={() => markPaid(o)}>
             <CheckCircle2 className="size-3.5 mr-1" /> Marcar pago
           </Button>
+        )}
+        {o.address_id && (
+          <OrderFreteActions
+            orderId={o.id}
+            establishmentId={ctx!.establishmentId}
+            subtotal={o.subtotal}
+            deliveryFee={o.final_delivery_fee ?? o.delivery_fee}
+            flowStatus={o.confirmation_flow_status}
+            onChanged={refresh}
+          />
         )}
         {o.address_id && (
           <Button size="sm" variant="ghost" className="text-primary hover:bg-primary/10"
