@@ -13,7 +13,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Truck, MessageSquareCheck, Loader2 } from "lucide-react";
+import { Truck, CheckCheck, Loader2 } from "lucide-react";
 import { SendProposalDialog } from "@/components/orders/SendProposalDialog";
 import { fetchActiveProposal, registerWhatsappAcceptance } from "@/lib/orderProposals";
 import { toast } from "sonner";
@@ -96,7 +96,7 @@ export function OrderFreteActions({
           className="text-xs text-emerald-700"
           onClick={() => setOpenAccept(true)}
         >
-          <MessageSquareCheck className="size-3.5 mr-1" /> Aceite WhatsApp
+          <CheckCheck className="size-3.5 mr-1" /> Aceite WhatsApp
         </Button>
       )}
 
