@@ -8,7 +8,7 @@ import { OrderDetailsPanel } from "@/components/orders/OrderDetailsPanel";
 import { OrderChat } from "@/components/OrderChat";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, MessageCircle, Loader2, Store, ShoppingBag, AlertCircle, Clock, MapPin, Receipt, Wallet, User } from "lucide-react";
+import { ArrowLeft, MessageCircle, Loader2, Store, ShoppingBag, AlertCircle, Clock, MapPin, Receipt, Wallet, User, Phone } from "lucide-react";
 import { brl } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -144,11 +144,11 @@ export default function PedidoDetalhesCliente() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Taxa de entrega</span>
-                  <span>{order.delivery_fee_estimated != null && order.delivery_fee_estimated > 0 ? brl(Number(order.delivery_fee_estimated)) : (order.delivery_fee != null && order.delivery_fee > 0 ? brl(Number(order.delivery_fee)) : "A confirmar")}</span>
+                  <span>{order.delivery_fee != null && order.delivery_fee > 0 ? brl(Number(order.delivery_fee)) : (order.delivery_fee_estimated != null && order.delivery_fee_estimated > 0 ? `~ ${brl(Number(order.delivery_fee_estimated))}` : "A confirmar")}</span>
                 </div>
                 <div className="flex justify-between pt-2 border-t font-bold text-lg">
-                  <span>Total estimado</span>
-                  <span className="text-primary">{brl(Number(order.total_estimated || order.total))}</span>
+                  <span>{order.final_total != null ? "Total" : "Total estimado"}</span>
+                  <span className="text-primary">{brl(Number(order.final_total ?? order.total_estimated ?? order.total))}</span>
                 </div>
                 <div className="mt-4 p-3 bg-muted/30 rounded-lg text-[10px] text-muted-foreground leading-relaxed">
                   * Este é um valor estimado. O estabelecimento confirmará o valor final pelo WhatsApp ou chat.
@@ -194,6 +194,14 @@ export default function PedidoDetalhesCliente() {
                       {order.customer_name}
                     </div>
                   </div>
+                  {order.customer_phone && (
+                    <div className="rounded-xl border border-border p-3 sm:col-span-2">
+                      <div className="text-[10px] uppercase tracking-wide text-muted-foreground flex items-center gap-1 mb-1">
+                        <Phone className="size-3" /> Telefone do cliente
+                      </div>
+                      <div className="text-sm font-medium">{order.customer_phone}</div>
+                    </div>
+                  )}
                 </div>
 
                 {(order.checkout_delivery_info?.[0] as any)?.address_snapshot_json?.type === "entrega" && (
