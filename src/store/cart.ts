@@ -21,6 +21,7 @@ export interface CartItem {
 
 interface CartState {
   establishmentId: string | null;
+  establishmentSlug: string | null;
   items: CartItem[];
 }
 
@@ -28,11 +29,17 @@ let state: CartState = load();
 const listeners = new Set<() => void>();
 
 function load(): CartState {
-  if (typeof localStorage === "undefined") return { establishmentId: null, items: [] };
+  if (typeof localStorage === "undefined") return { establishmentId: null, establishmentSlug: null, items: [] };
   try {
     const data = localStorage.getItem("sdr_cart");
-    return data ? JSON.parse(data) as CartState : { establishmentId: null, items: [] };
-  } catch { return { establishmentId: null, items: [] }; }
+    if (!data) return { establishmentId: null, establishmentSlug: null, items: [] };
+    const parsed = JSON.parse(data) as Partial<CartState>;
+    return {
+      establishmentId: parsed.establishmentId ?? null,
+      establishmentSlug: parsed.establishmentSlug ?? null,
+      items: parsed.items ?? [],
+    };
+  } catch { return { establishmentId: null, establishmentSlug: null, items: [] }; }
 }
 function persist() {
   localStorage.setItem("sdr_cart", JSON.stringify(state));
@@ -42,9 +49,12 @@ function persist() {
 export const cart = {
   subscribe(l: () => void) { listeners.add(l); return () => listeners.delete(l); },
   get() { return state; },
-  setEstablishment(id: string) {
+  setEstablishment(id: string, slug?: string) {
     if (state.establishmentId !== id) {
-      state = { establishmentId: id, items: [] };
+      state = { establishmentId: id, establishmentSlug: slug ?? null, items: [] };
+      persist();
+    } else if (slug && state.establishmentSlug !== slug) {
+      state = { ...state, establishmentSlug: slug };
       persist();
     }
   },
@@ -70,7 +80,7 @@ export const cart = {
     state = { ...state, items: state.items.filter(i => i.uid !== uid) };
     persist();
   },
-  clear() { state = { establishmentId: null, items: [] }; persist(); },
+  clear() { state = { establishmentId: null, establishmentSlug: null, items: [] }; persist(); },
   subtotal() { return state.items.reduce((s, i) => s + i.unitPrice * i.quantity, 0); },
   count() { return state.items.reduce((s, i) => s + i.quantity, 0); },
 };

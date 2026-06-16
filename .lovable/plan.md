@@ -1,72 +1,47 @@
-## Diagnóstico do que já existe
+## Objetivo
 
-**Backend (já pronto):**
-- `establishment_delivery_settings`: modelo (`to_confirm | fixed | by_region | by_region_manual | free | no_delivery | pickup_only | dine_in_only`), flags `delivery_v2_enabled`, `always_confirm_by_whatsapp`, mensagens.
-- `delivery_regions`: nome, `fee`, `estimated_time`, `status` (ativo/inativo/nao_atendida), `requires_manual_confirmation`, `public_note`.
-- `orders.delivery_fee`, `delivery_fee_estimated`, `total_estimated`, `final_total`, `establishment_reply`.
-- `checkout_delivery_info`: snapshot da região escolhida no checkout.
+Hoje o botão flutuante "Ver carrinho / Finalizar Pedido" só renderiza dentro de `src/pages/Establishment.tsx`. Vamos torná-lo um componente reutilizável e exibi-lo em **todas as telas que mostram comida** (Início, Loja, Categoria, Cardápio do estabelecimento e Checkout) — e em nenhuma outra (perfil, painéis, admin, login, tracking, etc.).
 
-**Frontend (parcialmente pronto):**
-- `Checkout.tsx` já usa V2 quando `delivery_v2_enabled=true`, lista regiões e calcula taxa. Só funciona com seleção manual — não há auto-detecção pelo bairro digitado, não há pedido mínimo, não respeita `delivery_model` (`fixed`/`free`/`to_confirm`), e quando V2 está off cai numa "taxa única do estabelecimento" sem usar nada do `delivery_settings`.
-- `minha-loja/painel/Entrega.tsx` está 100% MOCK — o lojista hoje não consegue cadastrar regiões nem mudar o modelo de entrega pela própria loja.
-- `pedidos/PedidoDetalhes.tsx` (visão do lojista) mostra a taxa estimada, mas **não permite o dono confirmar/ajustar** a `delivery_fee` e gerar `final_total`.
+## O que muda
 
-## O que será feito
+1. **`src/store/cart.ts`** — adicionar `establishmentSlug` ao estado e ao `setEstablishment(id, slug?)`. Sem isso, o botão fora da página do estabelecimento não sabe pra onde mandar o usuário. Mudança retrocompatível (campo opcional).
 
-### 1. Painel do lojista — `minha-loja/painel/Entrega.tsx` (reescrever)
-Substituir o mock por um editor real ligado a `useDeliverySettings` / `useDeliveryRegions` / `useDeliveryMutations`:
-- Escolher `delivery_model` (radio: a confirmar / fixa / por região / por região com confirmação / grátis / sem entrega).
-- Toggle `delivery_v2_enabled` e `always_confirm_by_whatsapp`.
-- Campo "taxa fixa" quando modelo = `fixed` (grava em `establishments.delivery_fee`).
-- CRUD de regiões: nome, taxa, tempo estimado, pedido mínimo (novo campo), nota pública, "exige confirmação manual", status. Reaproveita `delivery_regions` com migration que adiciona `min_order_value numeric default 0`.
-- Mensagens default ("fora da área", "mensagem padrão").
-- Respeita gating de plano via `Gated`/`canUseFeature`.
+2. **Novo `src/components/CartFloatingButton.tsx`** — extrai exatamente o markup que já existe em `Establishment.tsx` (linhas 735–755): pílula com contador, subtotal e "Finalizar Pedido". Lê `useCart()` e usa `establishmentSlug` do estado. Não renderiza se carrinho vazio ou sem slug.
 
-### 2. Migration — pedido mínimo por região
-- `ALTER TABLE delivery_regions ADD COLUMN min_order_value numeric NOT NULL DEFAULT 0;`
-- (já tem GRANT/RLS — sem novas policies)
+3. **`src/pages/Establishment.tsx`** — substituir o bloco inline pelo `<CartFloatingButton />` e passar o slug ao `cart.setEstablishment(data.id, data.slug)`.
 
-### 3. Checkout — `src/pages/Checkout.tsx` + novo `src/lib/deliveryFee.ts`
-Criar função pura `resolveDeliveryFee({ settings, regions, address, subtotal, manualRegionId })` que retorna `{ fee, status, regionMatched, manual, blocked, notice, minOrderValue, missingForMin }`. Regra de cruzamento (ordem):
-1. `delivery_model = no_delivery / pickup_only / dine_in_only` → bloqueia entrega.
-2. `free` → fee 0.
-3. `fixed` → `establishments.delivery_fee`.
-4. `by_region` / `by_region_manual` / `v2`:
-   a. Se usuário escolheu região manualmente → usa.
-   b. Senão, **auto-match**: normaliza (`unaccent + lowercase + trim`) `address.neighborhood` e o `popular_location_name` e compara com `regions[].name`; primeiro match define a região.
-   c. Sem match → status `to_confirm` com aviso "sua região não está cadastrada".
-   d. Se `region.status = 'nao_atendida'` → bloqueia.
-   e. Se `subtotal < region.min_order_value` → mostra "faltam R$ X para o mínimo desta região"; impede envio.
-   f. `requires_manual_confirmation` ou `always_confirm_by_whatsapp` → marca `manual=true` (taxa exibida como "estimada, a confirmar").
-5. `to_confirm` → fee null, sempre manual.
+4. **`src/App.tsx`** — criar um pequeno wrapper interno `GlobalCartButton` que usa `useLocation()` e só renderiza o `<CartFloatingButton />` quando a rota atual estiver na allowlist:
 
-No Checkout:
-- Sempre passar pelo `resolveDeliveryFee` (também quando V2=off, usando `delivery_model`).
-- Auto-selecionar a região assim que `data.neighborhood` casar.
-- Mostrar `min_order_value` faltante e bloquear envio.
-- Mostrar bandeira "Taxa estimada — confirmação pelo WhatsApp" quando `manual`.
+```text
+/                       (Index)
+/loja                   (Loja — listagem geral / categorias por query)
+/loja/categoria/...     (se existir rota dedicada de categoria)
+/e/:slug                (Cardápio)
+/loja/:slug             (Cardápio alternativo)
+/e/:slug/checkout       (Checkout)
+/loja/:slug/checkout    (Checkout)
+```
 
-### 4. Painel de pedidos — `src/pages/minha-loja/pedidos/PedidoDetalhes.tsx`
-Adicionar bloco "Confirmar taxa de entrega" quando o pedido está pendente:
-- Input para `delivery_fee` (pré-preenchido com `delivery_fee_estimated`).
-- Botão "Usar valor calculado pelo app" / "Informar valor manual".
-- Campo opcional `establishment_reply` (mensagem para o cliente).
-- Ao salvar: `update orders set delivery_fee=?, final_total = subtotal + ?, establishment_reply=?` — dispara realtime que já está ativo, então cliente vê em `/pedido/:code` e em `MinhaConta` o total confirmado.
+Implementação: regex simples sobre `location.pathname`. Em qualquer outra rota (minha-conta, painel, admin, pedido, referencias, login, etc.) não aparece.
 
-### 5. Tracking do cliente — `src/pages/PedidoTracking.tsx` e `minha-conta/PedidoDetalhes.tsx`
-Pequeno ajuste visual: quando `final_total` existe, mostrar "Total confirmado pela loja" destacado vs "Total estimado".
+5. Como o `Establishment` e o `Checkout` agora teriam o botão global, **removemos o botão inline antigo do `Establishment.tsx`** para evitar duplicação. O Checkout não tem botão hoje — passa a ter o global (útil se o usuário continua adicionando itens).
 
-### 6. Mensagem do WhatsApp — `src/lib/whatsapp.ts`
-Inclui região detectada, taxa (ou "a confirmar"), pedido mínimo da região, e link para o pedido onde a loja pode confirmar o valor.
+## O que não muda
 
-## Detalhes técnicos
+- Lógica do carrinho (preço, opções, persistência).
+- `FloatingOrdersButton` (pedidos em andamento) — é outro botão, fica como está.
+- Estilos/posição do botão (mesmo `fixed bottom-6` atual).
+- Páginas de painel da loja, admin, autenticação, tracking, referências — continuam sem o botão.
 
-- Nenhuma alteração em RLS/policies além da nova coluna.
-- `resolveDeliveryFee` 100% pura → fácil de testar (adicionar `src/tests/deliveryFee.test.ts`).
-- Auto-match usa a mesma `unaccent_safe` normalização do Postgres feita em JS.
-- Realtime de `orders` já habilitado em rodada anterior — basta o update do dono propagar.
+## Riscos / mitigação
 
-## Não vai mudar
+- **Carrinhos antigos no localStorage sem slug**: o botão simplesmente não renderiza até o usuário entrar de novo em um cardápio (que chama `setEstablishment`). Sem regressão para quem está no `/e/:slug`.
+- **Duplicação visual**: garantida ao remover o inline do `Establishment.tsx`.
+- **Rota de categoria**: hoje categorias parecem ser filtros dentro de `/loja` (query string). A allowlist `/loja` já cobre isso. Se houver rota futura `/categoria/...`, basta adicionar uma linha no matcher.
 
-- Cálculo por distância em km não é implementado nesta rodada (não há lat/lng no endereço hoje). Mantemos só nome de bairro/região + taxa fixa, que é a estratégia já vigente. Posso adicionar geo numa próxima rodada se quiser.
-- Não vou tocar fluxos não relacionados (cardápio, mídia, admin).
+## Resumo dos arquivos
+
+- editar: `src/store/cart.ts`
+- criar: `src/components/CartFloatingButton.tsx`
+- editar: `src/pages/Establishment.tsx` (passar slug + remover bloco inline)
+- editar: `src/App.tsx` (renderizar `GlobalCartButton` com allowlist de rotas)
