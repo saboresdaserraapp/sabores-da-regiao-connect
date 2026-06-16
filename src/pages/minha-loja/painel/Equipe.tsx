@@ -71,7 +71,7 @@ export default function Equipe() {
   return (
     <PainelSection title="Equipe e permissões" subtitle="Convide colaboradores para a operação desta loja. Cada papel libera apenas as áreas pertinentes.">
       <Gated feature="team_basic">
-        <div className="rounded-xl border border-border p-3 mb-4">
+        <div className="rounded-xl border border-border/70 p-3 mb-4 shadow-sm">
           <div className="text-xs font-semibold mb-2">Convidar membro</div>
           <div className="flex flex-wrap gap-2">
             <Input className="min-w-[220px] flex-1" placeholder="Nome do perfil (display_name)"
@@ -95,7 +95,7 @@ export default function Equipe() {
         <div className="space-y-2">
           {members.length === 0 && <p className="text-sm text-muted-foreground">Apenas o dono nesta loja.</p>}
           {members.map(m => (
-            <div key={m.id} className="rounded-lg border border-border p-3 flex flex-wrap items-center justify-between gap-2 text-sm">
+            <div key={m.id} className="rounded-xl border border-border/70 p-3 flex flex-wrap items-center justify-between gap-2 text-sm transition-shadow hover:shadow-sm">
               <div className="min-w-0">
                 <div className="font-mono text-xs text-muted-foreground">{m.user_id}</div>
                 <Badge variant="outline" className="mt-1 text-[10px]">{ROLE_LABEL[m.role] ?? m.role}</Badge>
