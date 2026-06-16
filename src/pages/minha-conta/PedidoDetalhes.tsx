@@ -6,6 +6,7 @@ import { Header } from "@/components/Header";
 import { OrderStatusStepper } from "@/components/orders/OrderStatusStepper";
 import { OrderDetailsPanel } from "@/components/orders/OrderDetailsPanel";
 import { OrderChat } from "@/components/OrderChat";
+import { ProposalAcceptCard } from "@/components/orders/ProposalAcceptCard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, MessageCircle, Loader2, Store, ShoppingBag, AlertCircle, Clock, MapPin, Receipt, Wallet, User, Phone } from "lucide-react";
@@ -100,6 +101,7 @@ export default function PedidoDetalhesCliente() {
 
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2 space-y-6">
+            <ProposalAcceptCard orderId={order.id} onChanged={() => refetch()} />
             <section className="rounded-2xl bg-card p-6 shadow-sm border">
                 <h2 className="mb-4 font-display text-lg font-semibold flex items-center gap-2">
                 <Store className="size-5 text-primary" /> {(order.establishments as any)?.name}
