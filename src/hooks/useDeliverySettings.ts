@@ -25,6 +25,11 @@ export interface DeliverySettings {
   outside_area_message: string | null;
   always_confirm_by_whatsapp: boolean;
   delivery_v2_enabled: boolean;
+  /** Optional distance-based fee config (opt-in, used as fallback when no region matches). */
+  distance_base_fee?: number | null;
+  distance_per_km?: number | null;
+  distance_free_km?: number | null;
+  distance_max_km?: number | null;
 }
 
 export interface DeliveryRegion {
