@@ -590,6 +590,10 @@ export type Database = {
           delivery_model: Database["public"]["Enums"]["delivery_model"]
           delivery_v2_enabled: boolean
           dine_in_available: boolean
+          distance_base_fee: number | null
+          distance_free_km: number | null
+          distance_max_km: number | null
+          distance_per_km: number | null
           establishment_id: string
           id: string
           outside_area_message: string | null
@@ -604,6 +608,10 @@ export type Database = {
           delivery_model?: Database["public"]["Enums"]["delivery_model"]
           delivery_v2_enabled?: boolean
           dine_in_available?: boolean
+          distance_base_fee?: number | null
+          distance_free_km?: number | null
+          distance_max_km?: number | null
+          distance_per_km?: number | null
           establishment_id: string
           id?: string
           outside_area_message?: string | null
@@ -618,6 +626,10 @@ export type Database = {
           delivery_model?: Database["public"]["Enums"]["delivery_model"]
           delivery_v2_enabled?: boolean
           dine_in_available?: boolean
+          distance_base_fee?: number | null
+          distance_free_km?: number | null
+          distance_max_km?: number | null
+          distance_per_km?: number | null
           establishment_id?: string
           id?: string
           outside_area_message?: string | null
@@ -771,7 +783,9 @@ export type Database = {
           id: string
           is_public: boolean
           last_menu_update_at: string | null
+          latitude: number | null
           logo: string | null
+          longitude: number | null
           menu_type: Database["public"]["Enums"]["menu_type"]
           name: string
           neighborhood: string | null
@@ -815,7 +829,9 @@ export type Database = {
           id?: string
           is_public?: boolean
           last_menu_update_at?: string | null
+          latitude?: number | null
           logo?: string | null
+          longitude?: number | null
           menu_type?: Database["public"]["Enums"]["menu_type"]
           name: string
           neighborhood?: string | null
@@ -859,7 +875,9 @@ export type Database = {
           id?: string
           is_public?: boolean
           last_menu_update_at?: string | null
+          latitude?: number | null
           logo?: string | null
+          longitude?: number | null
           menu_type?: Database["public"]["Enums"]["menu_type"]
           name?: string
           neighborhood?: string | null
