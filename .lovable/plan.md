@@ -1,64 +1,70 @@
-## Problema
+# Edição da taxa de entrega com aceite do cliente
 
-O componente `renderCard` em `src/pages/minha-loja/painel/Pedidos.tsx` é compartilhado entre as visões Lista e Kanban. Como foi desenhado para ocupar largura total, dentro das colunas estreitas do Kanban tudo quebra mal: nome do cliente em 3 linhas, badges do status colidem com o valor, telefone se separa em outra linha, o Select de status estoura a coluna (w-[210px]), e o link "Referências" some pelo overflow.
+## Auditoria (Fase 0) — o que já existe
 
-## Solução (apenas visual/layout — sem mexer em dados/lógica)
+Quase toda a infraestrutura já está pronta. Vamos **reutilizar**:
 
-Criar uma variante compacta de card exclusiva para o Kanban e melhorar o esqueleto das colunas. Lista permanece igual.
+- Tabela `order_confirmation_proposals` (com todos os campos e CHECK de status).
+- Colunas em `orders`: `final_subtotal`, `final_delivery_fee`, `final_discount`, `final_extra_fee`, `final_total`, `business_confirmation_note`, `customer_accepted_proposal_at`, `customer_rejected_proposal_at`, `confirmed_at`, `current_confirmation_proposal_id`, `confirmation_flow_status`.
+- RPCs `accept_order_proposal` e `reject_order_proposal`.
+- Trigger `supersede_previous_proposals` (já marca anteriores como superseded e atualiza `current_confirmation_proposal_id` + `confirmation_flow_status='proposal_sent_to_customer'`).
+- Trigger `handle_order_status_change_notification` (já notifica o cliente em mudanças de status).
+- Tabelas `order_status_history`, `order_messages`, `notifications`.
+- Componentes: `SendProposalDialog`, `ProposalAcceptCard`.
+- Lib `src/lib/orderProposals.ts`: `sendProposal`, `acceptProposal`, `rejectProposal`, `registerWhatsappAcceptance`, `confirmWithoutChange`, `fetchActiveProposal`.
 
-### 1. Card compacto do Kanban (novo `renderKanbanCard` interno)
+**Não vai ser criado** nada novo no banco. Nenhuma migration. Nenhum componente duplicado.
 
-Layout vertical, denso, hierarquia clara:
+## Lacunas a preencher
 
-```text
-┌────────────────────────────┐
-│ #SDS-JYQBR4      R$ 97,00 │  ← código mono pequeno + total destacado
-│ Yan Miguel C. Guimarães    │  ← nome em 1 linha (truncate)
-│ 22 98105-7034 · Pix        │  ← telefone formatado + pagamento
-│ 15/06 23:22 · há 2h        │  ← data curta + tempo relativo
-│ ─────────────────────────  │
-│ [Confirmado] [A receber]   │  ← badges status + pagamento na mesma linha
-│ Sub R$82 · Taxa R$15       │  ← linha única menor
-│ Obs: Troco para 50         │  ← só se houver, truncate 2 linhas
-│ 🛵 Motoboy: João           │  ← só se houver
-│ ─────────────────────────  │
-│ [Status ▾ full-width]      │  ← select ocupa 100% da coluna
-│ [WhatsApp] [Pago]          │  ← botões icon-only ou compactos, grid 2
-│ [Referências ▾]            │  ← full-width, discreto
-└────────────────────────────┘
-```
+1. Painel `/minha-loja/:id/pedidos` (`Pedidos.tsx`) não usa `SendProposalDialog` nem bloqueia avanço de status.
+2. Checkout não exibe o aviso sobre taxa estimada.
+3. `OrderHistoryDetailsDialog` (perfil cliente) não mostra a proposta para aceitar/recusar.
+4. Falta o botão "Registrar aceite pelo WhatsApp".
 
-Mudanças concretas:
-- Largura: card usa `w-full` puro, sem min-widths.
-- Truncamento: nome com `truncate`, obs com `line-clamp-2`.
-- Tipografia: nome `text-sm font-semibold`, metadados `text-[11px] text-muted-foreground`.
-- Data: formato curto `dd/MM HH:mm` + tempo relativo ("há 2h", "há 12min") via util local pequena.
-- Badges: `flex-wrap gap-1`, tamanho `text-[10px] px-1.5 py-0`.
-- Select de status: `w-full` (não mais 210px fixo), `h-8`.
-- Botões de ação: grid 2 colunas `gap-1.5`, `size="sm"` `h-8`, WhatsApp com ícone+texto, "Marcar pago" idem. "Referências" ocupa linha inteira abaixo.
-- Cor de alerta (stagnant) mantida.
+## Plano de implementação
 
-### 2. Colunas do Kanban
+### 1. `src/pages/minha-loja/painel/Pedidos.tsx`
 
-- Trocar `grid md:grid-cols-2 lg:grid-cols-5` por um layout horizontal com scroll quando estreito:
-  - `flex gap-3 overflow-x-auto pb-2 snap-x` no container.
-  - Cada coluna: `min-w-[280px] max-w-[300px] flex-1 snap-start` para que em telas grandes 5 colunas caibam igualmente e em telas médias rolem horizontalmente sem espremer.
-- Header da coluna fica sticky no topo da coluna: `sticky top-0 bg-muted/30 backdrop-blur z-[1]`.
-- Estado vazio: caixa tracejada centralizada (`border border-dashed rounded-lg py-6 text-center text-[11px] text-muted-foreground`) em vez do "Vazio" itálico solto.
-- Coluna ganha `rounded-2xl bg-muted/40 p-2 max-h-[calc(100vh-280px)] overflow-y-auto` para scroll interno por coluna.
+- Carregar, junto da query de pedidos, os campos novos: `final_delivery_fee`, `final_total`, `confirmation_flow_status`, `current_confirmation_proposal_id`.
+- Em `renderCard` e `renderKanbanCard`:
+  - Mostrar selo da proposta a partir de `confirmation_flow_status`: "Frete a definir", "Aguardando aceite", "Cliente aceitou", "Cliente recusou", "Confirmado".
+  - Mostrar `Taxa final` e `Total final` quando existirem.
+  - Botão **Editar frete** que abre `SendProposalDialog` (props: `orderId`, `establishmentId`, `defaultSubtotal=o.subtotal`, `defaultDeliveryFee=o.final_delivery_fee ?? o.delivery_fee`, `onSent=refetch`).
+  - Botão **Registrar aceite WhatsApp** (visível só quando `confirmation_flow_status='proposal_sent_to_customer'`). Abre `AlertDialog` com checkbox obrigatório e chama `registerWhatsappAcceptance`.
+- Status select: interceptar `onValueChange`. Se o novo status estiver em `["confirmed_by_business","preparing","ready_for_pickup","out_for_delivery","delivered"]` **e** o pedido for de entrega (`address_id` não nulo) **e** `confirmation_flow_status` não estiver em `["customer_accepted","confirmed","not_required"]`, abrir um toast com aviso e o `SendProposalDialog` ao invés de salvar.
 
-### 3. Pequenos ajustes
+### 2. `src/pages/Checkout.tsx`
 
-- Util `formatPhoneBR(phone)` inline para mostrar `22 98105-7034` em vez de `22981057034`.
-- Util `relativeTime(date)` inline retornando "agora", "há 5min", "há 2h", "há 1d".
-- Nenhum dado novo, nenhuma migração, nenhuma alteração na visão Lista.
+Acima do botão "Enviar pedido" e perto do total, quando `type==='entrega'`, adicionar bloco informativo:
 
-## Arquivo afetado
+> "A taxa de entrega exibida é uma estimativa inicial. O estabelecimento poderá revisar o valor conforme o endereço, acesso ao local, distância real, estrada ruim, chuva, tempestade ou outras adversidades. Caso haja reajuste, você receberá uma proposta com o valor final e o pedido só seguirá após sua confirmação."
 
-- `src/pages/minha-loja/painel/Pedidos.tsx` — adicionar `renderKanbanCard`, helpers de formatação, refatorar layout do `TabsContent value="kanban"`. Manter `renderCard` como está para a Lista.
+E logo abaixo do total: "Valor final sujeito à confirmação do estabelecimento."
 
-## Fora do escopo
+Garantir que o botão final continua dizendo "Enviar pedido para confirmação no WhatsApp" (verificar e ajustar texto se necessário). Confirmar que `user_id: session?.user.id ?? null` já está sendo gravado no insert (auditar e corrigir caso esteja faltando).
 
-- Drag & drop entre colunas.
-- Alterações em backend, RLS ou tabelas.
-- Mudanças na visão Lista, no painel admin ou nas páginas do cliente.
+### 3. `src/components/profile/OrderHistoryDetailsDialog.tsx`
+
+No topo do conteúdo do dialog, montar `<ProposalAcceptCard orderId={order.id} onChanged={refetch} />`. Componente já se auto-esconde quando não há proposta ativa.
+
+Também exibir `final_total`/`final_delivery_fee` no resumo, quando presentes, ao invés de só `total`/`delivery_fee`.
+
+### 4. WhatsApp message (Painel Pedidos)
+
+Atualizar a função `msgStr` em `Pedidos.tsx` para incluir o trecho da proposta quando existir taxa final diferente da estimada, no formato pedido (subtotal, taxa estimada, taxa final, total final, observação, aviso). Suprimir linhas com valor `null`/`undefined`.
+
+## Itens fora deste escopo (não tocar)
+
+- Painel admin.
+- Checkout flow além do aviso e do `user_id`.
+- Carrinho, produtos, motoboys, referências visuais (apenas leitura no card).
+- Não rodar nenhuma migration; não criar tabela/coluna/função/componente novos.
+
+## Critérios de aceite
+
+- Loja edita frete pelo card → proposta `sent` criada, `confirmation_flow_status='proposal_sent_to_customer'`, pedido permanece `waiting_business_confirmation`.
+- Cliente vê o card de proposta em `Minha Conta › detalhes do pedido` e aceita/recusa.
+- Tentativa de mudar status para confirmado/preparo/etc sem aceite é bloqueada com toast e abre o dialog de frete.
+- Botão "Registrar aceite WhatsApp" confirma o pedido manualmente.
+- Pedidos antigos sem proposta continuam abrindo normalmente (campos `final_*` ausentes ficam ocultos).

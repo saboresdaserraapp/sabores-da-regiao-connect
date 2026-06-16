@@ -7,6 +7,8 @@ import { MessageCircle, RotateCcw, ExternalLink } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { HistoryOrder } from "@/hooks/useOrderHistory";
 import { isOngoing } from "@/hooks/useOrderHistory";
+import { ProposalAcceptCard } from "@/components/orders/ProposalAcceptCard";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface Props {
   order: HistoryOrder | null;
@@ -16,9 +18,11 @@ interface Props {
 }
 
 export function OrderHistoryDetailsDialog({ order, onClose, onReorder, reordering }: Props) {
+  const qc = useQueryClient();
   if (!order) return null;
   const total = Number(order.final_total ?? order.total ?? 0);
   const whatsapp = order.establishment?.whatsapp;
+  const finalFee = (order as any).final_delivery_fee;
   return (
     <Dialog open={!!order} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -38,6 +42,11 @@ export function OrderHistoryDetailsDialog({ order, onClose, onReorder, reorderin
         </DialogHeader>
 
         <div className="space-y-4">
+          <ProposalAcceptCard
+            orderId={order.id}
+            onChanged={() => qc.invalidateQueries({ queryKey: ["order-history"] })}
+          />
+
           <section className="space-y-2">
             <h4 className="text-sm font-semibold">Itens</h4>
             <ul className="divide-y divide-border rounded-lg border border-border">
@@ -73,7 +82,10 @@ export function OrderHistoryDetailsDialog({ order, onClose, onReorder, reorderin
 
           <section className="grid gap-1 rounded-lg border border-border p-3 text-sm">
             <Row label="Subtotal" value={brl(Number(order.subtotal ?? 0))} />
-            <Row label="Taxa de entrega" value={brl(Number(order.delivery_fee ?? 0))} />
+            <Row label="Taxa de entrega estimada" value={brl(Number(order.delivery_fee ?? 0))} />
+            {finalFee != null && (
+              <Row label="Taxa de entrega final" value={brl(Number(finalFee))} />
+            )}
             <Row label="Total" value={brl(total)} bold />
           </section>
 

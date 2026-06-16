@@ -498,6 +498,11 @@ const CheckoutPage = () => {
           <Row label="Taxa" value={taxa ? brl(taxa) : "a confirmar"} />
           <div className="my-2 border-t border-border" />
           <Row label="Total estimado" value={brl(total)} strong />
+          {type === "entrega" && (
+            <div className="mt-2 text-[11px] font-medium text-amber-700">
+              Valor final sujeito à confirmação do estabelecimento.
+            </div>
+          )}
           {type === "entrega" && deliveryInfo?.notice && (
             <div className={cn(
               "mt-3 rounded-xl px-3 py-2 text-xs flex items-start gap-2",
@@ -518,6 +523,16 @@ const CheckoutPage = () => {
             </div>
           )}
         </section>
+
+        {type === "entrega" && (
+          <section className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 leading-relaxed">
+            <div className="font-semibold mb-1">Atenção sobre a taxa de entrega</div>
+            A taxa de entrega exibida é uma estimativa inicial. O estabelecimento poderá revisar o valor
+            conforme o endereço, acesso ao local, distância real, estrada ruim, chuva, tempestade ou
+            outras adversidades. Caso haja reajuste, você receberá uma proposta com o valor final e o
+            pedido só seguirá após sua confirmação.
+          </section>
+        )}
 
         {type === "entrega" && (
           <section className="rounded-3xl bg-card p-4 shadow-card">
@@ -579,7 +594,7 @@ const CheckoutPage = () => {
             ? "Enviando…"
             : type === "entrega" && isLoadingHouseRef
             ? "Carregando referências…"
-            : "Enviar pedido para o WhatsApp"}
+            : "Enviar pedido para confirmação no WhatsApp"}
         </button>
       </div>
 
