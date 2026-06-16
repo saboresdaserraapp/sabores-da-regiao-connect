@@ -74,9 +74,22 @@ import PainelEditarProduto from "./pages/minha-loja/painel/EditarProduto.tsx";
 import PainelEquipe from "./pages/minha-loja/painel/Equipe.tsx";
 import PainelMotoboys from "./pages/minha-loja/painel/Motoboys.tsx";
 import { FloatingOrdersButton } from "./components/FloatingOrdersButton";
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
+import { CartFloatingButton } from "./components/CartFloatingButton";
 
 const queryClient = new QueryClient();
+
+function GlobalCartButton() {
+  const { pathname } = useLocation();
+  const allowed =
+    pathname === "/" ||
+    pathname === "/loja" ||
+    /^\/loja\//.test(pathname) ||
+    /^\/e\//.test(pathname) ||
+    /^\/categoria(\/|$)/.test(pathname);
+  if (!allowed) return null;
+  return <CartFloatingButton />;
+}
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -170,6 +183,7 @@ const App = () => (
             <Route path="*" element={<NotFound />} />
           </Routes>
           <FloatingOrdersButton />
+          <GlobalCartButton />
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
