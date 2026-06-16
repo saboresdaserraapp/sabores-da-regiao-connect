@@ -73,26 +73,44 @@ export default function MinhaConta() {
 function PerfilTab() {
   const { user } = useAuth();
   const qc = useQueryClient();
-  const { data: profile } = useQuery({
+  const { data: profile, isLoading } = useQuery({
     queryKey: ["my-profile", user?.id],
+    enabled: !!user?.id,
     queryFn: async () => (await supabase.from("profiles").select("*").eq("id", user!.id).maybeSingle()).data,
   });
   const [form, setForm] = useState<any>(null);
-  const f = form ?? profile ?? { display_name: "", phone: "", avatar_url: "" };
+  useEffect(() => {
+    if (profile && form === null) {
+      setForm({
+        display_name: profile.display_name ?? "",
+        phone: profile.phone ?? "",
+        avatar_url: profile.avatar_url ?? "",
+        cpf: (profile as any).cpf ?? "",
+      });
+    }
+  }, [profile, form]);
+  const f = form ?? { display_name: "", phone: "", avatar_url: "", cpf: "" };
+  const [saving, setSaving] = useState(false);
 
   async function save() {
-    const { error } = await supabase.from("profiles").update({
-      display_name: f.display_name, phone: f.phone, avatar_url: f.avatar_url,
-    }).eq("id", user!.id);
+    if (!user?.id) return toast.error("Sessão expirada, faça login novamente.");
+    setSaving(true);
+    const payload: any = {
+      display_name: f.display_name || null,
+      phone: f.phone || null,
+      avatar_url: f.avatar_url || null,
+      cpf: f.cpf || null,
+    };
+    // Use upsert to guarantee the row exists (handles edge cases where
+    // the profile row wasn't created by the trigger for legacy users).
+    const { error } = await supabase
+      .from("profiles")
+      .upsert({ id: user.id, ...payload }, { onConflict: "id" });
+    setSaving(false);
     if (error) return toast.error(error.message);
     toast.success("Perfil atualizado");
-    await supabase.from("notifications").insert({
-      user_id: user!.id,
-      type: "profile_update",
-      title: "Perfil atualizado",
-      message: "Suas informações de perfil foram salvas com sucesso.",
-    });
-    qc.invalidateQueries({ queryKey: ["my-profile", user!.id] });
+    qc.invalidateQueries({ queryKey: ["my-profile", user.id] });
+    qc.invalidateQueries({ queryKey: ["profile", user.id] });
   }
 
   return (
@@ -115,9 +133,16 @@ function PerfilTab() {
           <label className="mb-1 block text-xs font-medium text-muted-foreground">Telefone</label>
           <Input value={f.phone || ""} onChange={(e) => setForm({ ...f, phone: e.target.value })} placeholder="(11) 99999-0000" />
         </div>
-        <Button onClick={save}>Salvar perfil</Button>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">CPF</label>
+          <Input value={f.cpf || ""} onChange={(e) => setForm({ ...f, cpf: e.target.value })} placeholder="000.000.000-00" />
+        </div>
+        <Button onClick={save} disabled={saving || isLoading}>
+          {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
+          Salvar perfil
+        </Button>
       </div>
-    </div>
+      </div>
     <SenhaCard />
     </div>
   );
