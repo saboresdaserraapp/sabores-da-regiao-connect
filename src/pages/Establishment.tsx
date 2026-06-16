@@ -4,7 +4,7 @@ import { ArrowLeft, MapPin, Clock, Phone, Share2, Navigation, Star, ShoppingBag,
 import { supabase } from "@/integrations/supabase/client";
 import { StatusBadge } from "@/components/StatusBadge";
 import { brl } from "@/lib/format";
-import { cart, useCart } from "@/store/cart";
+import { cart } from "@/store/cart";
 import { cn } from "@/lib/utils";
 import { trackEvent } from "@/lib/track";
 import { useEstablishmentTheme } from "@/hooks/useEstablishmentTheme";
