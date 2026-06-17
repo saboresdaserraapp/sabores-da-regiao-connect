@@ -1,9 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { useOrderMessages } from "@/hooks/useOrderMessages";
 import { Button } from "./ui/button";
-import { Input } from "./ui/input";
 import { ScrollArea } from "./ui/scroll-area";
-import { Loader2, Send, RefreshCw } from "lucide-react";
+import { Loader2, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -13,6 +12,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
+import { ChatComposer } from "./support/ChatComposer";
+import { AttachmentList } from "./support/AttachmentList";
 
 interface OrderChatProps {
   orderId: string;
@@ -33,7 +34,6 @@ export function OrderChat({
   disabled = false,
   disabledMessage,
 }: OrderChatProps) {
-  const [msg, setMsg] = useState("");
   const { data: messages, isLoading, isError, sendMessage, refetch, markAsRead } = useOrderMessages(orderId);
   const lastMarkedCount = useRef(0);
 
@@ -45,11 +45,19 @@ export function OrderChat({
     }
   }, [messages, markAsRead]);
 
-  const handleSend = (text?: string) => {
-    const value = (text ?? msg).trim();
+  const handleQuick = (text: string) => {
+    const value = text.trim();
     if (!value || sendMessage.isPending) return;
-    sendMessage.mutate({ message: value, senderType, establishmentId }, {
-      onSuccess: () => setMsg(""),
+    sendMessage.mutate({ message: value, senderType, establishmentId });
+  };
+  const handleSend = async (text: string, attachments: unknown[]) => {
+    const value = text.trim();
+    if (!value && attachments.length === 0) return;
+    await sendMessage.mutateAsync({
+      message: value || "(anexo)",
+      senderType,
+      establishmentId,
+      attachments,
     });
   };
 
@@ -72,6 +80,7 @@ export function OrderChat({
             const isSystem = m.sender_type === "system";
             const text = typeof m.message === "string" ? m.message : "";
             const createdAt = m.created_at ? new Date(m.created_at) : null;
+            const attachments = (m as { attachments?: unknown }).attachments;
 
             if (isSystem) {
               return (
@@ -83,13 +92,27 @@ export function OrderChat({
               );
             }
 
+            const label = isMe
+              ? "Você"
+              : senderType === "customer"
+                ? "Loja"
+                : "Cliente";
+            const otherBubble = senderType === "customer"
+              ? "bg-amber-100 text-amber-950 border border-amber-300 dark:bg-amber-950/40 dark:text-amber-50 dark:border-amber-800"
+              : "bg-emerald-100 text-emerald-950 border border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-50 dark:border-emerald-800";
             return (
               <div key={m.id} className={cn("flex flex-col", isMe ? "items-end" : "items-start")}>
                 <div className={cn(
                   "max-w-[80%] rounded-2xl px-3 py-2 text-sm shadow-sm",
-                  isMe ? "bg-primary text-primary-foreground rounded-tr-none" : "bg-muted rounded-tl-none"
+                  isMe
+                    ? "bg-primary text-primary-foreground rounded-tr-none"
+                    : `${otherBubble} rounded-tl-none`
                 )}>
-                  {text}
+                  <div className="text-[10px] font-medium opacity-80 mb-0.5">{label}</div>
+                  {text && text !== "(anexo)" && (
+                    <div className="whitespace-pre-wrap break-words">{text}</div>
+                  )}
+                  <AttachmentList attachments={attachments} />
                 </div>
                 <span className="text-[10px] text-muted-foreground mt-1 px-1">
                   {createdAt ? format(createdAt, "HH:mm", { locale: ptBR }) : ""}
@@ -123,7 +146,7 @@ export function OrderChat({
                   {quickReplies.map((q) => (
                     <DropdownMenuItem
                       key={q}
-                      onSelect={() => handleSend(q)}
+                      onSelect={() => handleQuick(q)}
                       className="text-xs whitespace-normal"
                     >
                       {q}
@@ -133,17 +156,13 @@ export function OrderChat({
               </DropdownMenu>
             </div>
           )}
-          <div className="p-3 flex gap-2">
-            <Input
+          <div className="p-3">
+            <ChatComposer
+              scope="order"
+              scopeId={orderId}
+              onSend={handleSend}
               placeholder="Digite sua mensagem..."
-              value={msg}
-              onChange={(e) => setMsg(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSend()}
-              className="flex-1"
             />
-            <Button size="icon" onClick={() => handleSend()} disabled={!msg.trim() || sendMessage.isPending}>
-              {sendMessage.isPending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-            </Button>
           </div>
         </div>
       )}
