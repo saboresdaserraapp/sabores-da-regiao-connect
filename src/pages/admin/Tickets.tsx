@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
-import { useSupportTickets, STATUS_LABEL, PRIORITY_LABEL, type TicketStatus, type TicketPriority } from "@/hooks/useSupportTickets";
+import { useSupportTickets, STATUS_LABEL, PRIORITY_LABEL, type TicketStatus, type TicketPriority, type TicketCategory } from "@/hooks/useSupportTickets";
 import { TicketListItem } from "@/components/support/NewTicketDialog";
 import { TicketDetail } from "@/components/support/TicketDetail";
 import { PageHeader } from "@/components/ui/page-header";
@@ -8,17 +8,38 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 
-export default function AdminTickets() {
+export interface AdminTicketsProps {
+  embedded?: boolean;
+  forceStatus?: TicketStatus[];
+  forceCategory?: TicketCategory[];
+  title?: string;
+  description?: string;
+}
+
+export default function AdminTickets({
+  embedded = false,
+  forceStatus,
+  forceCategory,
+  title = "Tickets de suporte",
+  description = "Inbox da equipe de suporte.",
+}: AdminTicketsProps = {}) {
   const { ticketId } = useParams<{ ticketId?: string }>();
-  const [selected, setSelected] = useState<string | null>(ticketId ?? null);
-  useEffect(() => { if (ticketId) setSelected(ticketId); }, [ticketId]);
+  const [selected, setSelected] = useState<string | null>(embedded ? null : (ticketId ?? null));
+  useEffect(() => { if (!embedded && ticketId) setSelected(ticketId); }, [ticketId, embedded]);
   const [q, setQ] = useState("");
   const [origin, setOrigin] = useState<"all" | "customer" | "establishment">("all");
   const [status, setStatus] = useState<"all" | TicketStatus>("all");
   const [priority, setPriority] = useState<"all" | TicketPriority>("all");
   const { data: tickets = [], isLoading } = useSupportTickets({ kind: "admin" });
 
-  const filtered = tickets.filter((t) => {
+  const scoped = useMemo(() => {
+    let list = tickets;
+    if (forceStatus && forceStatus.length) list = list.filter((t) => forceStatus.includes(t.status));
+    if (forceCategory && forceCategory.length) list = list.filter((t) => forceCategory.includes(t.category));
+    return list;
+  }, [tickets, forceStatus, forceCategory]);
+
+  const filtered = scoped.filter((t) => {
     const matchQ = !q.trim() ||
       t.subject.toLowerCase().includes(q.toLowerCase()) ||
       STATUS_LABEL[t.status].toLowerCase().includes(q.toLowerCase());
@@ -32,9 +53,9 @@ export default function AdminTickets() {
 
   // SLA metrics
   const now = Date.now();
-  const open = tickets.filter((t) => t.status !== "closed" && t.status !== "resolved");
+  const open = scoped.filter((t) => t.status !== "closed" && t.status !== "resolved");
   const avgFirstResponseMs = (() => {
-    const resolved = tickets.filter((t) => t.resolved_at);
+    const resolved = scoped.filter((t) => t.resolved_at);
     if (!resolved.length) return null;
     const total = resolved.reduce((s, t) => s + (new Date(t.resolved_at!).getTime() - new Date(t.created_at).getTime()), 0);
     return total / resolved.length;
@@ -45,7 +66,7 @@ export default function AdminTickets() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Tickets de suporte" description="Inbox da equipe de suporte." />
+      {!embedded && <PageHeader title={title} description={description} />}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">Abertos</div><div className="text-2xl font-semibold">{open.length}</div></CardContent></Card>
