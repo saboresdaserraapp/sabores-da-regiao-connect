@@ -96,16 +96,18 @@ export function useChatQueuePosition(chat: SupportChat | null | undefined) {
   return query;
 }
 
-export function useAdminChats() {
+export function useAdminChats(filter: "open" | "history" = "open") {
   const qc = useQueryClient();
+  const statuses: ChatStatus[] = filter === "history" ? ["closed"] : ["waiting", "active"];
   const query = useQuery({
-    queryKey: ["admin_support_chats"],
+    queryKey: ["admin_support_chats", filter],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("support_chats")
         .select("*")
-        .in("status", ["waiting", "active"])
-        .order("last_message_at", { ascending: true });
+        .in("status", statuses)
+        .order(filter === "history" ? "closed_at" : "last_message_at", { ascending: filter !== "history", nullsFirst: false })
+        .limit(filter === "history" ? 100 : 200);
       if (error) throw error;
       return (data ?? []) as SupportChat[];
     },
@@ -113,13 +115,13 @@ export function useAdminChats() {
 
   useEffect(() => {
     const ch = supabase
-      .channel("admin_support_chats")
+      .channel(`admin_support_chats_${filter}`)
       .on("postgres_changes",
         { event: "*", schema: "public", table: "support_chats" },
-        () => qc.invalidateQueries({ queryKey: ["admin_support_chats"] })
+        () => qc.invalidateQueries({ queryKey: ["admin_support_chats", filter] })
       ).subscribe();
     return () => { supabase.removeChannel(ch); };
-  }, [qc]);
+  }, [qc, filter]);
 
   return query;
 }
