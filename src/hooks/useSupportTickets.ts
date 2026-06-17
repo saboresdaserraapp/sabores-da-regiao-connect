@@ -139,12 +139,13 @@ export function useSendTicketMessage() {
   const qc = useQueryClient();
   const { user } = useAuth();
   return useMutation({
-    mutationFn: async (args: { ticket_id: string; message: string; sender_role: ActorRole }) => {
+    mutationFn: async (args: { ticket_id: string; message: string; sender_role: ActorRole; is_internal_note?: boolean }) => {
       const { data, error } = await supabase.from("support_ticket_messages").insert({
         ticket_id: args.ticket_id,
         sender_id: user!.id,
         sender_role: args.sender_role,
         message: args.message,
+        is_internal_note: args.is_internal_note ?? false,
       }).select("*").single();
       if (error) throw error;
       return data;
