@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNotifications } from "@/hooks/useNotifications";
-import { Bell, BellDot, Loader2, Package, MessageSquare } from "lucide-react";
+import { Bell, BellDot, Loader2, Package, MessageSquare, LifeBuoy, Ticket } from "lucide-react";
 import { Button } from "./ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { ScrollArea } from "./ui/scroll-area";
@@ -9,22 +9,75 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
+import { useMyEstablishmentIds } from "@/hooks/useMyEstablishmentIds";
+
+const ORDER_TYPES = new Set(["new_order_message", "order_chat_message"]);
+const SUPPORT_CHAT_USER_TYPES = new Set([
+  "support_chat_reply",
+  "support_chat_message",
+  "support_chat_assigned",
+  "support_chat_closed",
+]);
+const TICKET_USER_TYPES = new Set(["support_ticket_reply", "support_ticket_status_changed"]);
+
+function iconFor(type: string | null | undefined) {
+  if (!type) return <Package className="size-4" />;
+  if (ORDER_TYPES.has(type)) return <MessageSquare className="size-4" />;
+  if (SUPPORT_CHAT_USER_TYPES.has(type) || type === "support_chat_waiting") return <LifeBuoy className="size-4" />;
+  if (TICKET_USER_TYPES.has(type) || type === "support_ticket_created") return <Ticket className="size-4" />;
+  return <Package className="size-4" />;
+}
 
 export function NotificationCenter() {
   const { data: notifications, isLoading, markAsRead } = useNotifications();
   const unreadCount = notifications?.filter(n => !n.read_at).length || 0;
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
+  const { isAdmin } = useAuth();
+  const { data: myEstablishments } = useMyEstablishmentIds();
+
+  const routeFor = (n: any): string | null => {
+    const type = n?.type as string | undefined;
+    const data = n?.data ?? {};
+    const estId = n?.related_establishment_id ?? n?.establishment_id ?? data.establishment_id;
+    const orderId = n?.related_order_id ?? data.order_id;
+    const chatId = n?.related_support_chat_id ?? data.chat_id;
+    const ticketId = n?.related_ticket_id ?? data.ticket_id;
+    const isMyEstablishment = !!estId && (myEstablishments ?? []).includes(estId);
+
+    if (type && ORDER_TYPES.has(type) && orderId) {
+      return isMyEstablishment && estId
+        ? `/minha-loja/${estId}/pedidos/${orderId}`
+        : `/minha-conta/pedidos/${orderId}`;
+    }
+    if (type === "support_chat_waiting") {
+      return isAdmin ? "/admin/suporte/chats" : null;
+    }
+    if (type && SUPPORT_CHAT_USER_TYPES.has(type)) {
+      if (isAdmin && chatId) return "/admin/suporte/chats";
+      return isMyEstablishment && estId
+        ? `/minha-loja/${estId}/suporte/chat`
+        : "/minha-conta/suporte/chat";
+    }
+    if (type === "support_ticket_created" && ticketId) {
+      return isAdmin ? `/admin/suporte/tickets/${ticketId}` : null;
+    }
+    if (type && TICKET_USER_TYPES.has(type) && ticketId) {
+      if (isAdmin) return `/admin/suporte/tickets/${ticketId}`;
+      return isMyEstablishment && estId
+        ? `/minha-loja/${estId}/suporte/tickets/${ticketId}`
+        : `/minha-conta/suporte/tickets/${ticketId}`;
+    }
+    return null;
+  };
 
   const handleClick = (n: any) => {
-    const orderId =
-      n?.type === "new_order_message" || n?.type === "order_chat_message"
-        ? (n?.data?.order_id as string | undefined)
-        : undefined;
     if (!n.read_at) markAsRead.mutate(n.id);
-    if (orderId) {
+    const route = routeFor(n);
+    if (route) {
       setOpen(false);
-      navigate(`/minha-conta/pedidos/${orderId}`);
+      navigate(route);
     }
   };
 
@@ -69,7 +122,7 @@ export function NotificationCenter() {
                 >
                   <div className="flex gap-3">
                     <div className="size-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 text-primary">
-                      {(n.type === "new_order_message" || n.type === "order_chat_message") ? <MessageSquare className="size-4" /> : <Package className="size-4" />}
+                      {iconFor(n.type)}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="font-semibold text-xs mb-0.5">{n.title ?? ""}</div>

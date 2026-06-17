@@ -1,57 +1,46 @@
-## Auditoria
-Quase tudo já existe e não será duplicado.
+## Objetivo
+Conectar o sininho (tabela `notifications` já existente) aos três canais: chat do pedido, chat de suporte rápido e tickets — sem duplicar tabelas, sem quebrar fluxos atuais.
 
-**Já existe:**
-- Tabelas `support_tickets` (com `subject`, `description`, `category`, `priority`, `status`, `opened_by/role`, `establishment_id`, `order_id`, `assigned_admin_id`, `resolved_at`, `closed_at`, `last_message_at`), `support_ticket_messages` (com `attachments` jsonb) e `support_ticket_attachments`. RLS por dono/admin/membros do estabelecimento. Trigger de notificação ao criar/responder.
-- Hook `useSupportTickets` + `NewTicketDialog` + `TicketDetail`.
-- Páginas: `/minha-conta/suporte` (cliente), `/minha-loja/:id/suporte` (loja), `/admin/tickets` (admin) — todas funcionais.
-- Bucket `support-attachments` + políticas.
-
-**Decisões:**
-- **Não recriar tabelas** com nomes diferentes (`created_by_user_id`, `requester_type`, `related_order_id`, `severity`). Os campos atuais já mapeiam o enunciado:
-  - `opened_by` ↔ `created_by_user_id`
-  - `opened_by_role` ↔ `requester_type`
-  - `establishment_id`/`order_id` ↔ `related_*`
-- **`severity` não será adicionado** — `priority` já cobre o caso. Adicionar `severity` agora exigiria refazer UI; fora do critério de sucesso.
-- **`category`** atual é enum `support_ticket_category`. Os valores pedidos serão adicionados ao enum se faltarem (ALTER TYPE ADD VALUE IF NOT EXISTS), mantendo retro-compatibilidade.
+## Estado atual (auditado)
+- Tabela `public.notifications` já existe com `user_id`, `establishment_id`, `type`, `data jsonb`, `read_at`.
+- Triggers já populam notificações:
+  - `handle_new_order_message_notification` → tipo `new_order_message` (pedido)
+  - `handle_support_chat_message` → `support_chat_reply` / `support_chat_waiting`
+  - `handle_support_ticket_created` → `support_ticket_created`
+  - `handle_support_ticket_message` → `support_ticket_reply`
+- `NotificationCenter.tsx` só roteia pedidos. Suporte/ticket não navegam.
 
 ## Mudanças
 
-### 1. Migração SQL
-- `ALTER TABLE support_ticket_messages ADD COLUMN IF NOT EXISTS is_internal_note boolean NOT NULL DEFAULT false`.
-- Reescrever a policy SELECT de `support_ticket_messages` para **esconder notas internas de não-admin**:
-  - admin: vê tudo.
-  - opener/membro do estabelecimento: vê apenas `is_internal_note = false`.
-- INSERT policy: somente admin pode inserir mensagem com `is_internal_note = true`.
-- `ALTER TYPE support_ticket_category ADD VALUE IF NOT EXISTS` para os valores do enunciado que ainda não existirem (`order_problem`, `payment_problem`, `delivery_problem`, `complaint`, `report_establishment`, `report_customer`, `report_content`, `account_problem`, `subscription_problem`, `technical_problem`, `other`).
-- Não tocar em `support_tickets` policies (já corretas).
+### 1. Migration (aditiva, idempotente)
+- `ALTER TABLE public.notifications ADD COLUMN IF NOT EXISTS related_order_id uuid`, `related_support_chat_id uuid`, `related_ticket_id uuid` (a coluna `establishment_id` já cobre `related_establishment_id`).
+- Atualizar as 4 funções de trigger para preencher os novos `related_*` (em paralelo ao `data jsonb`, mantendo retrocompatibilidade). Sem alterar assinatura.
+- Adicionar trigger leve `handle_support_ticket_status_change` em `support_tickets` (AFTER UPDATE OF status) → cria notificação `support_ticket_status_changed` para `opened_by`.
+- Padronizar tipos novos como aliases conforme spec, **mantendo os antigos** (`new_order_message`, `support_chat_reply`, etc.) para não quebrar nada. O frontend trata ambos.
 
-### 2. Rotas (apenas aliases — não quebrar antigas)
-- `src/App.tsx`:
-  - `/minha-conta/suporte/tickets` → `SuporteCliente` (alias).
-  - `/minha-conta/suporte/tickets/:ticketId` → nova página `TicketDetalhesCliente` envolvendo `TicketDetail` em layout com `Header`.
-  - `/minha-loja/:establishmentId/suporte/tickets` → `PainelSuporte` (alias).
-  - `/minha-loja/:establishmentId/suporte/tickets/:ticketId` → nova página `PainelTicketDetalhes` reusando `TicketDetail`.
-  - `/admin/suporte/tickets` → `AdminTickets` (alias da existente `/admin/tickets`).
-  - `/admin/suporte/tickets/:ticketId` → `AdminTickets` com seleção pré-aplicada (param via `useParams`).
+### 2. Frontend — `src/components/NotificationCenter.tsx`
+Roteamento por tipo, marcando como lida ao clicar:
 
-### 3. UI — notas internas
-- `TicketDetail.tsx`:
-  - Quando `senderRole === "admin"`: novo toggle "Nota interna" no compositor; ao enviar, gravar `is_internal_note: true`.
-  - Render de mensagens: badge "Nota interna" + fundo amarelo quando `is_internal_note`.
-  - Cliente/loja: já não recebe via RLS, mas filtrar defensivamente também (`!m.is_internal_note`).
-- `AdminTickets.tsx`: garantir que ao abrir com `:ticketId` na URL, o detalhe abra; filtros por status/categoria/prioridade já existem.
+| type | rota |
+|---|---|
+| `new_order_message` / `order_chat_message` | `/minha-conta/pedidos/:order_id` (cliente) ou `/minha-loja/:est/pedidos/:order_id` (loja, se `establishment_id` presente e usuário for dono) |
+| `support_chat_reply` / `support_chat_message` / `support_chat_assigned` / `support_chat_closed` | `/minha-conta/suporte/chat` (cliente) ou `/minha-loja/:est/suporte/chat` (loja) |
+| `support_chat_waiting` | `/admin/suporte/chats` |
+| `support_ticket_created` | `/admin/suporte/tickets/:ticket_id` |
+| `support_ticket_reply` / `support_ticket_status_changed` | `/minha-conta/suporte/tickets/:ticket_id` (cliente) ou `/minha-loja/:est/suporte/tickets/:ticket_id` (loja) ou `/admin/suporte/tickets/:ticket_id` (admin) |
 
-### 4. Defesa contra `null/undefined/[object Object]`
-- Em `TicketDetail`: `m.message ?? ""`, `m.created_at ? format(...) : ""`, ignorar mensagens vazias.
+Determinar contexto cliente/loja/admin: usar `useAuth` + hook `useIsAdmin` existente (se houver) ou checar se `establishment_id` da notificação pertence ao usuário via lista de owners (já há `establishment_owners`). Reaproveitar um hook simples `useMyEstablishmentIds()` para decidir entre rota loja vs cliente.
 
-## Fora de escopo
-Chat do pedido, suporte rápido (sem conversão de chat→ticket nesta fase), reescrita de páginas existentes, `severity`, mudanças no painel admin (apenas rota alias + abrir por id).
+### 3. Ícones por tipo
+Adicionar ícones distintos (`MessageSquare` chat pedido, `LifeBuoy` suporte chat, `Ticket` tickets).
 
-## Testes manuais
-1. Cliente cria ticket em `/minha-conta/suporte/tickets` → notificação ao admin (trigger existente).
-2. Admin abre em `/admin/suporte/tickets` → vê e responde.
-3. Cliente recebe sininho (trigger `handle_support_ticket_message`).
-4. Admin marca "Nota interna" e envia → cliente NÃO vê (RLS bloqueia); outro admin vê.
-5. Admin muda status → notificação ao opener (já implementado pelo trigger atual).
-6. Ticket aparece só em `/suporte/tickets`, nunca no chat do pedido nem no chat rápido (tabelas distintas).
+## Fora do escopo
+- Nova tabela de notificações.
+- Push/email/realtime adicional.
+- Mudança nas tabelas `support_*`, `orders`, `order_messages`.
+- UI de preferências de notificação.
+
+## Arquivos a alterar
+- nova migration SQL
+- `src/components/NotificationCenter.tsx`
+- novo `src/hooks/useMyEstablishmentIds.ts` (pequeno)
