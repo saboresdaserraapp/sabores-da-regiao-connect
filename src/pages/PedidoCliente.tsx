@@ -87,6 +87,9 @@ export default function PedidoCliente() {
                   orderId={order.id}
                   senderType="customer"
                   establishmentId={order.establishment_id}
+                  title="Conversa com a loja"
+                  disabled={["delivered","canceled_by_customer","canceled_by_business","not_completed","customer_not_responding"].includes(order.status)}
+                  disabledMessage="Este pedido foi finalizado. Para problemas, abra um ticket de suporte."
                 />
               ) : (
                 <p className="text-sm text-muted-foreground p-3">Faça login para conversar com a loja.</p>

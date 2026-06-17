@@ -1,56 +1,52 @@
-## Objetivo
-Revisão final (sem nova feature): auditar RLS e separação dos três canais de comunicação e aplicar somente correções pontuais se algo estiver frouxo.
+## Auditoria — nada precisa ser recriado
 
-## Resultado da auditoria atual
+Tudo já existe e está em uso:
 
-### order_messages — OK
-- SELECT/INSERT/UPDATE usam `user_is_order_customer(order_id, uid)` e `user_owns_order_establishment(order_id, uid)`.
-- Cliente A não vê pedido de B; loja A não vê pedido de loja B; admin **não** vê (não está no escopo).
+| Item | Local | Status |
+|---|---|---|
+| Tabela `order_messages` | RLS por cliente/loja (auditada na última revisão) | OK |
+| Hook `useOrderMessages` | `src/hooks/useOrderMessages.ts` (query + realtime + send + markAsRead) | OK |
+| Componente | `src/components/OrderChat.tsx` | OK |
+| Página cliente | `MinhaConta.tsx`, `PedidoCliente.tsx` (`/minha-conta/pedidos/:id`) | OK |
+| Página loja | `minha-loja/pedidos/PedidoDetalhes.tsx` | OK |
+| Mensagens de sistema | proposta enviada (`orderProposals.ts`), aceite/recusa (RPC `accept_order_proposal`/`reject_order_proposal`), aceite WhatsApp | OK |
+| Notificações | trigger `handle_new_order_message_notification` com `related_order_id` | OK |
 
-### support_chats / support_chat_messages — OK
-- Chat: dono (`user_id = auth.uid()`) ou admin; INSERT exige `user_id = auth.uid()`.
-- Messages: SELECT/INSERT amarrados ao mesmo dono ou admin.
-- Tabelas distintas das do pedido — não há cruzamento.
+## Gaps identificados (pequenos, não bloqueantes)
 
-### support_tickets / support_ticket_messages / support_ticket_attachments — OK
-- Tickets: opener, membros do estabelecimento (via `user_role_in_establishment`), admins.
-- Messages: admin vê tudo; usuário comum vê apenas `is_internal_note = false` dos próprios tickets; INSERT de nota interna restrito a admin.
-- Attachments: dono/admin/membro do estabelecimento.
+1. Título fixo "Chat do Pedido" — spec pede "Conversa com a loja" (cliente) e "Conversa com o cliente" (loja).
+2. Sem botões de mensagens rápidas no lado da loja.
+3. Sem aviso quando o pedido está cancelado/entregue ("Este pedido foi finalizado. Para problemas, abra um ticket de suporte.").
+4. Mensagens de sistema cobrem proposta/aceite/recusa/WhatsApp, mas **não** cobrem mudança de status crítica (cancelado, saiu para entrega, entregue, precisa de mais referência). Hoje só geram notificação.
 
-### notifications — OK
-- SELECT/UPDATE apenas `user_id = auth.uid()`.
-- **Sem política de INSERT** → clientes não inserem; apenas triggers `SECURITY DEFINER`. Correto.
+## Mudanças propostas (consolidação)
 
-### Roteamento de notificações — OK
-- Tipos separados (`order_chat_message`, `support_chat_*`, `support_ticket_*`); `related_order_id`, `related_support_chat_id`, `related_ticket_id` populados pelos triggers.
+### 1. `OrderChat.tsx` — props adicionais (não-quebra)
+- `title?: string` → renderiza no header (default mantém "Chat do Pedido").
+- `quickReplies?: string[]` → menu suspenso "Mensagens rápidas" acima do input, só aparece quando passado (loja).
+- `disabled?: boolean` + `disabledMessage?: string` → quando pedido finalizado, esconde input e mostra aviso amigável; histórico continua visível.
 
-## Pequenas correções propostas (defensivas)
+### 2. Páginas — passar as novas props
+- Cliente (`MinhaConta.tsx`, `PedidoCliente.tsx`): `title="Conversa com a loja"`, `disabled` se `status ∈ {delivered, canceled_*, not_completed}` com aviso de ticket.
+- Loja (`minha-loja/pedidos/PedidoDetalhes.tsx`): `title="Conversa com o cliente"`, `quickReplies={STORE_QUICK_REPLIES}` (lista do spec), mesmo `disabled` para finalizados (mas loja ainda pode mandar — manter habilitado).
 
-1. **`support_chats` UPDATE pelo dono** hoje permite alterar qualquer coluna (ex.: o próprio dono fechar o chat ou trocar `claimed_by`). Restringir a UPDATE somente das colunas `subject`, `category` via trigger `protect_support_chat_columns()` que reverte campos privilegiados (`status`, `claimed_by`, `claimed_at`, `user_id`, `establishment_id`) quando o ator não é admin.
+### 3. Trigger `order_status_change_system_message`
+Após `UPDATE` em `orders` quando `status` mudar, inserir uma linha em `order_messages` com `sender_type='system'` para os status relevantes:
+- `canceled_by_business` → "Pedido cancelado pela loja."
+- `canceled_by_customer` → "Pedido cancelado pelo cliente."
+- `out_for_delivery` → "Pedido saiu para entrega."
+- `delivered` → "Pedido entregue."
+- `needs_more_reference` → "Loja solicitou mais informações ou referência para entrega."
 
-2. **`support_tickets` UPDATE pelo opener** idem: trigger `protect_support_ticket_columns()` reverte `status`, `assigned_admin_id`, `priority`, `category`, `opened_by`, `establishment_id`, `order_id` para não-admins; deixa o opener mudar só `subject`/`description` enquanto `status='open'`.
-
-3. **`notifications`**: adicionar política INSERT explícita `WITH CHECK (false)` para `authenticated`/`anon`, deixando inserts somente via funções `SECURITY DEFINER`. Documenta a intenção.
-
-4. **Documentação**: criar `mem://security/communication-channels` registrando o modelo (três canais, sem cruzamento, RLS por dono/membro/admin) para futuras auditorias.
-
-## Testes de verificação (SQL via supabase--read_query, sem alterar dados)
-
-Executar como `auth.uid()` simulado de dois usuários distintos para confirmar:
-- Cliente B retorna 0 linhas em `order_messages` de pedido do Cliente A.
-- Loja B retorna 0 linhas em `order_messages` de pedido da Loja A.
-- Cliente B retorna 0 linhas em `support_chats`/`support_chat_messages` de outro cliente.
-- Lojista B retorna 0 tickets do estabelecimento do Lojista A.
-- Usuário comum retorna 0 mensagens com `is_internal_note = true`.
-- Notificações de um usuário não aparecem para outro.
-
-Reportar a tabela final de resultados.
+`SECURITY DEFINER`, sem mudar lógica de status nem RLS.
 
 ## Fora do escopo
-- Refatorar tabelas, mudar nomes, mexer em chat do pedido, suporte ou tickets já funcionais.
-- Migrar `notifications` para tabela nova.
-- Mudanças de UI.
+- Tabela nova, hook novo, componente novo.
+- Refatorar checkout, carrinho, produtos, referências visuais, motoboys, painel admin.
+- Mudar policies de `order_messages` (já validadas).
+- Push/SMS.
 
 ## Arquivos a alterar
-- 1 migration SQL (3 hardenings + comentários).
-- `mem://security/communication-channels` (documentação).
+- `src/components/OrderChat.tsx` (props opcionais)
+- `src/pages/MinhaConta.tsx`, `src/pages/PedidoCliente.tsx`, `src/pages/minha-loja/pedidos/PedidoDetalhes.tsx` (passar props)
+- 1 migration SQL (trigger de mensagens de sistema por status)
