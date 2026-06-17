@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
@@ -16,9 +17,27 @@ export function useOrderMessages(orderId?: string) {
         .eq("order_id", orderId!)
         .order("created_at", { ascending: true });
       if (error) throw error;
-      return data;
+      return data ?? [];
     },
   });
+
+  // Realtime updates (trigger handles notifications)
+  useEffect(() => {
+    if (!orderId) return;
+    const channel = supabase
+      .channel(`order-messages-${orderId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "order_messages", filter: `order_id=eq.${orderId}` },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["order-messages", orderId] });
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [orderId, queryClient]);
 
   const sendMessage = useMutation({
     mutationFn: async ({
@@ -30,43 +49,16 @@ export function useOrderMessages(orderId?: string) {
       senderType: "customer" | "business" | "system";
       establishmentId?: string;
     }) => {
+      if (!user?.id) throw new Error("Você precisa estar logado para enviar mensagens.");
       const { data, error } = await supabase.from("order_messages").insert({
         order_id: orderId!,
-        message,
+        message: message.trim(),
         sender_type: senderType,
-        sender_user_id: user?.id,
+        sender_user_id: user.id,
         establishment_id: establishmentId,
-        customer_user_id: senderType === "customer" ? user?.id : undefined,
+        customer_user_id: senderType === "customer" ? user.id : null,
       }).select().single();
-
       if (error) throw error;
-
-      // Create notification for the recipient
-      // This is a simple implementation, ideally this would be a DB trigger or Edge Function
-      const { data: orderData } = await supabase.from("orders").select("user_id, establishment_id").eq("id", orderId!).single();
-      
-      if (orderData) {
-        // Find recipient - if customer sent, recipient is the establishment owner
-        // We look up the establishment owner user_id
-        const { data: estabData } = await supabase.from("establishments").select("owner_id").eq("id", orderData.establishment_id as string).single();
-        const recipientId = senderType === "customer" 
-          ? (estabData as any)?.owner_id
-          : orderData.user_id;
-
-        if (recipientId) {
-          await supabase.from("notifications").insert({
-            user_id: recipientId,
-            type: "new_order_message",
-            title: "Nova mensagem sobre seu pedido",
-            message: senderType === "customer" ? "O cliente enviou uma mensagem." : "O estabelecimento enviou uma mensagem.",
-            data: { 
-              related_order_id: orderId,
-              related_establishment_id: orderData.establishment_id 
-            } as any,
-          });
-        }
-      }
-
       return data;
     },
     onSuccess: () => {
@@ -74,5 +66,17 @@ export function useOrderMessages(orderId?: string) {
     },
   });
 
-  return { ...query, sendMessage };
+  const markAsRead = useMutation({
+    mutationFn: async () => {
+      if (!orderId || !user?.id) return;
+      await supabase
+        .from("order_messages")
+        .update({ read_at: new Date().toISOString() })
+        .eq("order_id", orderId)
+        .is("read_at", null)
+        .neq("sender_user_id", user.id);
+    },
+  });
+
+  return { ...query, sendMessage, markAsRead };
 }

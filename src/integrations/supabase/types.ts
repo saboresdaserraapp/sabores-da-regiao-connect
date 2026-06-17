@@ -2865,6 +2865,14 @@ export type Database = {
       seed_initial_data: { Args: never; Returns: undefined }
       slugify: { Args: { _t: string }; Returns: string }
       unaccent_safe: { Args: { _t: string }; Returns: string }
+      user_is_order_customer: {
+        Args: { _order_id: string; _user_id: string }
+        Returns: boolean
+      }
+      user_owns_order_establishment: {
+        Args: { _order_id: string; _user_id: string }
+        Returns: boolean
+      }
       user_role_in_establishment: {
         Args: { _estab_id: string; _user_id: string }
         Returns: string
