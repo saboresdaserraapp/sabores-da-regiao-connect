@@ -1,65 +1,147 @@
-## Auditoria (Fase 0)
+## Objetivo
 
-Tudo que a especificação pede **já existe** no projeto. Nada novo precisa ser criado.
+1. Tornar cada mensagem do chat visualmente distinta por autor (cliente, lojista, suporte, sistema).
+2. Permitir anexar arquivos (até 20 MB), mídia (até 10 MB) e colar conteúdo da área de transferência.
 
-### Tabelas existentes (não duplicar)
-- `support_tickets` — possui `subject, description, category, priority, status, opened_by, opened_by_role, establishment_id, order_id, assigned_admin_id, resolved_at, closed_at, last_message_at`.
-- `support_ticket_messages` — possui `ticket_id, sender_id, sender_role, message, attachments (jsonb), is_internal_note`.
-- `support_ticket_attachments` — já existe.
-- `notifications` — já possui `related_ticket_id`, `related_order_id`, `related_support_chat_id`.
-
-### Funções/triggers existentes
-- `handle_support_ticket_message` (gera notificação para admin/usuário, ignora `is_internal_note`, transiciona status).
-- `handle_support_ticket_status_change` (notifica `opened_by` com tipo `support_ticket_status_changed`).
-- `protect_support_ticket_columns` (impede alteração indevida de colunas privilegiadas por não-admin).
-- RLS já configurada nas 3 tabelas, separando cliente, lojista, admin, e ocultando notas internas.
-
-### Páginas/rotas existentes
-- Cliente: `/minha-conta/suporte/tickets` (`SuporteCliente`) e `/minha-conta/suporte/tickets/:ticketId` (`TicketDetalhesCliente`).
-- Lojista: `/minha-loja/:establishmentId/suporte/tickets` e `.../:ticketId` (`PainelSuporte`, `PainelTicketDetalhes`).
-- Admin: `/admin/suporte/tickets` e `/admin/suporte/tickets/:ticketId` (`AdminTickets`), com abas, filtros, atribuição, nota interna e mudança de status.
-
-### Componentes/hooks existentes
-- `NewTicketDialog`, `TicketDetail`, `TicketListItem` em `src/components/support/`.
-- `useSupportTickets` já expõe `useCreateTicket` aceitando `order_id`, `establishment_id`, `opened_by_role`, e `useTicket`, `useTicketMessages`, `useSendTicketMessage`, `useUpdateTicketStatus`, `useAssignTicket` etc.
-- `NotificationCenter` já roteia `support_ticket_*` para a rota correta (admin/lojista/cliente) usando `related_ticket_id`.
-
-### Separação dos 3 canais (já garantida)
-- Chat do Pedido: `order_messages` (apenas loja↔cliente do pedido).
-- Suporte Rápido: `support_chats` / `support_chat_messages` (com fila).
-- Tickets: `support_tickets` / `support_ticket_messages` (formal, admin↔solicitante).
-Nenhuma tela mistura os históricos; cada um usa sua própria tabela e rota.
+Aplicado nos três canais existentes (Chat do Pedido, Chat de Suporte Rápido, Tickets) reusando estruturas, sem duplicar.
 
 ---
 
-## Única lacuna detectada
+## 1. Estilo visual por remetente
 
-Na página `src/pages/PedidoCliente.tsx` o spec pede o botão **"Preciso de ajuda com este pedido"** que ofereça:
-1. Falar com a loja (rola para o Chat do Pedido já presente).
-2. Abrir reclamação/chamado (cria ticket já vinculado ao pedido).
+Alterar apenas o render das bolhas em:
+- `src/components/support/ChatPanel.tsx` (suporte rápido)
+- `src/components/OrderChat.tsx` (chat do pedido)
+- `src/components/support/TicketDetail.tsx` (tickets)
 
-## Mudança proposta (mínima, só frontend)
+Regras de layout:
 
-**Arquivo único:** `src/pages/PedidoCliente.tsx`
+| Remetente | Lado | Cor da bolha | Texto |
+|---|---|---|---|
+| Você (mine) | direita | `bg-primary` | `text-primary-foreground` |
+| Loja | esquerda | `bg-amber-100 border-amber-300` | `text-amber-950` |
+| Cliente (visto pelo outro lado) | esquerda | `bg-background border` | `text-foreground` |
+| Suporte (admin) | esquerda | `bg-blue-100 border-blue-300` | `text-blue-950` |
+| Sistema | centralizado, largura total reduzida | `bg-muted text-muted-foreground` itálico, sem rótulo "Você" | — |
+| Nota interna (ticket) | mantém `bg-yellow-50 border-yellow-300` já existente |
 
-1. Adicionar botão "Preciso de ajuda com este pedido" no cartão do pedido.
-2. Ao clicar, abrir um `Dialog` (shadcn já disponível) com duas opções:
-   - **"Falar com a loja"** → fecha o dialog e faz scroll até a seção "Mensagens do pedido" (o `OrderChat` continua intacto).
-   - **"Abrir reclamação ou chamado"** → reutiliza `useCreateTicket` para criar um ticket com:
-     - `opened_by_role: "customer"`
-     - `establishment_id: order.establishment_id`
-     - `order_id: order.id`
-     - `category: "order_problem"`
-     - `subject: "Problema no pedido " + (order.tracking_code ?? "")`
-     - `priority: "normal"`
-     - Depois `navigate("/minha-conta/suporte/tickets/" + ticket.id)`.
+Cabeçalho da bolha (rótulo) mantém a lógica atual (`Suporte` / `Loja` / `Cliente` / `Sistema` / `Você`), mas a cor da bolha deixa de depender só de `mine`.
 
-Nada mais é alterado: nem RLS, nem migrações, nem outros canais, nem checkout/carrinho/produtos/motoboys.
+Helper local em cada componente:
+```ts
+function bubbleClass(role, mine) { ... }
+function alignClass(role, mine) { ... }  // sistema => justify-center
+```
 
-## Critérios de sucesso (já cobertos)
-- Cliente/lojista podem abrir tickets ✓ (rotas existentes)
-- Admin responde, atribui, muda status, adiciona nota interna ✓ (`AdminTickets`)
-- Notificações `support_ticket_*` funcionam e roteiam corretamente ✓ (`NotificationCenter`)
-- Notas internas ocultas de não-admin ✓ (RLS + trigger)
-- Canais separados ✓ (tabelas distintas)
-- Após esta mudança: integração com pedido (Fase 9) ✓
+Tokens semânticos: usar classes Tailwind existentes; não criar tokens novos no `index.css` (mantém a referência visual atual do app, só varia a paleta de bolhas).
+
+---
+
+## 2. Anexos (arquivos, mídia e colar)
+
+### 2.1 Storage
+Criar bucket privado único `chat-attachments` via migration.
+
+Estrutura de caminhos:
+```
+order/{order_id}/{user_id}/{uuid}-{filename}
+support/{chat_id}/{user_id}/{uuid}-{filename}
+ticket/{ticket_id}/{user_id}/{uuid}-{filename}
+```
+
+RLS no `storage.objects` para bucket `chat-attachments`:
+- INSERT: usuário autenticado, prefixo `{tipo}/{id}/{auth.uid()}/...` e participação validada pelas mesmas regras dos chats (reusa `has_role`, `is_establishment_member`, `auth.uid() = order.user_id` etc.).
+- SELECT: participantes do recurso (cliente do pedido, membro do estabelecimento, admin, autor do ticket).
+- DELETE: somente autor ou admin.
+
+URLs servidas via `createSignedUrl` (1 h).
+
+### 2.2 Schema de mensagens
+Reusar colunas existentes onde possível:
+- `support_ticket_messages.attachments jsonb` já existe → usar.
+- `order_messages` e `support_chat_messages`: adicionar coluna `attachments jsonb not null default '[]'::jsonb` (migration).
+
+Formato:
+```json
+[{ "path": "...", "name": "foto.jpg", "mime": "image/jpeg", "size": 812233, "kind": "image" }]
+```
+
+`kind`: `"image" | "video" | "audio" | "file"`.
+
+### 2.3 Hook compartilhado
+Novo `src/hooks/useChatAttachments.ts`:
+- `uploadAttachments(files, { scope, scopeId })` → valida tamanho, infere `kind`, sobe ao bucket, retorna array no formato acima.
+- `getSignedUrl(path)` com cache simples.
+- Limites:
+  - imagens/vídeo/áudio (`image/*`, `video/*`, `audio/*`): **10 MB**.
+  - demais arquivos: **20 MB**.
+- Tipos bloqueados: executáveis (`.exe .bat .cmd .msi .sh .app`).
+
+### 2.4 Novo componente `ChatComposer`
+`src/components/support/ChatComposer.tsx`:
+- Textarea + botão de anexo (ícone `Paperclip`) + botão de enviar.
+- `<input type="file" multiple hidden>` aberto pelo clip.
+- Drag-and-drop na textarea.
+- Handler `onPaste`: capta `clipboardData.files` (imagens coladas) e `text/plain`.
+- Lista de anexos pendentes com preview (thumb para imagem, ícone para arquivo) e botão remover.
+- Props: `onSend(text, attachments)`, `scope`, `scopeId`, `disabled`.
+- Substitui o bloco de input atual em `ChatPanel`, `OrderChat` e `TicketDetail`.
+
+### 2.5 Render de anexos na bolha
+Novo `src/components/support/AttachmentList.tsx`:
+- Imagem: thumb 160 px, clique abre em nova aba com signed URL.
+- Vídeo/áudio: `<video controls>` / `<audio controls>` com signed URL.
+- Outros: chip com ícone, nome, tamanho legível e botão download.
+
+### 2.6 Envio
+Adaptar:
+- `useSendChatMessage` (suporte rápido) → aceitar `attachments`.
+- `useSendOrderMessage` em `useOrderMessages.ts` → idem.
+- `useSendTicketMessage` em `useSupportTickets.ts` → idem (coluna já existe).
+
+Permitir enviar mensagem somente com anexos (sem texto), desde que `attachments.length > 0`.
+
+---
+
+## 3. Segurança
+
+- RLS dos buckets espelha RLS das tabelas correspondentes; sem novos papéis.
+- Triggers existentes de notificação (`handle_order_message`, `handle_support_chat_message`, `handle_support_ticket_message`) não mudam — texto de notificação ganha sufixo `"📎 N anexo(s)"` quando `attachments` não vazio, dentro do mesmo trigger.
+- Nada cruza canais: caminhos no Storage e RLS são por escopo.
+
+---
+
+## 4. Fora de escopo (não alterar)
+
+Checkout, carrinho, produtos, motoboys, cálculo de entrega, painel admin fora de suporte, layout geral / referências visuais do app. Apenas as bolhas e o composer dos três chats mudam.
+
+---
+
+## 5. Critérios de aceite
+
+1. Em cada chat, mensagens de cliente, loja, suporte e sistema têm cor e alinhamento distintos.
+2. Botão de clip envia arquivos (≤20 MB) e mídias (≤10 MB).
+3. Colar (Ctrl+V) imagem ou texto na caixa funciona.
+4. Anexos aparecem na bolha (thumb/preview ou chip) e abrem via URL assinada.
+5. Notificações continuam roteadas corretamente por canal.
+6. RLS bloqueia download por quem não é participante.
+
+---
+
+## Detalhes técnicos (migrations)
+
+```sql
+-- 1) Colunas attachments
+alter table public.order_messages
+  add column if not exists attachments jsonb not null default '[]'::jsonb;
+alter table public.support_chat_messages
+  add column if not exists attachments jsonb not null default '[]'::jsonb;
+
+-- 2) Bucket
+insert into storage.buckets (id, name, public)
+values ('chat-attachments','chat-attachments', false)
+on conflict (id) do nothing;
+
+-- 3) Policies storage.objects para bucket 'chat-attachments'
+--    (INSERT/SELECT/DELETE conforme regras acima, reusando helpers)
+```
