@@ -404,13 +404,23 @@ export default function Pedidos() {
       title="Pedidos pelo WhatsApp"
       subtitle="Pedidos recebidos são intenção de compra. Confirme cada um manualmente após contato com o cliente."
       action={
-        <Select value={filter} onValueChange={setFilter}>
-          <SelectTrigger className="w-[220px] h-8 text-xs"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os status</SelectItem>
-            {STATUS_OPTIONS.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant={onlyUnread ? "default" : "outline"}
+            className="h-8 text-xs"
+            onClick={() => setOnlyUnread(v => !v)}
+          >
+            <MessageSquare className="size-3.5 mr-1" /> Não lidas
+          </Button>
+          <Select value={filter} onValueChange={setFilter}>
+            <SelectTrigger className="w-[220px] h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os status</SelectItem>
+              {STATUS_OPTIONS.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
       }
     >
       <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 text-pretty mb-4 shadow-sm">
