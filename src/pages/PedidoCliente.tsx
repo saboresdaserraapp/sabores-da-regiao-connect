@@ -1,13 +1,16 @@
 import { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { OrderChat } from "@/components/OrderChat";
 import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, ArrowLeft } from "lucide-react";
+import { Loader2, ArrowLeft, HelpCircle, MessageSquare, AlertOctagon } from "lucide-react";
 import { statusLabel } from "@/lib/orderStatusLabels";
 import { useAuth } from "@/hooks/useAuth";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { useCreateTicket } from "@/hooks/useSupportTickets";
+import { toast } from "sonner";
 
 type OrderRow = {
   id: string;
@@ -24,9 +27,39 @@ type OrderRow = {
 export default function PedidoCliente() {
   const { orderId } = useParams<{ orderId: string }>();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [order, setOrder] = useState<OrderRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const createTicket = useCreateTicket();
+
+  const scrollToChat = () => {
+    setHelpOpen(false);
+    setTimeout(() => {
+      document.getElementById("order-chat-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
+  };
+
+  const openTicket = async () => {
+    if (!order) return;
+    try {
+      const t = await createTicket.mutateAsync({
+        subject: `Problema no pedido ${order.tracking_code ?? ""}`.trim(),
+        description: "",
+        category: "order_problem",
+        priority: "normal",
+        opened_by_role: "customer",
+        establishment_id: order.establishment_id,
+        order_id: order.id,
+      });
+      setHelpOpen(false);
+      toast.success("Ticket criado");
+      navigate(`/minha-conta/suporte/tickets/${t.id}`);
+    } catch (e: any) {
+      toast.error(e?.message || "Falha ao abrir ticket");
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -78,9 +111,15 @@ export default function PedidoCliente() {
               <div className="mt-3 text-sm text-muted-foreground">
                 Total: <span className="font-semibold text-foreground">R$ {Number(order.final_total ?? order.total ?? 0).toFixed(2)}</span>
               </div>
+              <div className="mt-3">
+                <Button variant="outline" size="sm" onClick={() => setHelpOpen(true)}>
+                  <HelpCircle className="size-4 mr-2" />
+                  Preciso de ajuda com este pedido
+                </Button>
+              </div>
             </div>
 
-            <div className="rounded-xl border border-border bg-card p-3">
+            <div id="order-chat-section" className="rounded-xl border border-border bg-card p-3">
               <h2 className="px-1 pb-2 text-sm font-semibold">Mensagens do pedido</h2>
               {user ? (
                 <OrderChat
@@ -98,6 +137,33 @@ export default function PedidoCliente() {
           </div>
         )}
       </main>
+
+      <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Como podemos ajudar?</DialogTitle>
+            <DialogDescription>
+              Escolha falar diretamente com a loja ou abrir um chamado formal para a equipe da plataforma.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-2">
+            <Button variant="outline" className="justify-start h-auto py-3" onClick={scrollToChat}>
+              <MessageSquare className="size-4 mr-3 shrink-0" />
+              <div className="text-left">
+                <div className="font-medium">Falar com a loja</div>
+                <div className="text-xs text-muted-foreground">Conversa rápida com o estabelecimento sobre este pedido.</div>
+              </div>
+            </Button>
+            <Button className="justify-start h-auto py-3" onClick={openTicket} disabled={createTicket.isPending}>
+              <AlertOctagon className="size-4 mr-3 shrink-0" />
+              <div className="text-left">
+                <div className="font-medium">Abrir reclamação ou chamado</div>
+                <div className="text-xs opacity-90">Análise formal pela equipe da plataforma, vinculada a este pedido.</div>
+              </div>
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

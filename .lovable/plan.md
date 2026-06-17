@@ -1,44 +1,65 @@
-# Plano — Chat de Suporte Rápido (consolidação)
+## Auditoria (Fase 0)
 
-## Auditoria (Fase 0) — já existe tudo
+Tudo que a especificação pede **já existe** no projeto. Nada novo precisa ser criado.
 
-- Tabelas: `support_chats`, `support_chat_messages`, `notifications` (com `related_support_chat_id`).
-- Hook: `src/hooks/useSupportChat.ts` (`useMyOpenChat`, `useOpenChat`, `useChatMessages`, `useSendMessage`, `useClaimChat`, `useCloseChat`, `useAdminChats`).
-- Componentes: `components/support/ChatPanel.tsx`, `components/support/SupportChatWidget.tsx`.
-- Páginas: `pages/SuporteChatCliente.tsx` (cliente), `pages/minha-loja/painel/SuporteChat.tsx` (lojista), `pages/admin/Suporte.tsx` (admin).
-- Rotas (App.tsx): `/minha-conta/suporte/chat`, `/admin/suporte`, `/admin/suporte/chats`; lojista via painel da loja.
-- Trigger `handle_support_chat_message` já gera notificações (`support_chat_message`, `support_chat_waiting`).
-- RLS já existente nas 3 tabelas; coluna `claimed_by` e função `claim_support_chat` já presentes.
+### Tabelas existentes (não duplicar)
+- `support_tickets` — possui `subject, description, category, priority, status, opened_by, opened_by_role, establishment_id, order_id, assigned_admin_id, resolved_at, closed_at, last_message_at`.
+- `support_ticket_messages` — possui `ticket_id, sender_id, sender_role, message, attachments (jsonb), is_internal_note`.
+- `support_ticket_attachments` — já existe.
+- `notifications` — já possui `related_ticket_id`, `related_order_id`, `related_support_chat_id`.
 
-**Conclusão:** não criar tabelas novas (o spec pede `requester_*`/`queue_position`, mas o equivalente existente cobre os requisitos — duplicar quebraria hook, RLS e trigger). Apenas pequenos ajustes de UX e roteamento de notificação.
+### Funções/triggers existentes
+- `handle_support_ticket_message` (gera notificação para admin/usuário, ignora `is_internal_note`, transiciona status).
+- `handle_support_ticket_status_change` (notifica `opened_by` com tipo `support_ticket_status_changed`).
+- `protect_support_ticket_columns` (impede alteração indevida de colunas privilegiadas por não-admin).
+- RLS já configurada nas 3 tabelas, separando cliente, lojista, admin, e ocultando notas internas.
 
-## Mudanças mínimas
+### Páginas/rotas existentes
+- Cliente: `/minha-conta/suporte/tickets` (`SuporteCliente`) e `/minha-conta/suporte/tickets/:ticketId` (`TicketDetalhesCliente`).
+- Lojista: `/minha-loja/:establishmentId/suporte/tickets` e `.../:ticketId` (`PainelSuporte`, `PainelTicketDetalhes`).
+- Admin: `/admin/suporte/tickets` e `/admin/suporte/tickets/:ticketId` (`AdminTickets`), com abas, filtros, atribuição, nota interna e mudança de status.
 
-### 1. Rota do lojista para suporte (App.tsx)
-Adicionar rota explícita `/minha-loja/:establishmentId/suporte/chat` apontando para `PainelSuporteChat` (já existe a página, falta entrada direta para o link da notificação). Mantém rota antiga se já existir dentro do painel.
+### Componentes/hooks existentes
+- `NewTicketDialog`, `TicketDetail`, `TicketListItem` em `src/components/support/`.
+- `useSupportTickets` já expõe `useCreateTicket` aceitando `order_id`, `establishment_id`, `opened_by_role`, e `useTicket`, `useTicketMessages`, `useSendTicketMessage`, `useUpdateTicketStatus`, `useAssignTicket` etc.
+- `NotificationCenter` já roteia `support_ticket_*` para a rota correta (admin/lojista/cliente) usando `related_ticket_id`.
 
-### 2. Roteamento da notificação (NotificationCenter.tsx)
-Para `type === "support_chat_message"`:
-- se `establishment_id` presente → `/minha-loja/:establishment_id/suporte/chat`
-- senão → `/minha-conta/suporte/chat`
-Botão "Abrir suporte". Sem `null/undefined`.
+### Separação dos 3 canais (já garantida)
+- Chat do Pedido: `order_messages` (apenas loja↔cliente do pedido).
+- Suporte Rápido: `support_chats` / `support_chat_messages` (com fila).
+- Tickets: `support_tickets` / `support_ticket_messages` (formal, admin↔solicitante).
+Nenhuma tela mistura os históricos; cada um usa sua própria tabela e rota.
 
-### 3. Posição na fila (UI)
-No `SuporteChatCliente.tsx` e `painel/SuporteChat.tsx`, quando `chat.status === "waiting"`, mostrar "Você está na fila. Posição: N" calculando localmente via `useAdminChats`-equivalente público: criar pequeno helper `useMyQueuePosition(chatId)` no `useSupportChat.ts` que faz `select count` em `support_chats` com `status=waiting` e `created_at <= meu.created_at`. RLS atual permite o usuário ver apenas o próprio chat — então usar RPC `support_queue_position(_chat_id uuid)` (SECURITY DEFINER) que retorna inteiro.
+---
 
-### 4. Migration enxuta
-- Função `public.support_queue_position(_chat_id uuid) returns int` security definer, search_path `public`, valida que o chamador é o dono do chat **ou** admin.
-- Nada mais (sem novas tabelas/colunas; trigger e RLS permanecem).
+## Única lacuna detectada
 
-### 5. Mensagens de sistema (opcional, leve)
-No `useClaimChat`, após reivindicar, inserir `support_chat_messages` com `sender_role='admin'` e texto "Um atendente iniciou o atendimento." — sem alterar schema.
+Na página `src/pages/PedidoCliente.tsx` o spec pede o botão **"Preciso de ajuda com este pedido"** que ofereça:
+1. Falar com a loja (rola para o Chat do Pedido já presente).
+2. Abrir reclamação/chamado (cria ticket já vinculado ao pedido).
 
-## Fora de escopo
-Chat do Pedido, tickets, checkout, carrinho, produtos, pedidos, motoboys, referências visuais, RLS global, qualquer renomeação de coluna ou nova tabela.
+## Mudança proposta (mínima, só frontend)
 
-## Arquivos a alterar
-- `src/App.tsx` (1 rota)
-- `src/components/NotificationCenter.tsx` (routeFor support_chat_message)
-- `src/hooks/useSupportChat.ts` (hook de posição + msg de sistema no claim)
-- `src/pages/SuporteChatCliente.tsx` e `src/pages/minha-loja/painel/SuporteChat.tsx` (exibir posição)
-- 1 migration nova com a função `support_queue_position`
+**Arquivo único:** `src/pages/PedidoCliente.tsx`
+
+1. Adicionar botão "Preciso de ajuda com este pedido" no cartão do pedido.
+2. Ao clicar, abrir um `Dialog` (shadcn já disponível) com duas opções:
+   - **"Falar com a loja"** → fecha o dialog e faz scroll até a seção "Mensagens do pedido" (o `OrderChat` continua intacto).
+   - **"Abrir reclamação ou chamado"** → reutiliza `useCreateTicket` para criar um ticket com:
+     - `opened_by_role: "customer"`
+     - `establishment_id: order.establishment_id`
+     - `order_id: order.id`
+     - `category: "order_problem"`
+     - `subject: "Problema no pedido " + (order.tracking_code ?? "")`
+     - `priority: "normal"`
+     - Depois `navigate("/minha-conta/suporte/tickets/" + ticket.id)`.
+
+Nada mais é alterado: nem RLS, nem migrações, nem outros canais, nem checkout/carrinho/produtos/motoboys.
+
+## Critérios de sucesso (já cobertos)
+- Cliente/lojista podem abrir tickets ✓ (rotas existentes)
+- Admin responde, atribui, muda status, adiciona nota interna ✓ (`AdminTickets`)
+- Notificações `support_ticket_*` funcionam e roteiam corretamente ✓ (`NotificationCenter`)
+- Notas internas ocultas de não-admin ✓ (RLS + trigger)
+- Canais separados ✓ (tabelas distintas)
+- Após esta mudança: integração com pedido (Fase 9) ✓
