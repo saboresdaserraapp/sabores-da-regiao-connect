@@ -2437,6 +2437,91 @@ export type Database = {
           },
         ]
       }
+      support_chat_messages: {
+        Row: {
+          chat_id: string
+          created_at: string
+          id: string
+          message: string
+          sender_id: string
+          sender_role: Database["public"]["Enums"]["support_actor_role"]
+        }
+        Insert: {
+          chat_id: string
+          created_at?: string
+          id?: string
+          message: string
+          sender_id: string
+          sender_role: Database["public"]["Enums"]["support_actor_role"]
+        }
+        Update: {
+          chat_id?: string
+          created_at?: string
+          id?: string
+          message?: string
+          sender_id?: string
+          sender_role?: Database["public"]["Enums"]["support_actor_role"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_chat_messages_chat_id_fkey"
+            columns: ["chat_id"]
+            isOneToOne: false
+            referencedRelation: "support_chats"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      support_chats: {
+        Row: {
+          claimed_at: string | null
+          claimed_by: string | null
+          closed_at: string | null
+          created_at: string
+          establishment_id: string | null
+          id: string
+          last_message_at: string
+          status: Database["public"]["Enums"]["support_chat_status"]
+          topic: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          claimed_at?: string | null
+          claimed_by?: string | null
+          closed_at?: string | null
+          created_at?: string
+          establishment_id?: string | null
+          id?: string
+          last_message_at?: string
+          status?: Database["public"]["Enums"]["support_chat_status"]
+          topic?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          claimed_at?: string | null
+          claimed_by?: string | null
+          closed_at?: string | null
+          created_at?: string
+          establishment_id?: string | null
+          id?: string
+          last_message_at?: string
+          status?: Database["public"]["Enums"]["support_chat_status"]
+          topic?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_chats_establishment_id_fkey"
+            columns: ["establishment_id"]
+            isOneToOne: false
+            referencedRelation: "establishments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       support_ticket_attachments: {
         Row: {
           created_at: string
@@ -2697,6 +2782,7 @@ export type Database = {
       admin_find_user_by_email: { Args: { _email: string }; Returns: string }
       can_manage: { Args: { _user_id: string }; Returns: boolean }
       can_user_access_order: { Args: { order_uuid: string }; Returns: boolean }
+      claim_support_chat: { Args: { _chat_id: string }; Returns: Json }
       create_notification: {
         Args: {
           p_data?: Json
@@ -2837,6 +2923,7 @@ export type Database = {
       report_status: "pendente" | "resolvido" | "descartado"
       review_status: "pendente" | "aprovado" | "reprovado"
       support_actor_role: "customer" | "establishment" | "admin" | "system"
+      support_chat_status: "waiting" | "active" | "closed"
       support_ticket_category:
         | "order_issue"
         | "delivery_issue"
@@ -3037,6 +3124,7 @@ export const Constants = {
       report_status: ["pendente", "resolvido", "descartado"],
       review_status: ["pendente", "aprovado", "reprovado"],
       support_actor_role: ["customer", "establishment", "admin", "system"],
+      support_chat_status: ["waiting", "active", "closed"],
       support_ticket_category: [
         "order_issue",
         "delivery_issue",
