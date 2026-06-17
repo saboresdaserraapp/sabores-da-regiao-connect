@@ -11,30 +11,42 @@ export function PendingProposalDialog() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const [dismissedFor, setDismissedFor] = useState<string | null>(null);
 
   const { data, refetch } = useQuery({
     queryKey: ["pending-proposal", user?.id],
     enabled: !!user,
-    refetchInterval: 60_000,
+    refetchInterval: 20_000,
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from("order_confirmation_proposals")
-        .select("id, order_id, orders!inner(id, user_id, tracking_code, status, confirmation_flow_status)")
-        .eq("status", "sent")
-        .eq("orders.user_id", user!.id)
-        .eq("orders.status", "waiting_business_confirmation")
-        .eq("orders.confirmation_flow_status", "proposal_sent_to_customer")
+      // 1) Get the user's recent orders awaiting their confirmation
+      const { data: orders, error: oErr } = await supabase
+        .from("orders")
+        .select("id, tracking_code, status, confirmation_flow_status")
+        .eq("user_id", user!.id)
+        .eq("status", "waiting_business_confirmation")
+        .eq("confirmation_flow_status", "proposal_sent_to_customer")
         .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (error) return null;
-      return data;
+        .limit(10);
+      if (oErr || !orders?.length) return null;
+      const ids = orders.map((o) => o.id);
+      // 2) Find a 'sent' proposal for any of those orders
+      const { data: proposals } = await (supabase as any)
+        .from("order_confirmation_proposals")
+        .select("id, order_id, status, created_at")
+        .in("order_id", ids)
+        .eq("status", "sent")
+        .order("created_at", { ascending: false })
+        .limit(1);
+      const p = proposals?.[0];
+      if (!p) return null;
+      const order = orders.find((o) => o.id === p.order_id);
+      return { id: p.id, order_id: p.order_id, tracking_code: order?.tracking_code };
     },
   });
 
   useEffect(() => {
-    if (data?.order_id) setOpen(true);
-  }, [data?.order_id]);
+    if (data?.id && dismissedFor !== data.id) setOpen(true);
+  }, [data?.id, dismissedFor]);
 
   useEffect(() => {
     if (!user) return;
@@ -53,10 +65,10 @@ export function PendingProposalDialog() {
 
   if (!data?.order_id) return null;
   const orderId = data.order_id as string;
-  const tracking = (data as any)?.orders?.tracking_code as string | undefined;
+  const tracking = (data as any)?.tracking_code as string | undefined;
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v && data?.id) setDismissedFor(data.id); }}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Confirme o valor final da entrega</DialogTitle>
