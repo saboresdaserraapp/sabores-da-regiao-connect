@@ -118,7 +118,6 @@ function GlobalPendingProposal() {
   if (!user) return null;
   if (/^\/admin(\/|$)/.test(pathname)) return null;
   if (/^\/minha-loja(\/|$)/.test(pathname)) return null;
-  if (/^\/checkout(\/|$)/.test(pathname)) return null;
   return <PendingProposalDialog />;
 }
 
