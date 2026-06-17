@@ -15,6 +15,7 @@ import RecuperarSenha from "./pages/RecuperarSenha.tsx";
 import ResetPassword from "./pages/ResetPassword.tsx";
 import MinhaConta from "./pages/MinhaConta.tsx";
 import SuporteCliente from "./pages/SuporteCliente.tsx";
+import SuporteChatCliente from "./pages/SuporteChatCliente.tsx";
 import PedidoCliente from "./pages/PedidoCliente.tsx";
 import PedidoDetalhesLoja from "./pages/minha-loja/pedidos/PedidoDetalhes.tsx";
 import PedidoTracking from "./pages/PedidoTracking.tsx";
