@@ -174,6 +174,7 @@ const App = () => (
                 <Route path="/admin/suporte/tickets/:ticketId" element={<AdminTickets />} />
                 <Route path="/admin/suporte" element={<AdminSuporte />} />
                 <Route path="/admin/suporte/chats" element={<AdminSuporte />} />
+                <Route path="/admin/suporte/chats/:chatId" element={<AdminSuporte />} />
               </Route>
             </Route>
 
