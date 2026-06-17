@@ -314,12 +314,20 @@ export default function Pedidos() {
   );
 
   const renderCard = (o: Order) => (
-    <div key={o.id} className={`rounded-xl border p-3 text-sm transition-shadow hover:shadow-sm ${isStagnant(o) ? "border-red-300 bg-red-50/40" : "border-border/70"}`}>
+    <div key={o.id} className={`rounded-xl border p-3 text-sm transition-shadow hover:shadow-sm ${
+        unread(o.id) > 0 ? "border-primary ring-1 ring-primary/30" :
+        isStagnant(o) ? "border-red-300 bg-red-50/40" : "border-border/70"
+      }`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="min-w-0">
           <div className="font-medium flex items-center gap-1">
             {isStagnant(o) && <AlertTriangle className="size-3.5 text-red-600" />}
             {o.customer_name ?? "Cliente"} · <span className="text-xs text-muted-foreground">{o.customer_phone ?? "—"}</span>
+            {unread(o.id) > 0 && (
+              <Badge className="h-5 px-1.5 text-[10px] gap-1 bg-primary ml-1">
+                <MessageSquare className="size-3" /> {unread(o.id)}
+              </Badge>
+            )}
           </div>
           <div className="text-xs text-muted-foreground">
             {o.tracking_code} · {new Date(o.created_at).toLocaleString()} · {o.payment_method ?? "—"}
