@@ -5,11 +5,12 @@ import { PainelSection } from "./_shared";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MessageCircle, ImageIcon, ChevronDown, ChevronUp, Smartphone, AlertTriangle, CheckCircle2, LayoutGrid, List } from "lucide-react";
+import { MessageCircle, ImageIcon, ChevronDown, ChevronUp, Smartphone, AlertTriangle, CheckCircle2, LayoutGrid, List, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 import { OrderReferencesPanel } from "@/components/orders/OrderReferencesPanel";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { OrderFreteActions, flowStatusBadge, requiresCustomerAcceptance } from "@/components/orders/OrderFreteActions";
+import { useOrderUnreadCountsForBusiness } from "@/hooks/useOrderUnreadCounts";
 
 const STATUS_OPTIONS: { value: string; label: string; tone?: string }[] = [
   { value: "waiting_business_confirmation", label: "Aguardando confirmação" },
@@ -77,6 +78,9 @@ export default function Pedidos() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [filter, setFilter] = useState<string>("all");
   const [expandedRef, setExpandedRef] = useState<string | null>(null);
+  const [onlyUnread, setOnlyUnread] = useState(false);
+  const { data: unreadMap } = useOrderUnreadCountsForBusiness(ctx?.establishmentId);
+  const unread = (id: string) => unreadMap?.[id] ?? 0;
 
   async function refresh() {
     if (!ctx) return;
@@ -172,13 +176,15 @@ export default function Pedidos() {
   }
 
   if (!ctx) return null;
-  const filtered = filter === "all" ? orders : orders.filter(o => o.status === filter);
+  let filtered = filter === "all" ? orders : orders.filter(o => o.status === filter);
+  if (onlyUnread) filtered = filtered.filter(o => unread(o.id) > 0);
   const stagnantCount = orders.filter(isStagnant).length;
 
   const renderKanbanCard = (o: Order) => (
     <div
       key={o.id}
       className={`w-full rounded-xl border bg-card p-2.5 text-sm shadow-sm transition-shadow hover:shadow-md ${
+        unread(o.id) > 0 ? "border-primary ring-1 ring-primary/30" :
         isStagnant(o) ? "border-red-300 bg-red-50/50" : "border-border/70"
       }`}
     >
@@ -187,7 +193,14 @@ export default function Pedidos() {
         <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground truncate">
           {o.tracking_code ?? o.id.slice(0, 8)}
         </span>
-        <span className="text-sm font-bold tabular-nums">R$ {Number(o.total).toFixed(2)}</span>
+        <div className="flex items-center gap-1.5">
+          {unread(o.id) > 0 && (
+            <Badge className="h-5 px-1.5 text-[10px] font-medium gap-1 bg-primary">
+              <MessageSquare className="size-3" /> {unread(o.id)}
+            </Badge>
+          )}
+          <span className="text-sm font-bold tabular-nums">R$ {Number(o.total).toFixed(2)}</span>
+        </div>
       </div>
 
       {/* Customer */}
@@ -301,12 +314,20 @@ export default function Pedidos() {
   );
 
   const renderCard = (o: Order) => (
-    <div key={o.id} className={`rounded-xl border p-3 text-sm transition-shadow hover:shadow-sm ${isStagnant(o) ? "border-red-300 bg-red-50/40" : "border-border/70"}`}>
+    <div key={o.id} className={`rounded-xl border p-3 text-sm transition-shadow hover:shadow-sm ${
+        unread(o.id) > 0 ? "border-primary ring-1 ring-primary/30" :
+        isStagnant(o) ? "border-red-300 bg-red-50/40" : "border-border/70"
+      }`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="min-w-0">
           <div className="font-medium flex items-center gap-1">
             {isStagnant(o) && <AlertTriangle className="size-3.5 text-red-600" />}
             {o.customer_name ?? "Cliente"} · <span className="text-xs text-muted-foreground">{o.customer_phone ?? "—"}</span>
+            {unread(o.id) > 0 && (
+              <Badge className="h-5 px-1.5 text-[10px] gap-1 bg-primary ml-1">
+                <MessageSquare className="size-3" /> {unread(o.id)}
+              </Badge>
+            )}
           </div>
           <div className="text-xs text-muted-foreground">
             {o.tracking_code} · {new Date(o.created_at).toLocaleString()} · {o.payment_method ?? "—"}
@@ -383,13 +404,23 @@ export default function Pedidos() {
       title="Pedidos pelo WhatsApp"
       subtitle="Pedidos recebidos são intenção de compra. Confirme cada um manualmente após contato com o cliente."
       action={
-        <Select value={filter} onValueChange={setFilter}>
-          <SelectTrigger className="w-[220px] h-8 text-xs"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os status</SelectItem>
-            {STATUS_OPTIONS.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant={onlyUnread ? "default" : "outline"}
+            className="h-8 text-xs"
+            onClick={() => setOnlyUnread(v => !v)}
+          >
+            <MessageSquare className="size-3.5 mr-1" /> Não lidas
+          </Button>
+          <Select value={filter} onValueChange={setFilter}>
+            <SelectTrigger className="w-[220px] h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os status</SelectItem>
+              {STATUS_OPTIONS.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
       }
     >
       <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 text-pretty mb-4 shadow-sm">
