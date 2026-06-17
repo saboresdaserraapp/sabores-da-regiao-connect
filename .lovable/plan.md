@@ -1,48 +1,57 @@
 ## Auditoria
-Tudo o que o enunciado pede já existe na maior parte. Sem tabela nova.
+Quase tudo já existe e não será duplicado.
 
 **Já existe:**
-- Tabelas `support_chats` (`status: waiting/active/closed`, `user_id`, `establishment_id`, `claimed_by/at`, `closed_at`, `last_message_at`) e `support_chat_messages` (`sender_role: requester/admin/system`), com RLS por dono/admin, Realtime habilitado e trigger `handle_support_chat_message` que notifica a outra ponta no sininho.
-- Hooks: `useMyOpenChat`, `useAdminChats`, `useChatMessages`, `useSendChatMessage`, `useCloseMyChat`, RPC `claim_support_chat`.
-- Componentes: `ChatPanel`, `SupportChatWidget`.
-- Páginas: `/minha-conta/suporte` (cliente) e `/admin/suporte` (admin) — funcionais.
+- Tabelas `support_tickets` (com `subject`, `description`, `category`, `priority`, `status`, `opened_by/role`, `establishment_id`, `order_id`, `assigned_admin_id`, `resolved_at`, `closed_at`, `last_message_at`), `support_ticket_messages` (com `attachments` jsonb) e `support_ticket_attachments`. RLS por dono/admin/membros do estabelecimento. Trigger de notificação ao criar/responder.
+- Hook `useSupportTickets` + `NewTicketDialog` + `TicketDetail`.
+- Páginas: `/minha-conta/suporte` (cliente), `/minha-loja/:id/suporte` (loja), `/admin/tickets` (admin) — todas funcionais.
+- Bucket `support-attachments` + políticas.
 
-**Decisão:** não recriar tabela com nomes diferentes (`requester_user_id`, `priority`, `queue_position`, etc.). Os campos pedidos são redundantes para o escopo do "chat rápido com fila simples". `queue_position` será **calculado em tempo de leitura**, não persistido (evita drift). Não adicionar `priority` agora — usuário disse "fila simples".
+**Decisões:**
+- **Não recriar tabelas** com nomes diferentes (`created_by_user_id`, `requester_type`, `related_order_id`, `severity`). Os campos atuais já mapeiam o enunciado:
+  - `opened_by` ↔ `created_by_user_id`
+  - `opened_by_role` ↔ `requester_type`
+  - `establishment_id`/`order_id` ↔ `related_*`
+- **`severity` não será adicionado** — `priority` já cobre o caso. Adicionar `severity` agora exigiria refazer UI; fora do critério de sucesso.
+- **`category`** atual é enum `support_ticket_category`. Os valores pedidos serão adicionados ao enum se faltarem (ALTER TYPE ADD VALUE IF NOT EXISTS), mantendo retro-compatibilidade.
 
 ## Mudanças
 
-### 1. Rotas (apenas aliases — não quebrar as antigas)
-- Adicionar em `src/App.tsx`:
-  - `/minha-conta/suporte/chat` → `SuporteCliente` (alias da `/minha-conta/suporte`).
-  - `/admin/suporte/chats` → `AdminSuporte` (alias da `/admin/suporte`).
-  - `/minha-loja/:establishmentId/suporte/chat` → nova página fina `SuporteLojaChat` que renderiza `ChatPanel` no contexto do estabelecimento ativo (reusa o mesmo hook do cliente; `establishment_id` é gravado em `support_chats` no momento do `open`).
+### 1. Migração SQL
+- `ALTER TABLE support_ticket_messages ADD COLUMN IF NOT EXISTS is_internal_note boolean NOT NULL DEFAULT false`.
+- Reescrever a policy SELECT de `support_ticket_messages` para **esconder notas internas de não-admin**:
+  - admin: vê tudo.
+  - opener/membro do estabelecimento: vê apenas `is_internal_note = false`.
+- INSERT policy: somente admin pode inserir mensagem com `is_internal_note = true`.
+- `ALTER TYPE support_ticket_category ADD VALUE IF NOT EXISTS` para os valores do enunciado que ainda não existirem (`order_problem`, `payment_problem`, `delivery_problem`, `complaint`, `report_establishment`, `report_customer`, `report_content`, `account_problem`, `subscription_problem`, `technical_problem`, `other`).
+- Não tocar em `support_tickets` policies (já corretas).
 
-### 2. Posição na fila (cliente)
-- Novo hook `useChatQueuePosition(chatId)` em `src/hooks/useSupportChat.ts`:
-  - Conta `support_chats` com `status='waiting'` e `created_at <= meu created_at`.
-  - Realtime: invalida ao mudar qualquer `support_chats` (canal já em uso).
-- `ChatPanel`/`SupportChatWidget`: quando `status='waiting'`, exibir:
-  - "Você entrou na fila de atendimento. Aguarde um instante."
-  - "Sua posição: N°{posição}".
-  - Render defensivo (`?? "—"`).
+### 2. Rotas (apenas aliases — não quebrar antigas)
+- `src/App.tsx`:
+  - `/minha-conta/suporte/tickets` → `SuporteCliente` (alias).
+  - `/minha-conta/suporte/tickets/:ticketId` → nova página `TicketDetalhesCliente` envolvendo `TicketDetail` em layout com `Header`.
+  - `/minha-loja/:establishmentId/suporte/tickets` → `PainelSuporte` (alias).
+  - `/minha-loja/:establishmentId/suporte/tickets/:ticketId` → nova página `PainelTicketDetalhes` reusando `TicketDetail`.
+  - `/admin/suporte/tickets` → `AdminTickets` (alias da existente `/admin/tickets`).
+  - `/admin/suporte/tickets/:ticketId` → `AdminTickets` com seleção pré-aplicada (param via `useParams`).
 
-### 3. Página da loja
-- `src/pages/minha-loja/painel/SuporteChat.tsx`: usa `useActiveEstablishment` para passar `establishmentId` ao abrir o chat (`useOpenChat({ establishmentId })`). Sem novos hooks de backend.
+### 3. UI — notas internas
+- `TicketDetail.tsx`:
+  - Quando `senderRole === "admin"`: novo toggle "Nota interna" no compositor; ao enviar, gravar `is_internal_note: true`.
+  - Render de mensagens: badge "Nota interna" + fundo amarelo quando `is_internal_note`.
+  - Cliente/loja: já não recebe via RLS, mas filtrar defensivamente também (`!m.is_internal_note`).
+- `AdminTickets.tsx`: garantir que ao abrir com `:ticketId` na URL, o detalhe abra; filtros por status/categoria/prioridade já existem.
 
-### 4. Mensagem de sistema ao aceitar
-- Já há trigger `handle_support_chat_message` para notificações. Adicionar pequena chamada no fluxo de `claim_support_chat` na UI: após RPC bem-sucedido, inserir uma mensagem `sender_role='system'` "Atendimento iniciado por {agente}". Sem mudar a função SQL.
-
-### 5. Defesa contra `null/undefined/[object Object]`
-- Revisar `ChatPanel` e widget: `m.message ?? ""`, `m.created_at ? format(...) : ""`, ignorar mensagens vazias.
+### 4. Defesa contra `null/undefined/[object Object]`
+- Em `TicketDetail`: `m.message ?? ""`, `m.created_at ? format(...) : ""`, ignorar mensagens vazias.
 
 ## Fora de escopo
-- Tickets, chat do pedido, painel admin (além da rota alias), notificações (já tratadas), prioridade, anexos, transferência de atendimento entre agentes, novos campos em tabelas existentes.
+Chat do pedido, suporte rápido (sem conversão de chat→ticket nesta fase), reescrita de páginas existentes, `severity`, mudanças no painel admin (apenas rota alias + abrir por id).
 
 ## Testes manuais
-1. Cliente abre `/minha-conta/suporte/chat` → registro em `support_chats` com `status='waiting'`, vê "posição N°X".
-2. Admin abre `/admin/suporte/chats` → vê o chat na fila.
-3. Admin aceita → `status='active'`, `claimed_by/at` preenchidos, mensagem do sistema visível em ambos os lados.
-4. Mensagens trocam em tempo real (Realtime já ativo).
-5. Admin/cliente encerra → `status='closed'`, `closed_at` preenchido, histórico continua visível.
-6. Outra loja/cliente não vê chats alheios — RLS atual já garante.
-7. Chat do pedido (`order_messages`) inalterado.
+1. Cliente cria ticket em `/minha-conta/suporte/tickets` → notificação ao admin (trigger existente).
+2. Admin abre em `/admin/suporte/tickets` → vê e responde.
+3. Cliente recebe sininho (trigger `handle_support_ticket_message`).
+4. Admin marca "Nota interna" e envia → cliente NÃO vê (RLS bloqueia); outro admin vê.
+5. Admin muda status → notificação ao opener (já implementado pelo trigger atual).
+6. Ticket aparece só em `/suporte/tickets`, nunca no chat do pedido nem no chat rápido (tabelas distintas).
