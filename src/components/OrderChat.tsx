@@ -7,14 +7,32 @@ import { Loader2, Send, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu";
 
 interface OrderChatProps {
   orderId: string;
   senderType: "customer" | "business" | "system";
   establishmentId?: string;
+  title?: string;
+  quickReplies?: string[];
+  disabled?: boolean;
+  disabledMessage?: string;
 }
 
-export function OrderChat({ orderId, senderType, establishmentId }: OrderChatProps) {
+export function OrderChat({
+  orderId,
+  senderType,
+  establishmentId,
+  title = "Chat do Pedido",
+  quickReplies,
+  disabled = false,
+  disabledMessage,
+}: OrderChatProps) {
   const [msg, setMsg] = useState("");
   const { data: messages, isLoading, isError, sendMessage, refetch, markAsRead } = useOrderMessages(orderId);
   const lastMarkedCount = useRef(0);
@@ -27,9 +45,10 @@ export function OrderChat({ orderId, senderType, establishmentId }: OrderChatPro
     }
   }, [messages, markAsRead]);
 
-  const handleSend = () => {
-    if (!msg.trim() || sendMessage.isPending) return;
-    sendMessage.mutate({ message: msg, senderType, establishmentId }, {
+  const handleSend = (text?: string) => {
+    const value = (text ?? msg).trim();
+    if (!value || sendMessage.isPending) return;
+    sendMessage.mutate({ message: value, senderType, establishmentId }, {
       onSuccess: () => setMsg(""),
     });
   };
@@ -40,7 +59,7 @@ export function OrderChat({ orderId, senderType, establishmentId }: OrderChatPro
   return (
     <div className="flex flex-col h-[400px] border border-border/70 rounded-xl bg-background overflow-hidden shadow-sm">
       <div className="p-3 border-b border-border/60 flex justify-between items-center bg-muted/40 backdrop-blur supports-[backdrop-filter]:bg-muted/30">
-        <h3 className="font-semibold text-sm">Chat do Pedido</h3>
+        <h3 className="font-semibold text-sm">{title}</h3>
         <Button variant="ghost" size="icon" className="size-8" onClick={() => refetch()} disabled={isLoading}>
           <RefreshCw className={cn("size-4", isLoading && "animate-spin")} />
         </Button>
@@ -86,18 +105,48 @@ export function OrderChat({ orderId, senderType, establishmentId }: OrderChatPro
         </div>
       </ScrollArea>
 
-      <div className="p-3 border-t border-border/60 bg-muted/20 flex gap-2 safe-bottom">
-        <Input 
-          placeholder="Digite sua mensagem..." 
-          value={msg} 
-          onChange={(e) => setMsg(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleSend()}
-          className="flex-1"
-        />
-        <Button size="icon" onClick={handleSend} disabled={!msg.trim() || sendMessage.isPending}>
-          {sendMessage.isPending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-        </Button>
-      </div>
+      {disabled ? (
+        <div className="p-3 border-t border-border/60 bg-muted/30 text-xs text-muted-foreground text-center safe-bottom">
+          {disabledMessage ?? "Este pedido foi finalizado. Para problemas, abra um ticket de suporte."}
+        </div>
+      ) : (
+        <div className="border-t border-border/60 bg-muted/20 safe-bottom">
+          {quickReplies && quickReplies.length > 0 && (
+            <div className="px-3 pt-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-7 text-xs">
+                    Mensagens rápidas
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="max-w-[320px]">
+                  {quickReplies.map((q) => (
+                    <DropdownMenuItem
+                      key={q}
+                      onSelect={() => handleSend(q)}
+                      className="text-xs whitespace-normal"
+                    >
+                      {q}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          )}
+          <div className="p-3 flex gap-2">
+            <Input
+              placeholder="Digite sua mensagem..."
+              value={msg}
+              onChange={(e) => setMsg(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSend()}
+              className="flex-1"
+            />
+            <Button size="icon" onClick={() => handleSend()} disabled={!msg.trim() || sendMessage.isPending}>
+              {sendMessage.isPending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
