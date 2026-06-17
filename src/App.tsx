@@ -200,6 +200,7 @@ const App = () => (
               <Route path="equipe" element={<PainelEquipe />} />
               <Route path="motoboys" element={<PainelMotoboys />} />
               <Route path="suporte" element={<PainelSuporte />} />
+              <Route path="suporte/chat" element={<PainelSuporteChat />} />
               <Route path="configuracoes" element={<PainelConfiguracoes />} />
             </Route>
 
