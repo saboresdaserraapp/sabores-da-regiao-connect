@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useAdminChats, useClaimChat, useCloseChat } from "@/hooks/useSupportChat";
+import { useAdminChats, useClaimChat, useCloseChat, useSendChatMessage } from "@/hooks/useSupportChat";
 import { ChatPanel } from "@/components/support/ChatPanel";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ export default function AdminSuporte() {
   const { data: chats = [], isLoading } = useAdminChats();
   const claim = useClaimChat();
   const close = useCloseChat();
+  const sendMsg = useSendChatMessage();
 
   const current = chats.find((c) => c.id === selected) || null;
   const mine = chats.filter((c) => c.claimed_by === user?.id);
@@ -42,7 +43,17 @@ export default function AdminSuporte() {
                 <div className="flex gap-2">
                   {current.status === "waiting" || current.claimed_by !== user?.id ? (
                     <Button size="sm" onClick={async () => {
-                      try { await claim.mutateAsync(current.id); toast.success("Chat atribuído"); }
+                      try {
+                        await claim.mutateAsync(current.id);
+                        try {
+                          await sendMsg.mutateAsync({
+                            chat_id: current.id,
+                            sender_role: "system",
+                            message: "Atendimento iniciado pelo suporte. Olá! Como posso ajudar?",
+                          });
+                        } catch { /* non-blocking */ }
+                        toast.success("Chat atribuído");
+                      }
                       catch (e: any) { toast.error(e?.message || "Falha"); }
                     }}>Assumir</Button>
                   ) : null}
