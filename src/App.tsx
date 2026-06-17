@@ -16,6 +16,7 @@ import ResetPassword from "./pages/ResetPassword.tsx";
 import MinhaConta from "./pages/MinhaConta.tsx";
 import SuporteCliente from "./pages/SuporteCliente.tsx";
 import SuporteChatCliente from "./pages/SuporteChatCliente.tsx";
+import TicketDetalhesCliente from "./pages/TicketDetalhesCliente.tsx";
 import PedidoCliente from "./pages/PedidoCliente.tsx";
 import PedidoDetalhesLoja from "./pages/minha-loja/pedidos/PedidoDetalhes.tsx";
 import PedidoTracking from "./pages/PedidoTracking.tsx";
@@ -79,6 +80,7 @@ import PainelEquipe from "./pages/minha-loja/painel/Equipe.tsx";
 import PainelMotoboys from "./pages/minha-loja/painel/Motoboys.tsx";
 import PainelSuporte from "./pages/minha-loja/painel/Suporte.tsx";
 import PainelSuporteChat from "./pages/minha-loja/painel/SuporteChat.tsx";
+import PainelTicketDetalhes from "./pages/minha-loja/painel/TicketDetalhes.tsx";
 import { Navigate, useLocation } from "react-router-dom";
 import { CartFloatingButton } from "./components/CartFloatingButton";
 import { SupportChatWidget } from "./components/support/SupportChatWidget";
@@ -132,6 +134,8 @@ const App = () => (
             <Route path="/minha-conta" element={<MinhaConta />} />
             <Route path="/minha-conta/suporte" element={<SuporteCliente />} />
             <Route path="/minha-conta/suporte/chat" element={<SuporteChatCliente />} />
+            <Route path="/minha-conta/suporte/tickets" element={<SuporteCliente />} />
+            <Route path="/minha-conta/suporte/tickets/:ticketId" element={<TicketDetalhesCliente />} />
             <Route path="/minha-conta/pedidos/:orderId" element={<PedidoCliente />} />
             <Route path="/pedido/:code" element={<PedidoTracking />} />
             <Route path="/referencia/:token" element={<VisualReference />} />
@@ -166,6 +170,8 @@ const App = () => (
                 <Route path="/admin/politicas-entrega" element={<AdminPoliticasEntrega />} />
                 <Route path="/admin/aprovacao-estabelecimentos" element={<AdminAprovacaoEstabelecimentos />} />
                 <Route path="/admin/tickets" element={<AdminTickets />} />
+                <Route path="/admin/suporte/tickets" element={<AdminTickets />} />
+                <Route path="/admin/suporte/tickets/:ticketId" element={<AdminTickets />} />
                 <Route path="/admin/suporte" element={<AdminSuporte />} />
                 <Route path="/admin/suporte/chats" element={<AdminSuporte />} />
               </Route>
@@ -201,6 +207,8 @@ const App = () => (
               <Route path="motoboys" element={<PainelMotoboys />} />
               <Route path="suporte" element={<PainelSuporte />} />
               <Route path="suporte/chat" element={<PainelSuporteChat />} />
+              <Route path="suporte/tickets" element={<PainelSuporte />} />
+              <Route path="suporte/tickets/:ticketId" element={<PainelTicketDetalhes />} />
               <Route path="configuracoes" element={<PainelConfiguracoes />} />
             </Route>
 

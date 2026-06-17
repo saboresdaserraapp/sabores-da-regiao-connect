@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
 import { useSupportTickets, STATUS_LABEL, PRIORITY_LABEL, type TicketStatus, type TicketPriority } from "@/hooks/useSupportTickets";
 import { TicketListItem } from "@/components/support/NewTicketDialog";
 import { TicketDetail } from "@/components/support/TicketDetail";
@@ -8,7 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent } from "@/components/ui/card";
 
 export default function AdminTickets() {
-  const [selected, setSelected] = useState<string | null>(null);
+  const { ticketId } = useParams<{ ticketId?: string }>();
+  const [selected, setSelected] = useState<string | null>(ticketId ?? null);
+  useEffect(() => { if (ticketId) setSelected(ticketId); }, [ticketId]);
   const [q, setQ] = useState("");
   const [origin, setOrigin] = useState<"all" | "customer" | "establishment">("all");
   const [status, setStatus] = useState<"all" | TicketStatus>("all");

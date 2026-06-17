@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Send, Paperclip, X } from "lucide-react";
+import { Loader2, Send, Paperclip, X, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -46,6 +46,7 @@ export function TicketDetail({
   const [text, setText] = useState("");
   const [pending, setPending] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [internalNote, setInternalNote] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -59,8 +60,14 @@ export function TicketDetail({
   const onSend = async () => {
     const message = text.trim();
     if (!message && pending.length === 0) return;
+    const asInternal = senderRole === "admin" && internalNote;
     try {
-      const msg = await send.mutateAsync({ ticket_id: ticket.id, message: message || "(anexo)", sender_role: senderRole });
+      const msg = await send.mutateAsync({
+        ticket_id: ticket.id,
+        message: message || "(anexo)",
+        sender_role: senderRole,
+        is_internal_note: asInternal,
+      });
       if (pending.length) {
         setUploading(true);
         for (const f of pending) {
@@ -80,6 +87,7 @@ export function TicketDetail({
         setPending([]);
       }
       setText("");
+      setInternalNote(false);
     } catch (e: any) {
       toast.error(e?.message || "Falha ao enviar");
     } finally {
@@ -129,18 +137,24 @@ export function TicketDetail({
 
       <div ref={listRef} className="rounded-lg border bg-background max-h-[420px] overflow-y-auto p-3 space-y-3">
         {messages.length === 0 && <div className="text-sm text-muted-foreground text-center py-6">Sem mensagens ainda.</div>}
-        {messages.map((m) => {
+        {messages.filter((m) => m && typeof m.message === "string").map((m: any) => {
           const mine = m.sender_id === user?.id;
           const mAtts = attachments.filter((a: any) => a.message_id === m.id);
+          const isInternal = !!m.is_internal_note;
           return (
             <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
-              <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${mine ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
-                <div className="text-[10px] opacity-70 mb-0.5">
+              <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${
+                isInternal ? "bg-amber-100 border border-amber-300 text-amber-950"
+                : mine ? "bg-primary text-primary-foreground" : "bg-muted"
+              }`}>
+                <div className="text-[10px] opacity-70 mb-0.5 flex items-center gap-1">
+                  {isInternal && <Lock className="size-3" />}
+                  {isInternal && <span className="font-semibold uppercase">Nota interna ·</span>}
                   {m.sender_role === "admin" ? "Suporte" : m.sender_role === "establishment" ? "Loja" : m.sender_role === "system" ? "Sistema" : "Cliente"}
                   {" · "}
-                  {formatDistanceToNow(new Date(m.created_at), { addSuffix: true, locale: ptBR })}
+                  {m.created_at ? formatDistanceToNow(new Date(m.created_at), { addSuffix: true, locale: ptBR }) : ""}
                 </div>
-                <div className="whitespace-pre-wrap">{m.message}</div>
+                <div className="whitespace-pre-wrap">{m.message ?? ""}</div>
                 {mAtts.length > 0 && (
                   <div className="mt-2 space-y-1">
                     {mAtts.map((a: any) => (
@@ -159,6 +173,18 @@ export function TicketDetail({
 
       {ticket.status !== "closed" ? (
         <div className="space-y-2">
+          {senderRole === "admin" && (
+            <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={internalNote}
+                onChange={(e) => setInternalNote(e.target.checked)}
+                className="size-3.5 accent-amber-500"
+              />
+              <Lock className="size-3" />
+              Nota interna (visível só para a equipe de suporte)
+            </label>
+          )}
           {pending.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {pending.map((f, i) => (
