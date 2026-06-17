@@ -131,6 +131,7 @@ const App = () => (
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/minha-conta" element={<MinhaConta />} />
             <Route path="/minha-conta/suporte" element={<SuporteCliente />} />
+            <Route path="/minha-conta/suporte/chat" element={<SuporteChatCliente />} />
             <Route path="/minha-conta/pedidos/:orderId" element={<PedidoCliente />} />
             <Route path="/pedido/:code" element={<PedidoTracking />} />
             <Route path="/referencia/:token" element={<VisualReference />} />
