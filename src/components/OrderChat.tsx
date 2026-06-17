@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useOrderMessages } from "@/hooks/useOrderMessages";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -16,7 +16,16 @@ interface OrderChatProps {
 
 export function OrderChat({ orderId, senderType, establishmentId }: OrderChatProps) {
   const [msg, setMsg] = useState("");
-  const { data: messages, isLoading, isError, sendMessage, refetch } = useOrderMessages(orderId);
+  const { data: messages, isLoading, isError, sendMessage, refetch, markAsRead } = useOrderMessages(orderId);
+  const lastMarkedCount = useRef(0);
+
+  useEffect(() => {
+    const count = messages?.length ?? 0;
+    if (count > 0 && count !== lastMarkedCount.current) {
+      lastMarkedCount.current = count;
+      markAsRead.mutate();
+    }
+  }, [messages, markAsRead]);
 
   const handleSend = () => {
     if (!msg.trim() || sendMessage.isPending) return;
@@ -42,12 +51,14 @@ export function OrderChat({ orderId, senderType, establishmentId }: OrderChatPro
           {messages?.map((m) => {
             const isMe = m.sender_type === senderType;
             const isSystem = m.sender_type === "system";
+            const text = typeof m.message === "string" ? m.message : "";
+            const createdAt = m.created_at ? new Date(m.created_at) : null;
 
             if (isSystem) {
               return (
                 <div key={m.id} className="text-center">
                   <span className="text-[10px] bg-muted px-2 py-0.5 rounded-full text-muted-foreground uppercase">
-                    {m.message}
+                    {text}
                   </span>
                 </div>
               );
@@ -59,10 +70,10 @@ export function OrderChat({ orderId, senderType, establishmentId }: OrderChatPro
                   "max-w-[80%] rounded-2xl px-3 py-2 text-sm shadow-sm",
                   isMe ? "bg-primary text-primary-foreground rounded-tr-none" : "bg-muted rounded-tl-none"
                 )}>
-                  {m.message}
+                  {text}
                 </div>
                 <span className="text-[10px] text-muted-foreground mt-1 px-1">
-                  {format(new Date(m.created_at), "HH:mm", { locale: ptBR })}
+                  {createdAt ? format(createdAt, "HH:mm", { locale: ptBR }) : ""}
                 </span>
               </div>
             );
