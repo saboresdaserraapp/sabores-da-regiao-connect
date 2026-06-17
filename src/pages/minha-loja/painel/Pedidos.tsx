@@ -184,6 +184,7 @@ export default function Pedidos() {
     <div
       key={o.id}
       className={`w-full rounded-xl border bg-card p-2.5 text-sm shadow-sm transition-shadow hover:shadow-md ${
+        unread(o.id) > 0 ? "border-primary ring-1 ring-primary/30" :
         isStagnant(o) ? "border-red-300 bg-red-50/50" : "border-border/70"
       }`}
     >
@@ -192,7 +193,14 @@ export default function Pedidos() {
         <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground truncate">
           {o.tracking_code ?? o.id.slice(0, 8)}
         </span>
-        <span className="text-sm font-bold tabular-nums">R$ {Number(o.total).toFixed(2)}</span>
+        <div className="flex items-center gap-1.5">
+          {unread(o.id) > 0 && (
+            <Badge className="h-5 px-1.5 text-[10px] font-medium gap-1 bg-primary">
+              <MessageSquare className="size-3" /> {unread(o.id)}
+            </Badge>
+          )}
+          <span className="text-sm font-bold tabular-nums">R$ {Number(o.total).toFixed(2)}</span>
+        </div>
       </div>
 
       {/* Customer */}
