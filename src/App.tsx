@@ -15,6 +15,7 @@ import RecuperarSenha from "./pages/RecuperarSenha.tsx";
 import ResetPassword from "./pages/ResetPassword.tsx";
 import MinhaConta from "./pages/MinhaConta.tsx";
 import SuporteCliente from "./pages/SuporteCliente.tsx";
+import SuporteChatCliente from "./pages/SuporteChatCliente.tsx";
 import PedidoCliente from "./pages/PedidoCliente.tsx";
 import PedidoDetalhesLoja from "./pages/minha-loja/pedidos/PedidoDetalhes.tsx";
 import PedidoTracking from "./pages/PedidoTracking.tsx";
@@ -77,6 +78,7 @@ import PainelEditarProduto from "./pages/minha-loja/painel/EditarProduto.tsx";
 import PainelEquipe from "./pages/minha-loja/painel/Equipe.tsx";
 import PainelMotoboys from "./pages/minha-loja/painel/Motoboys.tsx";
 import PainelSuporte from "./pages/minha-loja/painel/Suporte.tsx";
+import PainelSuporteChat from "./pages/minha-loja/painel/SuporteChat.tsx";
 import { Navigate, useLocation } from "react-router-dom";
 import { CartFloatingButton } from "./components/CartFloatingButton";
 import { SupportChatWidget } from "./components/support/SupportChatWidget";
@@ -129,6 +131,7 @@ const App = () => (
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/minha-conta" element={<MinhaConta />} />
             <Route path="/minha-conta/suporte" element={<SuporteCliente />} />
+            <Route path="/minha-conta/suporte/chat" element={<SuporteChatCliente />} />
             <Route path="/minha-conta/pedidos/:orderId" element={<PedidoCliente />} />
             <Route path="/pedido/:code" element={<PedidoTracking />} />
             <Route path="/referencia/:token" element={<VisualReference />} />
@@ -164,6 +167,7 @@ const App = () => (
                 <Route path="/admin/aprovacao-estabelecimentos" element={<AdminAprovacaoEstabelecimentos />} />
                 <Route path="/admin/tickets" element={<AdminTickets />} />
                 <Route path="/admin/suporte" element={<AdminSuporte />} />
+                <Route path="/admin/suporte/chats" element={<AdminSuporte />} />
               </Route>
             </Route>
 
@@ -196,6 +200,7 @@ const App = () => (
               <Route path="equipe" element={<PainelEquipe />} />
               <Route path="motoboys" element={<PainelMotoboys />} />
               <Route path="suporte" element={<PainelSuporte />} />
+              <Route path="suporte/chat" element={<PainelSuporteChat />} />
               <Route path="configuracoes" element={<PainelConfiguracoes />} />
             </Route>
 
