@@ -16,6 +16,7 @@ const NAV = [
   { to: "/admin/avaliacoes", label: "Avaliações", icon: MessageSquare },
   { to: "/admin/denuncias", label: "Denúncias", icon: Flag },
   { to: "/admin/tickets", label: "Tickets de Suporte", icon: LifeBuoy },
+  { to: "/admin/suporte", label: "Suporte ao vivo", icon: MessageSquare },
   { to: "/admin/comunicados", label: "Comunicados", icon: Megaphone },
   { to: "/admin/site", label: "Gestão do site", icon: Settings2 },
   { to: "/admin/usuarios", label: "Usuários & papéis", icon: Users, manageOnly: true },
