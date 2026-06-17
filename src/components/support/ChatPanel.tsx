@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useChatMessages, useSendChatMessage, type SupportChat } from "@/hooks/useSupportChat";
+import { useChatMessages, useSendChatMessage, useChatQueuePosition, type SupportChat } from "@/hooks/useSupportChat";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -20,6 +20,7 @@ export function ChatPanel({
   const { user } = useAuth();
   const { data: messages = [] } = useChatMessages(chat.id);
   const send = useSendChatMessage();
+  const { data: queuePos } = useChatQueuePosition(chat);
   const [text, setText] = useState("");
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -51,13 +52,19 @@ export function ChatPanel({
         </div>
         {headerExtra}
       </div>
+      {chat.status === "waiting" && senderRole !== "admin" && (
+        <div className="border-b bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          Você entrou na fila de atendimento. Aguarde um instante.
+          {queuePos != null && <> Sua posição: <strong>Nº {queuePos}</strong>.</>}
+        </div>
+      )}
       <div ref={listRef} className="flex-1 overflow-y-auto p-3 space-y-2 bg-muted/30">
         {messages.length === 0 && (
           <div className="text-sm text-muted-foreground text-center py-4">
             {chat.status === "waiting" ? "Envie sua primeira mensagem. Um atendente entrará em contato." : "Sem mensagens."}
           </div>
         )}
-        {messages.map((m) => {
+        {messages.filter((m) => m && typeof m.message === "string" && m.message.length > 0).map((m) => {
           const mine = m.sender_id === user?.id;
           return (
             <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
@@ -65,7 +72,7 @@ export function ChatPanel({
                 <div className="text-[10px] opacity-70 mb-0.5">
                   {m.sender_role === "admin" ? "Suporte" : m.sender_role === "establishment" ? "Loja" : m.sender_role === "system" ? "Sistema" : "Você"}
                 </div>
-                <div className="whitespace-pre-wrap">{m.message}</div>
+                <div className="whitespace-pre-wrap">{m.message ?? ""}</div>
               </div>
             </div>
           );
