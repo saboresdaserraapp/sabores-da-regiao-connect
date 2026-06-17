@@ -84,6 +84,7 @@ import PainelTicketDetalhes from "./pages/minha-loja/painel/TicketDetalhes.tsx";
 import { Navigate, useLocation } from "react-router-dom";
 import { CartFloatingButton } from "./components/CartFloatingButton";
 import { SupportChatWidget } from "./components/support/SupportChatWidget";
+import { PendingProposalDialog } from "./components/PendingProposalDialog";
 import { useAuth } from "@/hooks/useAuth";
 
 const queryClient = new QueryClient();
@@ -109,6 +110,16 @@ function GlobalSupportWidget() {
   if (/^\/minha-loja(\/|$)/.test(pathname)) return null;
   if (/^\/checkout(\/|$)/.test(pathname)) return null;
   return <SupportChatWidget />;
+}
+
+function GlobalPendingProposal() {
+  const { user } = useAuth();
+  const { pathname } = useLocation();
+  if (!user) return null;
+  if (/^\/admin(\/|$)/.test(pathname)) return null;
+  if (/^\/minha-loja(\/|$)/.test(pathname)) return null;
+  if (/^\/checkout(\/|$)/.test(pathname)) return null;
+  return <PendingProposalDialog />;
 }
 
 const App = () => (
@@ -218,6 +229,7 @@ const App = () => (
           </Routes>
           <GlobalCartButton />
           <GlobalSupportWidget />
+          <GlobalPendingProposal />
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
