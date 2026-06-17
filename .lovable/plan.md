@@ -1,34 +1,57 @@
-## Problema
+# Plano — Chat do Pedido (consolidação)
 
-A aba "Meus pedidos" não retorna nada porque a tabela `public.orders` está sem GRANTs para os roles do Data API (`authenticated`, `anon`, `service_role`). Sem GRANT, o PostgREST devolve resultado vazio (ou erro de permissão) mesmo com RLS permitindo acesso ao próprio `user_id`.
+## Auditoria (o que já existe)
 
-Verificado:
-- Os pedidos do usuário logado existem com `user_id` correto.
-- As políticas RLS de SELECT (`Own orders read`, `Users can view their own orders`) estão corretas.
-- `information_schema.role_table_grants` mostra apenas grants para `sandbox_exec` — nenhum para `authenticated`/`service_role`.
+- **Tabela `public.order_messages`** já existe com todos os campos do escopo (id, order_id, establishment_id, customer_user_id, sender_user_id, sender_type, message, read_at, created_at). **Não criar tabela nova.**
+- **Componente `src/components/OrderChat.tsx`** já existe (sistema/cliente/loja, timestamps, estados loading/erro, botão atualizar). **Reutilizar.**
+- **Hook `src/hooks/useOrderMessages.ts`** já existe (query + mutation + notificação). **Reutilizar.**
+- **Integração**: já usado em `MinhaConta.tsx` (cliente) e `minha-loja/pedidos/PedidoDetalhes.tsx` (loja).
+- **Realtime**: `order_messages` já está em `supabase_realtime`.
+- **Mensagens de sistema**: já são geradas pelas RPCs `accept_order_proposal` / `reject_order_proposal` e devem continuar sendo inseridas pelos fluxos já existentes (proposta, cancelamento etc.) — sem alterações.
 
-## Correção
+## Problemas encontrados
 
-Criar uma migration única adicionando os GRANTs faltando, sem alterar políticas, schema ou código:
+1. **RLS de INSERT quebrada para a loja.** A policy `"Users can insert messages to their own orders"` tem subquery inválida:
+   ```
+   o.establishment_id IN (SELECT id FROM establishments WHERE o.user_id = auth.uid())
+   ```
+   A condição não filtra `establishments` por dono — só funciona para o cliente. Resultado: a loja não consegue enviar mensagem.
+2. **Duas SELECT policies sobrepostas** (uma correta usando `can_user_access_order` + owner, outra com o mesmo bug acima). A duplicada é redundante e confusa.
+3. **Falta UPDATE policy** para marcar `read_at` (mensagens como lidas).
+4. **Realtime não está ativo no hook** — só refetch manual.
 
-```sql
-GRANT SELECT, INSERT, UPDATE ON public.orders TO authenticated;
-GRANT SELECT, INSERT ON public.orders TO anon;        -- mantém criação de pedido por visitante
-GRANT ALL ON public.orders TO service_role;
-```
+## Mudanças propostas
 
-Justificativas:
-- `authenticated` precisa de SELECT/INSERT/UPDATE (ver/criar/cancelar próprios pedidos). Sem DELETE porque nenhuma política permite delete pelo cliente.
-- `anon` mantém INSERT (checkout sem login já existente via política "Anyone can create orders") + SELECT (a página de tracking público lê via `get_order_by_tracking`, mas manter SELECT é coerente com a política existente; remover se quiser endurecer depois).
-- `service_role`: ALL, padrão para edge functions/admin.
+### 1. Migração SQL (corrigir RLS, sem mexer em estrutura)
 
-## Validação
+- DROP das duas policies bugadas.
+- CREATE de policies limpas:
+  - **SELECT**: cliente dono do pedido OU owner/membro do estabelecimento dono do pedido (via `establishment_owners` / `establishments.owner_id`). Admin não tem acesso.
+  - **INSERT WITH CHECK**: mesma regra acima + `sender_user_id = auth.uid()` + `order_id` pertence ao escopo do remetente + coerência `sender_type` (`customer` só se `auth.uid() = orders.user_id`; `business` só se for membro/owner do `establishment_id` do pedido; `system` bloqueado no client).
+  - **UPDATE**: permitir setar `read_at` apenas pelo destinatário (não o próprio remetente), restrito às mesmas pessoas do SELECT.
+- Garantir `GRANT SELECT, INSERT, UPDATE ON public.order_messages TO authenticated`.
 
-1. Após a migration, reabrir "Meus pedidos" logado como o usuário de teste e confirmar que os 6 pedidos aparecem nas abas correspondentes (em andamento / concluídos).
-2. Conferir no console que `useOrderHistory` retorna `data.length > 0`.
-3. Garantir que checkout continua criando pedidos normalmente (anon e logado).
+### 2. Hook `useOrderMessages.ts`
 
-## Fora de escopo
+- Adicionar subscription Realtime (`postgres_changes` em `order_messages` filtrado por `order_id`) dentro de `useEffect`, invalidando a query no INSERT/UPDATE.
+- Adicionar `markAsRead` mutation (UPDATE `read_at = now()` para mensagens onde `sender_user_id <> user.id` e `read_at is null`).
+- Não inserir mais notificação no client (já existe trigger `handle_new_order_message_notification`). Remover esse bloco para evitar notificação duplicada.
+- Tipar retorno para evitar `null`/`undefined`/`[object Object]` nos campos exibidos (fallback de string vazia onde aplicável).
 
-- Nenhuma mudança em componentes, hooks, RPCs ou outras tabelas.
-- Sem alteração de RLS.
+### 3. Componente `OrderChat.tsx`
+
+- Chamar `markAsRead` ao montar / quando novas mensagens chegam para o destinatário.
+- Pequenos ajustes defensivos: `m.message ?? ""`, `m.created_at ? format(...) : ""`.
+- Sem mudanças visuais relevantes.
+
+## Fora de escopo (não tocar)
+
+Checkout, carrinho, produtos, motoboys, painel admin, referências visuais, suporte/tickets, demais páginas.
+
+## Critérios de aceite
+
+- Cliente e loja conversam dentro do pedido; histórico isolado por `order_id`.
+- Loja A não vê chat da Loja B; Cliente A não vê de Cliente B (validado pelas novas policies).
+- Mensagens de sistema (proposta enviada/aceita/recusada, confirmação, cancelamento) continuam aparecendo via fluxos atuais.
+- Pedido sem mensagens abre normalmente; nenhum `null`/`undefined`/`[object Object]` exibido.
+- Realtime atualiza a conversa sem refresh; botão "Atualizar" segue como fallback.
