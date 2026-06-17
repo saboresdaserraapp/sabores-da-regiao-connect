@@ -199,7 +199,14 @@ export default function Pedidos() {
               <MessageSquare className="size-3" /> {unread(o.id)}
             </Badge>
           )}
-          <span className="text-sm font-bold tabular-nums">R$ {Number(o.total).toFixed(2)}</span>
+          {o.final_total != null && Number(o.final_total) !== Number(o.total) ? (
+            <span className="flex items-baseline gap-1 tabular-nums">
+              <span className="text-[10px] text-muted-foreground line-through">R$ {Number(o.total).toFixed(2)}</span>
+              <span className="text-sm font-bold">R$ {Number(o.final_total).toFixed(2)}</span>
+            </span>
+          ) : (
+            <span className="text-sm font-bold tabular-nums">R$ {Number(o.total).toFixed(2)}</span>
+          )}
         </div>
       </div>
 
@@ -238,9 +245,14 @@ export default function Pedidos() {
 
       {/* Money breakdown */}
       <div className="mt-1.5 text-[11px] text-muted-foreground tabular-nums">
-        Sub R$ {Number(o.subtotal).toFixed(2)} · Taxa est R$ {Number(o.delivery_fee).toFixed(2)}
-        {o.final_delivery_fee != null && (
-          <> · <span className="text-foreground font-medium">Final R$ {Number(o.final_delivery_fee).toFixed(2)}</span></>
+        Sub R$ {Number(o.subtotal).toFixed(2)} · Taxa{" "}
+        {o.final_delivery_fee != null && Number(o.final_delivery_fee) !== Number(o.delivery_fee) ? (
+          <>
+            <span className="line-through">R$ {Number(o.delivery_fee).toFixed(2)}</span>{" "}
+            <span className="text-foreground font-medium">R$ {Number(o.final_delivery_fee).toFixed(2)}</span>
+          </>
+        ) : (
+          <>R$ {Number(o.final_delivery_fee ?? o.delivery_fee).toFixed(2)}</>
         )}
       </div>
 
