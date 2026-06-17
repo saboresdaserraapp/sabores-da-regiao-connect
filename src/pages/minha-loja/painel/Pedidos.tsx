@@ -5,11 +5,12 @@ import { PainelSection } from "./_shared";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MessageCircle, ImageIcon, ChevronDown, ChevronUp, Smartphone, AlertTriangle, CheckCircle2, LayoutGrid, List } from "lucide-react";
+import { MessageCircle, ImageIcon, ChevronDown, ChevronUp, Smartphone, AlertTriangle, CheckCircle2, LayoutGrid, List, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 import { OrderReferencesPanel } from "@/components/orders/OrderReferencesPanel";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { OrderFreteActions, flowStatusBadge, requiresCustomerAcceptance } from "@/components/orders/OrderFreteActions";
+import { useOrderUnreadCountsForBusiness } from "@/hooks/useOrderUnreadCounts";
 
 const STATUS_OPTIONS: { value: string; label: string; tone?: string }[] = [
   { value: "waiting_business_confirmation", label: "Aguardando confirmação" },
@@ -77,6 +78,9 @@ export default function Pedidos() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [filter, setFilter] = useState<string>("all");
   const [expandedRef, setExpandedRef] = useState<string | null>(null);
+  const [onlyUnread, setOnlyUnread] = useState(false);
+  const { data: unreadMap } = useOrderUnreadCountsForBusiness(ctx?.establishmentId);
+  const unread = (id: string) => unreadMap?.[id] ?? 0;
 
   async function refresh() {
     if (!ctx) return;
@@ -172,7 +176,8 @@ export default function Pedidos() {
   }
 
   if (!ctx) return null;
-  const filtered = filter === "all" ? orders : orders.filter(o => o.status === filter);
+  let filtered = filter === "all" ? orders : orders.filter(o => o.status === filter);
+  if (onlyUnread) filtered = filtered.filter(o => unread(o.id) > 0);
   const stagnantCount = orders.filter(isStagnant).length;
 
   const renderKanbanCard = (o: Order) => (
