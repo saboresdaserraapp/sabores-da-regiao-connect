@@ -4,7 +4,7 @@ import { Header } from "@/components/Header";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
-import { useMyOpenChat, useOpenChat, useCloseChat } from "@/hooks/useSupportChat";
+import { useMyOpenChat, useOpenChat, useCloseChat, useChatQueuePosition } from "@/hooks/useSupportChat";
 import { ChatPanel } from "@/components/support/ChatPanel";
 import { toast } from "sonner";
 
@@ -13,6 +13,7 @@ export default function SuporteChatCliente() {
   const { data: chat, isLoading } = useMyOpenChat();
   const open = useOpenChat();
   const close = useCloseChat();
+  const { data: queuePosition } = useChatQueuePosition(chat);
 
   if (loading) return <div className="min-h-screen grid place-items-center"><Loader2 className="size-6 animate-spin" /></div>;
   if (!user) return <Navigate to="/login" replace />;
@@ -55,6 +56,13 @@ export default function SuporteChatCliente() {
               senderRole="customer"
               headerExtra={
                 <Button size="sm" variant="outline" onClick={handleClose}>Encerrar</Button>
+              }
+              banner={
+                chat.status === "waiting"
+                  ? `Você está na fila de atendimento. Posição: ${queuePosition ?? "—"}.`
+                  : chat.status === "active"
+                  ? "Você está conversando com o suporte."
+                  : undefined
               }
             />
           )}
