@@ -1,52 +1,24 @@
-## Auditoria — nada precisa ser recriado
+## Auditoria — tudo já está implementado
 
-Tudo já existe e está em uso:
+| Fase | Item | Local | Status |
+|---|---|---|---|
+| 0 | Tabela `notifications` com `related_order_id`, `related_establishment_id`, `type`, `read_at` | migration anterior | OK |
+| 1 | Notificação para o cliente quando a loja envia mensagem (`type=order_chat_message`, `related_order_id`, ignora próprio remetente) | trigger `handle_new_order_message_notification` | OK |
+| 2 | Selo "Nova mensagem" + contador no card e filtro "Com mensagens não lidas" no painel da loja | `src/pages/minha-loja/painel/Pedidos.tsx` (linhas 82, 180–199, 318–328) usando `useOrderUnreadCountsForBusiness` | OK |
+| 2 | `markAsRead` automático ao abrir o chat | `OrderChat` chama `markAsRead` no `useEffect` | OK |
+| 3 | Filtro "Com mensagens não lidas" (`onlyUnread`) | já presente no painel | OK |
+| 4 | Sininho roteando `order_chat_message` → `/minha-conta/pedidos/:related_order_id` (ou rota da loja quando o dono é membro do estabelecimento) e marcando como lida | `NotificationCenter.tsx` (`routeFor` + `handleClick`) | OK |
+| 5 | Nunca notifica o próprio remetente / mensagem vazia | trigger checa `v_recipient_id <> NEW.sender_user_id`; `INSERT` de `order_messages` exige `message NOT NULL` | OK |
+| 6 | RLS: cliente só vê próprias notificações (`user_id = auth.uid()`); INSERT bloqueado para clientes; `order_messages` escopadas a cliente/loja | auditoria anterior | OK |
 
-| Item | Local | Status |
-|---|---|---|
-| Tabela `order_messages` | RLS por cliente/loja (auditada na última revisão) | OK |
-| Hook `useOrderMessages` | `src/hooks/useOrderMessages.ts` (query + realtime + send + markAsRead) | OK |
-| Componente | `src/components/OrderChat.tsx` | OK |
-| Página cliente | `MinhaConta.tsx`, `PedidoCliente.tsx` (`/minha-conta/pedidos/:id`) | OK |
-| Página loja | `minha-loja/pedidos/PedidoDetalhes.tsx` | OK |
-| Mensagens de sistema | proposta enviada (`orderProposals.ts`), aceite/recusa (RPC `accept_order_proposal`/`reject_order_proposal`), aceite WhatsApp | OK |
-| Notificações | trigger `handle_new_order_message_notification` com `related_order_id` | OK |
+## Pequenos polimentos propostos (opcionais, baixo risco)
 
-## Gaps identificados (pequenos, não bloqueantes)
-
-1. Título fixo "Chat do Pedido" — spec pede "Conversa com a loja" (cliente) e "Conversa com o cliente" (loja).
-2. Sem botões de mensagens rápidas no lado da loja.
-3. Sem aviso quando o pedido está cancelado/entregue ("Este pedido foi finalizado. Para problemas, abra um ticket de suporte.").
-4. Mensagens de sistema cobrem proposta/aceite/recusa/WhatsApp, mas **não** cobrem mudança de status crítica (cancelado, saiu para entrega, entregue, precisa de mais referência). Hoje só geram notificação.
-
-## Mudanças propostas (consolidação)
-
-### 1. `OrderChat.tsx` — props adicionais (não-quebra)
-- `title?: string` → renderiza no header (default mantém "Chat do Pedido").
-- `quickReplies?: string[]` → menu suspenso "Mensagens rápidas" acima do input, só aparece quando passado (loja).
-- `disabled?: boolean` + `disabledMessage?: string` → quando pedido finalizado, esconde input e mostra aviso amigável; histórico continua visível.
-
-### 2. Páginas — passar as novas props
-- Cliente (`MinhaConta.tsx`, `PedidoCliente.tsx`): `title="Conversa com a loja"`, `disabled` se `status ∈ {delivered, canceled_*, not_completed}` com aviso de ticket.
-- Loja (`minha-loja/pedidos/PedidoDetalhes.tsx`): `title="Conversa com o cliente"`, `quickReplies={STORE_QUICK_REPLIES}` (lista do spec), mesmo `disabled` para finalizados (mas loja ainda pode mandar — manter habilitado).
-
-### 3. Trigger `order_status_change_system_message`
-Após `UPDATE` em `orders` quando `status` mudar, inserir uma linha em `order_messages` com `sender_type='system'` para os status relevantes:
-- `canceled_by_business` → "Pedido cancelado pela loja."
-- `canceled_by_customer` → "Pedido cancelado pelo cliente."
-- `out_for_delivery` → "Pedido saiu para entrega."
-- `delivered` → "Pedido entregue."
-- `needs_more_reference` → "Loja solicitou mais informações ou referência para entrega."
-
-`SECURITY DEFINER`, sem mudar lógica de status nem RLS.
+1. **Sininho — botão "Ver pedido" explícito e estado vazio**: quando `type=order_chat_message` e `related_order_id` ausente, mostrar texto "Pedido não disponível" no lugar do click handler. Atualmente o clique simplesmente não navega; o aprimoramento deixa a intenção visível.
+2. **Texto da notificação**: o trigger hoje gera `'Nova mensagem - Pedido SDS-XXXX'` + trecho da mensagem. Spec sugere título fixo "Nova mensagem sobre seu pedido" e corpo "A loja enviou uma mensagem sobre seu pedido." Atualizar o trigger para usar exatamente esse texto quando a mensagem vier da loja, mantendo o atual quando vier do cliente (para a loja).
 
 ## Fora do escopo
-- Tabela nova, hook novo, componente novo.
-- Refatorar checkout, carrinho, produtos, referências visuais, motoboys, painel admin.
-- Mudar policies de `order_messages` (já validadas).
-- Push/SMS.
+Checkout, carrinho, produtos, motoboys, referências visuais, painel admin, página inicial. Sem nova tabela, sem novo componente, sem novo hook.
 
 ## Arquivos a alterar
-- `src/components/OrderChat.tsx` (props opcionais)
-- `src/pages/MinhaConta.tsx`, `src/pages/PedidoCliente.tsx`, `src/pages/minha-loja/pedidos/PedidoDetalhes.tsx` (passar props)
-- 1 migration SQL (trigger de mensagens de sistema por status)
+- 1 migration (texto fixo do trigger).
+- `src/components/NotificationCenter.tsx` (estado vazio "Pedido não disponível" + label "Ver pedido" em itens de pedido).

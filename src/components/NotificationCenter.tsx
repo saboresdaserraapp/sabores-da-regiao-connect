@@ -127,10 +127,26 @@ export function NotificationCenter() {
                     <div className="flex-1 min-w-0">
                       <div className="font-semibold text-xs mb-0.5">{n.title ?? ""}</div>
                       <div className="text-xs text-muted-foreground line-clamp-2">{n.message ?? ""}</div>
-                      <div className="flex items-center justify-between mt-2">
+                      <div className="flex items-center justify-between mt-2 gap-2">
                         <span className="text-[10px] text-muted-foreground">
                           {n.created_at ? format(new Date(n.created_at), "dd 'de' MMM, HH:mm", { locale: ptBR }) : ""}
                         </span>
+                        {(() => {
+                          const route = routeFor(n);
+                          const isOrder = ORDER_TYPES.has(n.type ?? "");
+                          if (isOrder && !route) {
+                            return <span className="text-[10px] text-muted-foreground italic">Pedido não disponível</span>;
+                          }
+                          if (route) {
+                            const label = isOrder
+                              ? "Ver pedido"
+                              : TICKET_USER_TYPES.has(n.type ?? "") || n.type === "support_ticket_created"
+                              ? "Ver ticket"
+                              : "Abrir";
+                            return <span className="text-[10px] font-medium text-primary">{label} →</span>;
+                          }
+                          return null;
+                        })()}
                       </div>
                     </div>
                   </div>
