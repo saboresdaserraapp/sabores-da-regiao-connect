@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,25 +11,23 @@ export function PendingProposalDialog() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
-  const [dismissedFor, setDismissedFor] = useState<string | null>(null);
+  const reopenTimer = useRef<number | null>(null);
 
   const { data, refetch } = useQuery({
     queryKey: ["pending-proposal", user?.id],
     enabled: !!user,
-    refetchInterval: 20_000,
+    refetchInterval: 15_000,
     queryFn: async () => {
-      // 1) Get the user's recent orders awaiting their confirmation
+      // 1) Recent orders of this user (no status filter, RLS already scopes by user)
       const { data: orders, error: oErr } = await supabase
         .from("orders")
-        .select("id, tracking_code, status, confirmation_flow_status")
+        .select("id, tracking_code, created_at")
         .eq("user_id", user!.id)
-        .eq("status", "waiting_business_confirmation")
-        .eq("confirmation_flow_status", "proposal_sent_to_customer")
         .order("created_at", { ascending: false })
-        .limit(10);
+        .limit(30);
       if (oErr || !orders?.length) return null;
       const ids = orders.map((o) => o.id);
-      // 2) Find a 'sent' proposal for any of those orders
+      // 2) Any 'sent' proposal for any of those orders
       const { data: proposals } = await (supabase as any)
         .from("order_confirmation_proposals")
         .select("id, order_id, status, created_at")
@@ -40,17 +38,19 @@ export function PendingProposalDialog() {
       const p = proposals?.[0];
       if (!p) return null;
       const order = orders.find((o) => o.id === p.order_id);
-      return { id: p.id, order_id: p.order_id, tracking_code: order?.tracking_code };
+      return { id: p.id as string, order_id: p.order_id as string, tracking_code: order?.tracking_code as string | undefined };
     },
   });
 
+  // Whenever there's a pending proposal, force-open the dialog.
   useEffect(() => {
-    if (data?.id && dismissedFor !== data.id) setOpen(true);
-  }, [data?.id, dismissedFor]);
+    if (data?.id) setOpen(true);
+    else setOpen(false);
+  }, [data?.id]);
 
   useEffect(() => {
     if (!user) return;
-    const ch = supabase
+    const chProp = supabase
       .channel(`pending-proposal-${user.id}`)
       .on(
         "postgres_changes",
@@ -58,8 +58,17 @@ export function PendingProposalDialog() {
         () => refetch()
       )
       .subscribe();
+    const chOrders = supabase
+      .channel(`pending-proposal-orders-${user.id}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "orders", filter: `user_id=eq.${user.id}` },
+        () => refetch()
+      )
+      .subscribe();
     return () => {
-      supabase.removeChannel(ch);
+      supabase.removeChannel(chProp);
+      supabase.removeChannel(chOrders);
     };
   }, [user?.id, refetch]);
 
@@ -67,8 +76,22 @@ export function PendingProposalDialog() {
   const orderId = data.order_id as string;
   const tracking = (data as any)?.tracking_code as string | undefined;
 
+  const scheduleReopen = () => {
+    if (reopenTimer.current) window.clearTimeout(reopenTimer.current);
+    reopenTimer.current = window.setTimeout(() => {
+      refetch();
+    }, 5_000);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v && data?.id) setDismissedFor(data.id); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        setOpen(v);
+        // If the user dismisses without responding, reopen shortly after.
+        if (!v) scheduleReopen();
+      }}
+    >
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Confirme o valor final da entrega</DialogTitle>
