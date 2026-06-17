@@ -1,46 +1,56 @@
 ## Objetivo
-Conectar o sininho (tabela `notifications` já existente) aos três canais: chat do pedido, chat de suporte rápido e tickets — sem duplicar tabelas, sem quebrar fluxos atuais.
+Revisão final (sem nova feature): auditar RLS e separação dos três canais de comunicação e aplicar somente correções pontuais se algo estiver frouxo.
 
-## Estado atual (auditado)
-- Tabela `public.notifications` já existe com `user_id`, `establishment_id`, `type`, `data jsonb`, `read_at`.
-- Triggers já populam notificações:
-  - `handle_new_order_message_notification` → tipo `new_order_message` (pedido)
-  - `handle_support_chat_message` → `support_chat_reply` / `support_chat_waiting`
-  - `handle_support_ticket_created` → `support_ticket_created`
-  - `handle_support_ticket_message` → `support_ticket_reply`
-- `NotificationCenter.tsx` só roteia pedidos. Suporte/ticket não navegam.
+## Resultado da auditoria atual
 
-## Mudanças
+### order_messages — OK
+- SELECT/INSERT/UPDATE usam `user_is_order_customer(order_id, uid)` e `user_owns_order_establishment(order_id, uid)`.
+- Cliente A não vê pedido de B; loja A não vê pedido de loja B; admin **não** vê (não está no escopo).
 
-### 1. Migration (aditiva, idempotente)
-- `ALTER TABLE public.notifications ADD COLUMN IF NOT EXISTS related_order_id uuid`, `related_support_chat_id uuid`, `related_ticket_id uuid` (a coluna `establishment_id` já cobre `related_establishment_id`).
-- Atualizar as 4 funções de trigger para preencher os novos `related_*` (em paralelo ao `data jsonb`, mantendo retrocompatibilidade). Sem alterar assinatura.
-- Adicionar trigger leve `handle_support_ticket_status_change` em `support_tickets` (AFTER UPDATE OF status) → cria notificação `support_ticket_status_changed` para `opened_by`.
-- Padronizar tipos novos como aliases conforme spec, **mantendo os antigos** (`new_order_message`, `support_chat_reply`, etc.) para não quebrar nada. O frontend trata ambos.
+### support_chats / support_chat_messages — OK
+- Chat: dono (`user_id = auth.uid()`) ou admin; INSERT exige `user_id = auth.uid()`.
+- Messages: SELECT/INSERT amarrados ao mesmo dono ou admin.
+- Tabelas distintas das do pedido — não há cruzamento.
 
-### 2. Frontend — `src/components/NotificationCenter.tsx`
-Roteamento por tipo, marcando como lida ao clicar:
+### support_tickets / support_ticket_messages / support_ticket_attachments — OK
+- Tickets: opener, membros do estabelecimento (via `user_role_in_establishment`), admins.
+- Messages: admin vê tudo; usuário comum vê apenas `is_internal_note = false` dos próprios tickets; INSERT de nota interna restrito a admin.
+- Attachments: dono/admin/membro do estabelecimento.
 
-| type | rota |
-|---|---|
-| `new_order_message` / `order_chat_message` | `/minha-conta/pedidos/:order_id` (cliente) ou `/minha-loja/:est/pedidos/:order_id` (loja, se `establishment_id` presente e usuário for dono) |
-| `support_chat_reply` / `support_chat_message` / `support_chat_assigned` / `support_chat_closed` | `/minha-conta/suporte/chat` (cliente) ou `/minha-loja/:est/suporte/chat` (loja) |
-| `support_chat_waiting` | `/admin/suporte/chats` |
-| `support_ticket_created` | `/admin/suporte/tickets/:ticket_id` |
-| `support_ticket_reply` / `support_ticket_status_changed` | `/minha-conta/suporte/tickets/:ticket_id` (cliente) ou `/minha-loja/:est/suporte/tickets/:ticket_id` (loja) ou `/admin/suporte/tickets/:ticket_id` (admin) |
+### notifications — OK
+- SELECT/UPDATE apenas `user_id = auth.uid()`.
+- **Sem política de INSERT** → clientes não inserem; apenas triggers `SECURITY DEFINER`. Correto.
 
-Determinar contexto cliente/loja/admin: usar `useAuth` + hook `useIsAdmin` existente (se houver) ou checar se `establishment_id` da notificação pertence ao usuário via lista de owners (já há `establishment_owners`). Reaproveitar um hook simples `useMyEstablishmentIds()` para decidir entre rota loja vs cliente.
+### Roteamento de notificações — OK
+- Tipos separados (`order_chat_message`, `support_chat_*`, `support_ticket_*`); `related_order_id`, `related_support_chat_id`, `related_ticket_id` populados pelos triggers.
 
-### 3. Ícones por tipo
-Adicionar ícones distintos (`MessageSquare` chat pedido, `LifeBuoy` suporte chat, `Ticket` tickets).
+## Pequenas correções propostas (defensivas)
+
+1. **`support_chats` UPDATE pelo dono** hoje permite alterar qualquer coluna (ex.: o próprio dono fechar o chat ou trocar `claimed_by`). Restringir a UPDATE somente das colunas `subject`, `category` via trigger `protect_support_chat_columns()` que reverte campos privilegiados (`status`, `claimed_by`, `claimed_at`, `user_id`, `establishment_id`) quando o ator não é admin.
+
+2. **`support_tickets` UPDATE pelo opener** idem: trigger `protect_support_ticket_columns()` reverte `status`, `assigned_admin_id`, `priority`, `category`, `opened_by`, `establishment_id`, `order_id` para não-admins; deixa o opener mudar só `subject`/`description` enquanto `status='open'`.
+
+3. **`notifications`**: adicionar política INSERT explícita `WITH CHECK (false)` para `authenticated`/`anon`, deixando inserts somente via funções `SECURITY DEFINER`. Documenta a intenção.
+
+4. **Documentação**: criar `mem://security/communication-channels` registrando o modelo (três canais, sem cruzamento, RLS por dono/membro/admin) para futuras auditorias.
+
+## Testes de verificação (SQL via supabase--read_query, sem alterar dados)
+
+Executar como `auth.uid()` simulado de dois usuários distintos para confirmar:
+- Cliente B retorna 0 linhas em `order_messages` de pedido do Cliente A.
+- Loja B retorna 0 linhas em `order_messages` de pedido da Loja A.
+- Cliente B retorna 0 linhas em `support_chats`/`support_chat_messages` de outro cliente.
+- Lojista B retorna 0 tickets do estabelecimento do Lojista A.
+- Usuário comum retorna 0 mensagens com `is_internal_note = true`.
+- Notificações de um usuário não aparecem para outro.
+
+Reportar a tabela final de resultados.
 
 ## Fora do escopo
-- Nova tabela de notificações.
-- Push/email/realtime adicional.
-- Mudança nas tabelas `support_*`, `orders`, `order_messages`.
-- UI de preferências de notificação.
+- Refatorar tabelas, mudar nomes, mexer em chat do pedido, suporte ou tickets já funcionais.
+- Migrar `notifications` para tabela nova.
+- Mudanças de UI.
 
 ## Arquivos a alterar
-- nova migration SQL
-- `src/components/NotificationCenter.tsx`
-- novo `src/hooks/useMyEstablishmentIds.ts` (pequeno)
+- 1 migration SQL (3 hardenings + comentários).
+- `mem://security/communication-channels` (documentação).
