@@ -78,6 +78,7 @@ import PainelEditarProduto from "./pages/minha-loja/painel/EditarProduto.tsx";
 import PainelEquipe from "./pages/minha-loja/painel/Equipe.tsx";
 import PainelMotoboys from "./pages/minha-loja/painel/Motoboys.tsx";
 import PainelSuporte from "./pages/minha-loja/painel/Suporte.tsx";
+import PainelSuporteChat from "./pages/minha-loja/painel/SuporteChat.tsx";
 import { Navigate, useLocation } from "react-router-dom";
 import { CartFloatingButton } from "./components/CartFloatingButton";
 import { SupportChatWidget } from "./components/support/SupportChatWidget";
