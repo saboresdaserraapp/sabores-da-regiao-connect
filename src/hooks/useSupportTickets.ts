@@ -36,6 +36,7 @@ export interface SupportMessage {
   sender_role: ActorRole;
   message: string;
   attachments: any;
+  is_internal_note?: boolean;
   created_at: string;
 }
 
