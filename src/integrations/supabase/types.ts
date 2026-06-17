@@ -2578,6 +2578,7 @@ export type Database = {
           attachments: Json
           created_at: string
           id: string
+          is_internal_note: boolean
           message: string
           sender_id: string
           sender_role: Database["public"]["Enums"]["support_actor_role"]
@@ -2587,6 +2588,7 @@ export type Database = {
           attachments?: Json
           created_at?: string
           id?: string
+          is_internal_note?: boolean
           message: string
           sender_id: string
           sender_role: Database["public"]["Enums"]["support_actor_role"]
@@ -2596,6 +2598,7 @@ export type Database = {
           attachments?: Json
           created_at?: string
           id?: string
+          is_internal_note?: boolean
           message?: string
           sender_id?: string
           sender_role?: Database["public"]["Enums"]["support_actor_role"]
@@ -2941,6 +2944,12 @@ export type Database = {
         | "report_followup"
         | "feature_request"
         | "other"
+        | "complaint"
+        | "report_establishment"
+        | "report_customer"
+        | "report_content"
+        | "technical_problem"
+        | "subscription_problem"
       support_ticket_priority: "low" | "normal" | "high" | "urgent"
       support_ticket_status:
         | "open"
@@ -3142,6 +3151,12 @@ export const Constants = {
         "report_followup",
         "feature_request",
         "other",
+        "complaint",
+        "report_establishment",
+        "report_customer",
+        "report_content",
+        "technical_problem",
+        "subscription_problem",
       ],
       support_ticket_priority: ["low", "normal", "high", "urgent"],
       support_ticket_status: [
