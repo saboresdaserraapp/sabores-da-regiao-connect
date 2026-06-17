@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useSupportTickets, STATUS_LABEL, CATEGORY_LABEL, PRIORITY_LABEL, type TicketStatus, type TicketPriority } from "@/hooks/useSupportTickets";
+import { useSupportTickets, STATUS_LABEL, PRIORITY_LABEL, type TicketStatus, type TicketPriority } from "@/hooks/useSupportTickets";
 import { TicketListItem } from "@/components/support/NewTicketDialog";
 import { TicketDetail } from "@/components/support/TicketDetail";
 import { PageHeader } from "@/components/ui/page-header";
