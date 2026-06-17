@@ -1,31 +1,16 @@
-import { useState, useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import { useSupportTicket, useSupportMessages, useSendTicketMessage, useUpdateTicket, STATUS_LABEL, CATEGORY_LABEL, PRIORITY_LABEL, type ActorRole, type TicketStatus } from "@/hooks/useSupportTickets";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Send, Paperclip, X, Lock } from "lucide-react";
+import { Loader2, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { supabase } from "@/integrations/supabase/client";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-
-function useTicketAttachments(ticketId: string | undefined) {
-  return useQuery({
-    enabled: !!ticketId,
-    queryKey: ["support_ticket_attachments", ticketId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("support_ticket_attachments")
-        .select("*").eq("ticket_id", ticketId!)
-        .order("created_at", { ascending: true });
-      if (error) throw error;
-      return data ?? [];
-    },
-  });
-}
+import { ChatComposer } from "./ChatComposer";
+import { AttachmentList } from "./AttachmentList";
+import { roleBubbleClass, roleLabel, roleAlign } from "./chatBubbleStyles";
 
 export function TicketDetail({
   ticketId,
@@ -37,18 +22,12 @@ export function TicketDetail({
   canManage?: boolean;
 }) {
   const { user } = useAuth();
-  const qc = useQueryClient();
   const { data: ticket, isLoading } = useSupportTicket(ticketId);
   const { data: messages = [] } = useSupportMessages(ticketId);
-  const { data: attachments = [] } = useTicketAttachments(ticketId);
   const send = useSendTicketMessage();
   const update = useUpdateTicket();
-  const [text, setText] = useState("");
-  const [pending, setPending] = useState<File[]>([]);
-  const [uploading, setUploading] = useState(false);
   const [internalNote, setInternalNote] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
@@ -57,42 +36,18 @@ export function TicketDetail({
   if (isLoading) return <div className="grid place-items-center py-10"><Loader2 className="size-5 animate-spin" /></div>;
   if (!ticket) return <div className="py-10 text-sm text-muted-foreground text-center">Ticket não encontrado.</div>;
 
-  const onSend = async () => {
-    const message = text.trim();
-    if (!message && pending.length === 0) return;
+  const onSend = async (message: string, attachments: unknown[]) => {
     const asInternal = senderRole === "admin" && internalNote;
-    try {
-      const msg = await send.mutateAsync({
-        ticket_id: ticket.id,
-        message: message || "(anexo)",
-        sender_role: senderRole,
-        is_internal_note: asInternal,
-      });
-      if (pending.length) {
-        setUploading(true);
-        for (const f of pending) {
-          const path = `${ticket.id}/${Date.now()}-${f.name.replace(/[^\w.\-]/g, "_")}`;
-          const up = await supabase.storage.from("support-attachments").upload(path, f);
-          if (up.error) throw up.error;
-          const { data: signed } = await supabase.storage.from("support-attachments").createSignedUrl(path, 60 * 60 * 24 * 365);
-          await supabase.from("support_ticket_attachments").insert({
-            ticket_id: ticket.id,
-            message_id: (msg as any).id,
-            uploaded_by: user!.id,
-            file_url: signed?.signedUrl ?? path,
-            file_name: f.name, file_type: f.type, file_size: f.size,
-          });
-        }
-        qc.invalidateQueries({ queryKey: ["support_ticket_attachments", ticket.id] });
-        setPending([]);
-      }
-      setText("");
-      setInternalNote(false);
-    } catch (e: any) {
-      toast.error(e?.message || "Falha ao enviar");
-    } finally {
-      setUploading(false);
-    }
+    const m = message.trim();
+    if (!m && attachments.length === 0) return;
+    await send.mutateAsync({
+      ticket_id: ticket.id,
+      message: m || "(anexo)",
+      sender_role: senderRole,
+      is_internal_note: asInternal,
+      attachments,
+    });
+    setInternalNote(false);
   };
 
   return (
@@ -137,34 +92,40 @@ export function TicketDetail({
 
       <div ref={listRef} className="rounded-lg border bg-background max-h-[420px] overflow-y-auto p-3 space-y-3">
         {messages.length === 0 && <div className="text-sm text-muted-foreground text-center py-6">Sem mensagens ainda.</div>}
-        {messages.filter((m) => m && typeof m.message === "string").map((m: any) => {
+        {messages.filter((m) => m).map((m) => {
           const mine = m.sender_id === user?.id;
-          const mAtts = attachments.filter((a: any) => a.message_id === m.id);
           const isInternal = !!m.is_internal_note;
+          const isSystem = m.sender_role === "system";
+          const text = typeof m.message === "string" ? m.message : "";
+
+          if (isSystem) {
+            return (
+              <div key={m.id} className="flex justify-center">
+                <div className="text-[11px] italic text-muted-foreground bg-muted/70 px-3 py-1 rounded-full max-w-[85%] text-center">
+                  {text}
+                </div>
+              </div>
+            );
+          }
+
+          const bubble = isInternal
+            ? "bg-amber-100 border border-amber-300 text-amber-950 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-50"
+            : roleBubbleClass(m.sender_role, mine);
+
           return (
-            <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
-              <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${
-                isInternal ? "bg-amber-100 border border-amber-300 text-amber-950"
-                : mine ? "bg-primary text-primary-foreground" : "bg-muted"
-              }`}>
-                <div className="text-[10px] opacity-70 mb-0.5 flex items-center gap-1">
+            <div key={m.id} className={`flex ${roleAlign(m.sender_role, mine)}`}>
+              <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${bubble}`}>
+                <div className="text-[10px] opacity-80 mb-0.5 flex items-center gap-1 font-medium">
                   {isInternal && <Lock className="size-3" />}
-                  {isInternal && <span className="font-semibold uppercase">Nota interna ·</span>}
-                  {m.sender_role === "admin" ? "Suporte" : m.sender_role === "establishment" ? "Loja" : m.sender_role === "system" ? "Sistema" : "Cliente"}
+                  {isInternal && <span className="uppercase">Nota interna ·</span>}
+                  {roleLabel(m.sender_role, mine)}
                   {" · "}
                   {m.created_at ? formatDistanceToNow(new Date(m.created_at), { addSuffix: true, locale: ptBR }) : ""}
                 </div>
-                <div className="whitespace-pre-wrap">{m.message ?? ""}</div>
-                {mAtts.length > 0 && (
-                  <div className="mt-2 space-y-1">
-                    {mAtts.map((a: any) => (
-                      <a key={a.id} href={a.file_url} target="_blank" rel="noopener noreferrer"
-                        className="flex items-center gap-1 text-xs underline opacity-90 hover:opacity-100">
-                        <Paperclip className="size-3" />{a.file_name || "anexo"}
-                      </a>
-                    ))}
-                  </div>
+                {text && text !== "(anexo)" && (
+                  <div className="whitespace-pre-wrap break-words">{text}</div>
                 )}
+                <AttachmentList attachments={(m as { attachments?: unknown }).attachments} />
               </div>
             </div>
           );
@@ -172,8 +133,12 @@ export function TicketDetail({
       </div>
 
       {ticket.status !== "closed" ? (
-        <div className="space-y-2">
-          {senderRole === "admin" && (
+        <ChatComposer
+          scope="ticket"
+          scopeId={ticket.id}
+          onSend={onSend}
+          placeholder="Escreva uma mensagem..."
+          extraTopSlot={senderRole === "admin" ? (
             <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer select-none">
               <input
                 type="checkbox"
@@ -184,42 +149,8 @@ export function TicketDetail({
               <Lock className="size-3" />
               Nota interna (visível só para a equipe de suporte)
             </label>
-          )}
-          {pending.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {pending.map((f, i) => (
-                <div key={i} className="flex items-center gap-1 text-xs bg-muted rounded-md px-2 py-1">
-                  <Paperclip className="size-3" />{f.name}
-                  <button onClick={() => setPending((p) => p.filter((_, j) => j !== i))} className="opacity-60 hover:opacity-100"><X className="size-3" /></button>
-                </div>
-              ))}
-            </div>
-          )}
-          <div className="flex gap-2 items-end">
-            <input
-              ref={fileRef} type="file" multiple className="hidden"
-              accept="image/*,application/pdf"
-              onChange={(e) => {
-                const fs = Array.from(e.target.files ?? []);
-                setPending((p) => [...p, ...fs]);
-                if (fileRef.current) fileRef.current.value = "";
-              }}
-            />
-            <Button type="button" variant="outline" size="icon" onClick={() => fileRef.current?.click()} title="Anexar arquivo">
-              <Paperclip className="size-4" />
-            </Button>
-            <Textarea
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder="Escreva uma mensagem..."
-              rows={2}
-              onKeyDown={(e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) onSend(); }}
-            />
-            <Button onClick={onSend} disabled={send.isPending || uploading || (!text.trim() && pending.length === 0)}>
-              {(send.isPending || uploading) ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-            </Button>
-          </div>
-        </div>
+          ) : undefined}
+        />
       ) : (
         <div className="text-center text-sm text-muted-foreground">Este ticket foi encerrado.</div>
       )}

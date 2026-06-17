@@ -1334,6 +1334,7 @@ export type Database = {
       }
       order_messages: {
         Row: {
+          attachments: Json
           created_at: string | null
           customer_user_id: string | null
           establishment_id: string | null
@@ -1345,6 +1346,7 @@ export type Database = {
           sender_user_id: string | null
         }
         Insert: {
+          attachments?: Json
           created_at?: string | null
           customer_user_id?: string | null
           establishment_id?: string | null
@@ -1356,6 +1358,7 @@ export type Database = {
           sender_user_id?: string | null
         }
         Update: {
+          attachments?: Json
           created_at?: string | null
           customer_user_id?: string | null
           establishment_id?: string | null
@@ -2448,6 +2451,7 @@ export type Database = {
       }
       support_chat_messages: {
         Row: {
+          attachments: Json
           chat_id: string
           created_at: string
           id: string
@@ -2456,6 +2460,7 @@ export type Database = {
           sender_role: Database["public"]["Enums"]["support_actor_role"]
         }
         Insert: {
+          attachments?: Json
           chat_id: string
           created_at?: string
           id?: string
@@ -2464,6 +2469,7 @@ export type Database = {
           sender_role: Database["public"]["Enums"]["support_actor_role"]
         }
         Update: {
+          attachments?: Json
           chat_id?: string
           created_at?: string
           id?: string

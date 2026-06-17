@@ -175,12 +175,13 @@ export function useSendChatMessage() {
   const qc = useQueryClient();
   const { user } = useAuth();
   return useMutation({
-    mutationFn: async (args: { chat_id: string; message: string; sender_role: ActorRole }) => {
+    mutationFn: async (args: { chat_id: string; message: string; sender_role: ActorRole; attachments?: unknown[] }) => {
       const { error } = await supabase.from("support_chat_messages").insert({
         chat_id: args.chat_id,
         sender_id: user!.id,
         sender_role: args.sender_role,
         message: args.message,
+        attachments: (args.attachments ?? []) as never,
       });
       if (error) throw error;
     },

@@ -1,12 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { useChatMessages, useSendChatMessage, useChatQueuePosition, type SupportChat } from "@/hooks/useSupportChat";
 import { useAuth } from "@/hooks/useAuth";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Send } from "lucide-react";
 import { toast } from "sonner";
 import type { ActorRole } from "@/hooks/useSupportTickets";
+import { ChatComposer } from "./ChatComposer";
+import { AttachmentList } from "./AttachmentList";
+import { roleBubbleClass, roleLabel, roleAlign } from "./chatBubbleStyles";
 
 export function ChatPanel({
   chat,
@@ -21,21 +21,27 @@ export function ChatPanel({
   const { data: messages = [] } = useChatMessages(chat.id);
   const send = useSendChatMessage();
   const { data: queuePos } = useChatQueuePosition(chat);
-  const [text, setText] = useState("");
   const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
   }, [messages.length]);
 
-  const onSend = async () => {
-    const m = text.trim();
-    if (!m || chat.status === "closed") return;
+  const onSend = async (message: string, attachments: unknown[]) => {
+    if (chat.status === "closed") return;
+    const m = message.trim();
+    if (!m && attachments.length === 0) return;
     try {
-      await send.mutateAsync({ chat_id: chat.id, message: m, sender_role: senderRole });
-      setText("");
-    } catch (e: any) {
-      toast.error(e?.message || "Falha ao enviar");
+      await send.mutateAsync({
+        chat_id: chat.id,
+        message: m || "(anexo)",
+        sender_role: senderRole,
+        attachments,
+      });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Falha ao enviar";
+      toast.error(msg);
+      throw e;
     }
   };
 
@@ -64,32 +70,36 @@ export function ChatPanel({
             {chat.status === "waiting" ? "Envie sua primeira mensagem. Um atendente entrará em contato." : "Sem mensagens."}
           </div>
         )}
-        {messages.filter((m) => m && typeof m.message === "string" && m.message.length > 0).map((m) => {
+        {messages.filter((m) => m).map((m) => {
           const mine = m.sender_id === user?.id;
-          return (
-            <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
-              <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${mine ? "bg-primary text-primary-foreground" : "bg-background border"}`}>
-                <div className="text-[10px] opacity-70 mb-0.5">
-                  {m.sender_role === "admin" ? "Suporte" : m.sender_role === "establishment" ? "Loja" : m.sender_role === "system" ? "Sistema" : "Você"}
+          const isSystem = m.sender_role === "system";
+          if (isSystem) {
+            return (
+              <div key={m.id} className="flex justify-center">
+                <div className="text-[11px] italic text-muted-foreground bg-muted/70 px-3 py-1 rounded-full max-w-[85%] text-center">
+                  {m.message ?? ""}
                 </div>
-                <div className="whitespace-pre-wrap">{m.message ?? ""}</div>
+              </div>
+            );
+          }
+          return (
+            <div key={m.id} className={`flex ${roleAlign(m.sender_role, mine)}`}>
+              <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${roleBubbleClass(m.sender_role, mine)}`}>
+                <div className="text-[10px] font-medium opacity-80 mb-0.5">
+                  {roleLabel(m.sender_role, mine)}
+                </div>
+                {m.message && m.message !== "(anexo)" && (
+                  <div className="whitespace-pre-wrap break-words">{m.message}</div>
+                )}
+                <AttachmentList attachments={(m as { attachments?: unknown }).attachments} />
               </div>
             </div>
           );
         })}
       </div>
       {chat.status !== "closed" && (
-        <div className="border-t p-2 flex items-end gap-2">
-          <Textarea
-            rows={2}
-            placeholder="Mensagem..."
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSend(); } }}
-          />
-          <Button size="sm" onClick={onSend} disabled={send.isPending || !text.trim()}>
-            {send.isPending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-          </Button>
+        <div className="border-t p-2">
+          <ChatComposer scope="support" scopeId={chat.id} onSend={onSend} />
         </div>
       )}
     </div>

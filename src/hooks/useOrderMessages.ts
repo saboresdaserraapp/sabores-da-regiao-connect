@@ -44,10 +44,12 @@ export function useOrderMessages(orderId?: string) {
       message,
       senderType,
       establishmentId,
+      attachments,
     }: {
       message: string;
       senderType: "customer" | "business" | "system";
       establishmentId?: string;
+      attachments?: unknown[];
     }) => {
       if (!user?.id) throw new Error("Você precisa estar logado para enviar mensagens.");
       const { data, error } = await supabase.from("order_messages").insert({
@@ -57,6 +59,7 @@ export function useOrderMessages(orderId?: string) {
         sender_user_id: user.id,
         establishment_id: establishmentId,
         customer_user_id: senderType === "customer" ? user.id : null,
+        attachments: (attachments ?? []) as never,
       }).select().single();
       if (error) throw error;
       return data;
