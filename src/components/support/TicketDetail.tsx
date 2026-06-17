@@ -5,10 +5,27 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Send } from "lucide-react";
+import { Loader2, Send, Paperclip, X } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+
+function useTicketAttachments(ticketId: string | undefined) {
+  return useQuery({
+    enabled: !!ticketId,
+    queryKey: ["support_ticket_attachments", ticketId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("support_ticket_attachments")
+        .select("*").eq("ticket_id", ticketId!)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+}
 
 export function TicketDetail({
   ticketId,
@@ -20,12 +37,17 @@ export function TicketDetail({
   canManage?: boolean;
 }) {
   const { user } = useAuth();
+  const qc = useQueryClient();
   const { data: ticket, isLoading } = useSupportTicket(ticketId);
   const { data: messages = [] } = useSupportMessages(ticketId);
+  const { data: attachments = [] } = useTicketAttachments(ticketId);
   const send = useSendTicketMessage();
   const update = useUpdateTicket();
   const [text, setText] = useState("");
+  const [pending, setPending] = useState<File[]>([]);
+  const [uploading, setUploading] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
@@ -36,12 +58,32 @@ export function TicketDetail({
 
   const onSend = async () => {
     const message = text.trim();
-    if (!message) return;
+    if (!message && pending.length === 0) return;
     try {
-      await send.mutateAsync({ ticket_id: ticket.id, message, sender_role: senderRole });
+      const msg = await send.mutateAsync({ ticket_id: ticket.id, message: message || "(anexo)", sender_role: senderRole });
+      if (pending.length) {
+        setUploading(true);
+        for (const f of pending) {
+          const path = `${ticket.id}/${Date.now()}-${f.name.replace(/[^\w.\-]/g, "_")}`;
+          const up = await supabase.storage.from("support-attachments").upload(path, f);
+          if (up.error) throw up.error;
+          const { data: signed } = await supabase.storage.from("support-attachments").createSignedUrl(path, 60 * 60 * 24 * 365);
+          await supabase.from("support_ticket_attachments").insert({
+            ticket_id: ticket.id,
+            message_id: (msg as any).id,
+            uploaded_by: user!.id,
+            file_url: signed?.signedUrl ?? path,
+            file_name: f.name, file_type: f.type, file_size: f.size,
+          });
+        }
+        qc.invalidateQueries({ queryKey: ["support_ticket_attachments", ticket.id] });
+        setPending([]);
+      }
       setText("");
     } catch (e: any) {
       toast.error(e?.message || "Falha ao enviar");
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -89,6 +131,7 @@ export function TicketDetail({
         {messages.length === 0 && <div className="text-sm text-muted-foreground text-center py-6">Sem mensagens ainda.</div>}
         {messages.map((m) => {
           const mine = m.sender_id === user?.id;
+          const mAtts = attachments.filter((a: any) => a.message_id === m.id);
           return (
             <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
               <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${mine ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
@@ -98,6 +141,16 @@ export function TicketDetail({
                   {formatDistanceToNow(new Date(m.created_at), { addSuffix: true, locale: ptBR })}
                 </div>
                 <div className="whitespace-pre-wrap">{m.message}</div>
+                {mAtts.length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    {mAtts.map((a: any) => (
+                      <a key={a.id} href={a.file_url} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-xs underline opacity-90 hover:opacity-100">
+                        <Paperclip className="size-3" />{a.file_name || "anexo"}
+                      </a>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           );
@@ -105,17 +158,41 @@ export function TicketDetail({
       </div>
 
       {ticket.status !== "closed" ? (
-        <div className="flex gap-2 items-end">
-          <Textarea
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder="Escreva uma mensagem..."
-            rows={2}
-            onKeyDown={(e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) onSend(); }}
-          />
-          <Button onClick={onSend} disabled={send.isPending || !text.trim()}>
-            {send.isPending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-          </Button>
+        <div className="space-y-2">
+          {pending.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {pending.map((f, i) => (
+                <div key={i} className="flex items-center gap-1 text-xs bg-muted rounded-md px-2 py-1">
+                  <Paperclip className="size-3" />{f.name}
+                  <button onClick={() => setPending((p) => p.filter((_, j) => j !== i))} className="opacity-60 hover:opacity-100"><X className="size-3" /></button>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="flex gap-2 items-end">
+            <input
+              ref={fileRef} type="file" multiple className="hidden"
+              accept="image/*,application/pdf"
+              onChange={(e) => {
+                const fs = Array.from(e.target.files ?? []);
+                setPending((p) => [...p, ...fs]);
+                if (fileRef.current) fileRef.current.value = "";
+              }}
+            />
+            <Button type="button" variant="outline" size="icon" onClick={() => fileRef.current?.click()} title="Anexar arquivo">
+              <Paperclip className="size-4" />
+            </Button>
+            <Textarea
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder="Escreva uma mensagem..."
+              rows={2}
+              onKeyDown={(e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) onSend(); }}
+            />
+            <Button onClick={onSend} disabled={send.isPending || uploading || (!text.trim() && pending.length === 0)}>
+              {(send.isPending || uploading) ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+            </Button>
+          </div>
         </div>
       ) : (
         <div className="text-center text-sm text-muted-foreground">Este ticket foi encerrado.</div>
