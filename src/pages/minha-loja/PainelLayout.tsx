@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   BarChart3, Brain, Calendar, ChefHat, Crown, DollarSign, Image as ImageIcon, LayoutDashboard,
   MessageSquare, Package, Palette, Receipt, Settings, Store, Tag, Truck, Users, Warehouse, Loader2,
-  Smartphone, Menu
+  Smartphone, Menu, LifeBuoy
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useState } from "react";
@@ -33,6 +33,7 @@ const ITEMS: Item[] = [
   { to: "personalizacao",    label: "Personalização visual",  icon: Palette,      feature: "visual_customization" },
   { to: "equipe",            label: "Equipe e permissões",    icon: Users,        feature: "team_basic" },
   { to: "motoboys",          label: "Motoboys",               icon: Smartphone,   feature: "delivery_drivers" },
+  { to: "suporte",           label: "Suporte",                icon: LifeBuoy },
   { to: "plano",             label: "Plano e assinatura",     icon: Crown },
   { to: "configuracoes",     label: "Configurações",          icon: Settings },
 ];
