@@ -2205,6 +2205,7 @@ export type Database = {
           status: Database["public"]["Enums"]["report_status"]
           target_id: string
           target_type: string
+          ticket_id: string | null
         }
         Insert: {
           created_at?: string
@@ -2216,6 +2217,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["report_status"]
           target_id: string
           target_type: string
+          ticket_id?: string | null
         }
         Update: {
           created_at?: string
@@ -2227,8 +2229,17 @@ export type Database = {
           status?: Database["public"]["Enums"]["report_status"]
           target_id?: string
           target_type?: string
+          ticket_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "reports_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "support_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       reviews: {
         Row: {
@@ -2422,6 +2433,167 @@ export type Database = {
             columns: ["establishment_id"]
             isOneToOne: false
             referencedRelation: "establishments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      support_ticket_attachments: {
+        Row: {
+          created_at: string
+          file_name: string | null
+          file_size: number | null
+          file_type: string | null
+          file_url: string
+          id: string
+          message_id: string | null
+          ticket_id: string
+          uploaded_by: string
+        }
+        Insert: {
+          created_at?: string
+          file_name?: string | null
+          file_size?: number | null
+          file_type?: string | null
+          file_url: string
+          id?: string
+          message_id?: string | null
+          ticket_id: string
+          uploaded_by: string
+        }
+        Update: {
+          created_at?: string
+          file_name?: string | null
+          file_size?: number | null
+          file_type?: string | null
+          file_url?: string
+          id?: string
+          message_id?: string | null
+          ticket_id?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_ticket_attachments_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "support_ticket_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_ticket_attachments_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "support_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      support_ticket_messages: {
+        Row: {
+          attachments: Json
+          created_at: string
+          id: string
+          message: string
+          sender_id: string
+          sender_role: Database["public"]["Enums"]["support_actor_role"]
+          ticket_id: string
+        }
+        Insert: {
+          attachments?: Json
+          created_at?: string
+          id?: string
+          message: string
+          sender_id: string
+          sender_role: Database["public"]["Enums"]["support_actor_role"]
+          ticket_id: string
+        }
+        Update: {
+          attachments?: Json
+          created_at?: string
+          id?: string
+          message?: string
+          sender_id?: string
+          sender_role?: Database["public"]["Enums"]["support_actor_role"]
+          ticket_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_ticket_messages_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "support_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      support_tickets: {
+        Row: {
+          assigned_admin_id: string | null
+          category: Database["public"]["Enums"]["support_ticket_category"]
+          closed_at: string | null
+          created_at: string
+          description: string | null
+          establishment_id: string | null
+          id: string
+          last_message_at: string
+          opened_by: string
+          opened_by_role: Database["public"]["Enums"]["support_actor_role"]
+          order_id: string | null
+          priority: Database["public"]["Enums"]["support_ticket_priority"]
+          resolved_at: string | null
+          status: Database["public"]["Enums"]["support_ticket_status"]
+          subject: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_admin_id?: string | null
+          category?: Database["public"]["Enums"]["support_ticket_category"]
+          closed_at?: string | null
+          created_at?: string
+          description?: string | null
+          establishment_id?: string | null
+          id?: string
+          last_message_at?: string
+          opened_by: string
+          opened_by_role: Database["public"]["Enums"]["support_actor_role"]
+          order_id?: string | null
+          priority?: Database["public"]["Enums"]["support_ticket_priority"]
+          resolved_at?: string | null
+          status?: Database["public"]["Enums"]["support_ticket_status"]
+          subject: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_admin_id?: string | null
+          category?: Database["public"]["Enums"]["support_ticket_category"]
+          closed_at?: string | null
+          created_at?: string
+          description?: string | null
+          establishment_id?: string | null
+          id?: string
+          last_message_at?: string
+          opened_by?: string
+          opened_by_role?: Database["public"]["Enums"]["support_actor_role"]
+          order_id?: string | null
+          priority?: Database["public"]["Enums"]["support_ticket_priority"]
+          resolved_at?: string | null
+          status?: Database["public"]["Enums"]["support_ticket_status"]
+          subject?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_tickets_establishment_id_fkey"
+            columns: ["establishment_id"]
+            isOneToOne: false
+            referencedRelation: "establishments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_tickets_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
             referencedColumns: ["id"]
           },
         ]
@@ -2664,6 +2836,23 @@ export type Database = {
         | "unknown"
       report_status: "pendente" | "resolvido" | "descartado"
       review_status: "pendente" | "aprovado" | "reprovado"
+      support_actor_role: "customer" | "establishment" | "admin" | "system"
+      support_ticket_category:
+        | "order_issue"
+        | "delivery_issue"
+        | "payment_issue"
+        | "account_issue"
+        | "establishment_issue"
+        | "report_followup"
+        | "feature_request"
+        | "other"
+      support_ticket_priority: "low" | "normal" | "high" | "urgent"
+      support_ticket_status:
+        | "open"
+        | "in_progress"
+        | "waiting_user"
+        | "resolved"
+        | "closed"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2847,6 +3036,25 @@ export const Constants = {
       ],
       report_status: ["pendente", "resolvido", "descartado"],
       review_status: ["pendente", "aprovado", "reprovado"],
+      support_actor_role: ["customer", "establishment", "admin", "system"],
+      support_ticket_category: [
+        "order_issue",
+        "delivery_issue",
+        "payment_issue",
+        "account_issue",
+        "establishment_issue",
+        "report_followup",
+        "feature_request",
+        "other",
+      ],
+      support_ticket_priority: ["low", "normal", "high", "urgent"],
+      support_ticket_status: [
+        "open",
+        "in_progress",
+        "waiting_user",
+        "resolved",
+        "closed",
+      ],
     },
   },
 } as const

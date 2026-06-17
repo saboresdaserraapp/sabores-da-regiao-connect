@@ -1,6 +1,6 @@
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth, ROLE_LABEL } from "@/hooks/useAuth";
-import { LayoutDashboard, Store, MessageSquare, Flag, Megaphone, Settings2, ShieldCheck, Users, FileClock, LogOut, UtensilsCrossed, Brain, FileText, BarChart3, Lock, Truck, ClipboardCheck, Menu } from "lucide-react";
+import { LayoutDashboard, Store, MessageSquare, Flag, Megaphone, Settings2, ShieldCheck, Users, FileClock, LogOut, UtensilsCrossed, Brain, FileText, BarChart3, Lock, Truck, ClipboardCheck, Menu, LifeBuoy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -15,6 +15,7 @@ const NAV = [
   { to: "/admin/benchmark", label: "Benchmark de Mercado", icon: BarChart3 },
   { to: "/admin/avaliacoes", label: "Avaliações", icon: MessageSquare },
   { to: "/admin/denuncias", label: "Denúncias", icon: Flag },
+  { to: "/admin/tickets", label: "Tickets de Suporte", icon: LifeBuoy },
   { to: "/admin/comunicados", label: "Comunicados", icon: Megaphone },
   { to: "/admin/site", label: "Gestão do site", icon: Settings2 },
   { to: "/admin/usuarios", label: "Usuários & papéis", icon: Users, manageOnly: true },

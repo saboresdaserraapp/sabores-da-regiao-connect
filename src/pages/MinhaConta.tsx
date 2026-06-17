@@ -19,7 +19,7 @@ import { useFavorites } from "@/hooks/useFavorites";
 import { useAddresses, useAddressMutations, type Address } from "@/hooks/useAddresses";
 import { useHouseReference, useHouseReferenceSave, type HouseReference } from "@/hooks/useHouseReference";
 import { toast } from "sonner";
-import { Heart, MapPin, Home, CreditCard, UserRound, Plus, Trash2, Loader2, LogOut, Star, Video, Info, ShoppingBag, MessageCircle, Store, AlertCircle, Receipt } from "lucide-react";
+import { Heart, MapPin, Home, CreditCard, UserRound, Plus, Trash2, Loader2, LogOut, Star, Video, Info, ShoppingBag, MessageCircle, Store, AlertCircle, Receipt, LifeBuoy } from "lucide-react";
 import { OrderHistoryTab } from "@/components/profile/OrderHistoryTab";
 import { brl } from "@/lib/format";
 import { PageHeader } from "@/components/ui/page-header";
@@ -55,6 +55,9 @@ export default function MinhaConta() {
             <TabsTrigger value="enderecos"><MapPin className="mr-1.5 size-4" /> Endereços</TabsTrigger>
             <TabsTrigger value="casa"><Home className="mr-1.5 size-4" /> Referência global</TabsTrigger>
             <TabsTrigger value="pagamentos"><CreditCard className="mr-1.5 size-4" /> Pagamentos</TabsTrigger>
+            <Link to="/minha-conta/suporte" className="ml-auto inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md text-primary hover:bg-primary/10">
+              <LifeBuoy className="size-4" /> Suporte
+            </Link>
           </TabsList>
 
           <TabsContent value="perfil"><PerfilTab /></TabsContent>
