@@ -47,6 +47,7 @@ import AdminPoliticaDados from "./pages/admin/PoliticaDados.tsx";
 import AdminPoliticasEntrega from "./pages/admin/PoliticasEntrega.tsx";
 import AdminAprovacaoEstabelecimentos from "./pages/admin/AprovacaoEstabelecimentos.tsx";
 import AdminTickets from "./pages/admin/Tickets.tsx";
+import AdminSuporte from "./pages/admin/Suporte.tsx";
 import MinhaLojaDispatcher from "./pages/minha-loja/Dispatcher.tsx";
 import MinhaLojaSelecionar from "./pages/minha-loja/Selecionar.tsx";
 import MinhaLojaStatus from "./pages/minha-loja/Status.tsx";
@@ -77,6 +78,8 @@ import PainelMotoboys from "./pages/minha-loja/painel/Motoboys.tsx";
 import PainelSuporte from "./pages/minha-loja/painel/Suporte.tsx";
 import { Navigate, useLocation } from "react-router-dom";
 import { CartFloatingButton } from "./components/CartFloatingButton";
+import { SupportChatWidget } from "./components/support/SupportChatWidget";
+import { useAuth } from "@/hooks/useAuth";
 
 const queryClient = new QueryClient();
 
@@ -91,6 +94,16 @@ function GlobalCartButton() {
     /^\/categoria(\/|$)/.test(pathname);
   if (!allowed) return null;
   return <CartFloatingButton />;
+}
+
+function GlobalSupportWidget() {
+  const { user } = useAuth();
+  const { pathname } = useLocation();
+  if (!user) return null;
+  if (/^\/admin(\/|$)/.test(pathname)) return null;
+  if (/^\/minha-loja(\/|$)/.test(pathname)) return null;
+  if (/^\/checkout(\/|$)/.test(pathname)) return null;
+  return <SupportChatWidget />;
 }
 
 const App = () => (
@@ -148,6 +161,7 @@ const App = () => (
                 <Route path="/admin/politicas-entrega" element={<AdminPoliticasEntrega />} />
                 <Route path="/admin/aprovacao-estabelecimentos" element={<AdminAprovacaoEstabelecimentos />} />
                 <Route path="/admin/tickets" element={<AdminTickets />} />
+                <Route path="/admin/suporte" element={<AdminSuporte />} />
               </Route>
             </Route>
 
@@ -187,6 +201,7 @@ const App = () => (
             <Route path="*" element={<NotFound />} />
           </Routes>
           <GlobalCartButton />
+          <GlobalSupportWidget />
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
