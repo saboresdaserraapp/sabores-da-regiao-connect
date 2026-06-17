@@ -336,7 +336,23 @@ export default function PedidoDetalhesLoja() {
             </div>
           </section>
 
-          <OrderChat orderId={order.id} senderType="business" establishmentId={establishmentId} />
+          <OrderChat
+            orderId={order.id}
+            senderType="business"
+            establishmentId={establishmentId}
+            title="Conversa com o cliente"
+            quickReplies={[
+              "Seu pedido está em análise.",
+              "Estamos confirmando a taxa de entrega.",
+              "Você pode enviar mais uma referência do endereço?",
+              "A taxa de entrega final foi enviada para sua confirmação.",
+              "Seu pedido foi confirmado e entrará em preparo.",
+              "Seu pedido está em preparo.",
+              "Seu pedido saiu para entrega.",
+              "Tivemos um imprevisto e precisamos falar com você.",
+              "Não conseguimos contato. Podemos seguir com o pedido?",
+            ]}
+          />
         </div>
       </div>
     </PainelSection>
