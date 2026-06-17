@@ -1,17 +1,48 @@
-## Estado atual
-Já implementado na sessão anterior. Resumo do que existe:
+## Auditoria
+Tudo o que o enunciado pede já existe na maior parte. Sem tabela nova.
 
-- **Tabela `notifications`** reaproveitada (campos: `id`, `user_id`, `establishment_id`, `title`, `message`, `type`, `data` jsonb, `read_at`, `created_at`). Os "related" pedidos no enunciado são mapeados em `data.order_id` + coluna `establishment_id` — sem coluna duplicada.
-- **Trigger `handle_new_order_message_notification`** já cria notificação para o destinatário a cada `INSERT` em `order_messages`, com `type='new_order_message'` e `data={order_id, message_id}`.
-- **Rota `/minha-conta/pedidos/:orderId`** criada (`src/pages/PedidoCliente.tsx`) renderizando `OrderChat` + cabeçalho do pedido. RLS atual já bloqueia acesso de outros clientes/lojas.
-- **`NotificationCenter`**: clique navega para `/minha-conta/pedidos/{data.order_id}` quando o tipo é mensagem de pedido, marca como lida, fecha o popover. Render defensivo (`?? ""`, checagem de data) — sem `null`/`undefined`/`[object Object]`.
-- **Painel da loja (`Pedidos.tsx`)**: novo hook `useOrderUnreadCountsForBusiness` agrega `order_messages` não lidas do cliente em tempo real (canal realtime filtrado por `establishment_id`). Card ganha borda destacada + badge com contador. Botão "Não lidas" filtra a lista.
-- **Sem mudanças** em suporte, tickets, chat de suporte, painel admin.
+**Já existe:**
+- Tabelas `support_chats` (`status: waiting/active/closed`, `user_id`, `establishment_id`, `claimed_by/at`, `closed_at`, `last_message_at`) e `support_chat_messages` (`sender_role: requester/admin/system`), com RLS por dono/admin, Realtime habilitado e trigger `handle_support_chat_message` que notifica a outra ponta no sininho.
+- Hooks: `useMyOpenChat`, `useAdminChats`, `useChatMessages`, `useSendChatMessage`, `useCloseMyChat`, RPC `claim_support_chat`.
+- Componentes: `ChatPanel`, `SupportChatWidget`.
+- Páginas: `/minha-conta/suporte` (cliente) e `/admin/suporte` (admin) — funcionais.
 
-## Pendências
-Nenhuma — todos os 10 testes do enunciado estão cobertos. Se quiser, posso:
+**Decisão:** não recriar tabela com nomes diferentes (`requester_user_id`, `priority`, `queue_position`, etc.). Os campos pedidos são redundantes para o escopo do "chat rápido com fila simples". `queue_position` será **calculado em tempo de leitura**, não persistido (evita drift). Não adicionar `priority` agora — usuário disse "fila simples".
 
-1. Migrar o `type` de `new_order_message` para `order_chat_message` (renomeia tipo no trigger e no NotificationCenter; aceita ambos para não quebrar histórico).
-2. Adicionar colunas físicas `related_order_id` / `related_establishment_id` em `notifications` via `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` (e backfill via trigger).
+## Mudanças
 
-Esses dois itens são opcionais — o sistema atual atende ao critério de sucesso sem eles. Diga se quer aplicar.
+### 1. Rotas (apenas aliases — não quebrar as antigas)
+- Adicionar em `src/App.tsx`:
+  - `/minha-conta/suporte/chat` → `SuporteCliente` (alias da `/minha-conta/suporte`).
+  - `/admin/suporte/chats` → `AdminSuporte` (alias da `/admin/suporte`).
+  - `/minha-loja/:establishmentId/suporte/chat` → nova página fina `SuporteLojaChat` que renderiza `ChatPanel` no contexto do estabelecimento ativo (reusa o mesmo hook do cliente; `establishment_id` é gravado em `support_chats` no momento do `open`).
+
+### 2. Posição na fila (cliente)
+- Novo hook `useChatQueuePosition(chatId)` em `src/hooks/useSupportChat.ts`:
+  - Conta `support_chats` com `status='waiting'` e `created_at <= meu created_at`.
+  - Realtime: invalida ao mudar qualquer `support_chats` (canal já em uso).
+- `ChatPanel`/`SupportChatWidget`: quando `status='waiting'`, exibir:
+  - "Você entrou na fila de atendimento. Aguarde um instante."
+  - "Sua posição: N°{posição}".
+  - Render defensivo (`?? "—"`).
+
+### 3. Página da loja
+- `src/pages/minha-loja/painel/SuporteChat.tsx`: usa `useActiveEstablishment` para passar `establishmentId` ao abrir o chat (`useOpenChat({ establishmentId })`). Sem novos hooks de backend.
+
+### 4. Mensagem de sistema ao aceitar
+- Já há trigger `handle_support_chat_message` para notificações. Adicionar pequena chamada no fluxo de `claim_support_chat` na UI: após RPC bem-sucedido, inserir uma mensagem `sender_role='system'` "Atendimento iniciado por {agente}". Sem mudar a função SQL.
+
+### 5. Defesa contra `null/undefined/[object Object]`
+- Revisar `ChatPanel` e widget: `m.message ?? ""`, `m.created_at ? format(...) : ""`, ignorar mensagens vazias.
+
+## Fora de escopo
+- Tickets, chat do pedido, painel admin (além da rota alias), notificações (já tratadas), prioridade, anexos, transferência de atendimento entre agentes, novos campos em tabelas existentes.
+
+## Testes manuais
+1. Cliente abre `/minha-conta/suporte/chat` → registro em `support_chats` com `status='waiting'`, vê "posição N°X".
+2. Admin abre `/admin/suporte/chats` → vê o chat na fila.
+3. Admin aceita → `status='active'`, `claimed_by/at` preenchidos, mensagem do sistema visível em ambos os lados.
+4. Mensagens trocam em tempo real (Realtime já ativo).
+5. Admin/cliente encerra → `status='closed'`, `closed_at` preenchido, histórico continua visível.
+6. Outra loja/cliente não vê chats alheios — RLS atual já garante.
+7. Chat do pedido (`order_messages`) inalterado.
