@@ -47,7 +47,7 @@ export default function PedidoCliente() {
       const t = await createTicket.mutateAsync({
         subject: `Problema no pedido ${order.tracking_code ?? ""}`.trim(),
         description: "",
-        category: "order_problem",
+        category: "order_issue",
         priority: "normal",
         opened_by_role: "customer",
         establishment_id: order.establishment_id,
