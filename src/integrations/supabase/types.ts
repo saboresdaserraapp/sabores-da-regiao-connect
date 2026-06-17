@@ -1140,6 +1140,9 @@ export type Database = {
           id: string
           message: string
           read_at: string | null
+          related_order_id: string | null
+          related_support_chat_id: string | null
+          related_ticket_id: string | null
           title: string
           type: string | null
           user_id: string
@@ -1151,6 +1154,9 @@ export type Database = {
           id?: string
           message: string
           read_at?: string | null
+          related_order_id?: string | null
+          related_support_chat_id?: string | null
+          related_ticket_id?: string | null
           title: string
           type?: string | null
           user_id: string
@@ -1162,6 +1168,9 @@ export type Database = {
           id?: string
           message?: string
           read_at?: string | null
+          related_order_id?: string | null
+          related_support_chat_id?: string | null
+          related_ticket_id?: string | null
           title?: string
           type?: string | null
           user_id?: string
@@ -2786,17 +2795,32 @@ export type Database = {
       can_manage: { Args: { _user_id: string }; Returns: boolean }
       can_user_access_order: { Args: { order_uuid: string }; Returns: boolean }
       claim_support_chat: { Args: { _chat_id: string }; Returns: Json }
-      create_notification: {
-        Args: {
-          p_data?: Json
-          p_establishment_id?: string
-          p_message: string
-          p_title: string
-          p_type?: string
-          p_user_id: string
-        }
-        Returns: string
-      }
+      create_notification:
+        | {
+            Args: {
+              p_data?: Json
+              p_establishment_id?: string
+              p_message: string
+              p_title: string
+              p_type?: string
+              p_user_id: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_data?: Json
+              p_establishment_id?: string
+              p_message: string
+              p_related_order_id?: string
+              p_related_support_chat_id?: string
+              p_related_ticket_id?: string
+              p_title: string
+              p_type?: string
+              p_user_id: string
+            }
+            Returns: string
+          }
       ensure_official_admin: { Args: never; Returns: undefined }
       gen_tracking_code: { Args: never; Returns: string }
       get_establishment_plan_info: {
