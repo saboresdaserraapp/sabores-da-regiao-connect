@@ -12,7 +12,14 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useMyEstablishmentIds } from "@/hooks/useMyEstablishmentIds";
 
-const ORDER_TYPES = new Set(["new_order_message", "order_chat_message"]);
+const ORDER_TYPES = new Set([
+  "new_order_message",
+  "order_chat_message",
+  "order_status_update",
+  "order_delivery_fee_proposal",
+  "order_delivery_fee_accepted",
+  "order_delivery_fee_rejected",
+]);
 const SUPPORT_CHAT_USER_TYPES = new Set([
   "support_chat_reply",
   "support_chat_message",
@@ -30,7 +37,7 @@ function iconFor(type: string | null | undefined) {
 }
 
 export function NotificationCenter() {
-  const { data: notifications, isLoading, markAsRead } = useNotifications();
+  const { data: notifications, isLoading, markAsRead, markAllAsRead } = useNotifications();
   const unreadCount = notifications?.filter(n => !n.read_at).length || 0;
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
@@ -55,7 +62,7 @@ export function NotificationCenter() {
       return isAdmin ? "/admin/suporte/chats" : null;
     }
     if (type && SUPPORT_CHAT_USER_TYPES.has(type)) {
-      if (isAdmin && chatId) return "/admin/suporte/chats";
+      if (isAdmin && chatId) return `/admin/suporte/chats/${chatId}`;
       return isMyEstablishment && estId
         ? `/minha-loja/${estId}/suporte/chat`
         : "/minha-conta/suporte/chat";
@@ -97,9 +104,12 @@ export function NotificationCenter() {
         <div className="p-3 border-b border-border/60 bg-muted/40 flex justify-between items-center">
           <h3 className="font-semibold text-sm">Notificações</h3>
           {unreadCount > 0 && (
-            <span className="text-[10px] text-muted-foreground uppercase font-medium">
-              {unreadCount} novas
-            </span>
+            <button
+              onClick={() => markAllAsRead.mutate()}
+              className="text-[10px] text-primary uppercase font-medium hover:underline"
+            >
+              Marcar todas como lidas
+            </button>
           )}
         </div>
         <ScrollArea className="h-[350px]">
