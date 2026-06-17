@@ -63,6 +63,39 @@ export function useMyOpenChat() {
   return query;
 }
 
+export function useChatQueuePosition(chat: SupportChat | null | undefined) {
+  const qc = useQueryClient();
+  const enabled = !!chat && chat.status === "waiting";
+  const query = useQuery({
+    enabled,
+    queryKey: ["support_chat_queue_position", chat?.id],
+    queryFn: async () => {
+      if (!chat) return null;
+      const { count, error } = await supabase
+        .from("support_chats")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "waiting")
+        .lte("created_at", chat.created_at);
+      if (error) throw error;
+      return Math.max(1, count ?? 1);
+    },
+    refetchInterval: 15000,
+  });
+
+  useEffect(() => {
+    if (!enabled) return;
+    const ch = supabase
+      .channel(`support_queue_${chat!.id}`)
+      .on("postgres_changes",
+        { event: "*", schema: "public", table: "support_chats" },
+        () => qc.invalidateQueries({ queryKey: ["support_chat_queue_position", chat!.id] })
+      ).subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [enabled, chat?.id, qc]);
+
+  return query;
+}
+
 export function useAdminChats() {
   const qc = useQueryClient();
   const query = useQuery({
