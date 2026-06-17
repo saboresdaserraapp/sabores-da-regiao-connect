@@ -134,6 +134,8 @@ const App = () => (
             <Route path="/minha-conta" element={<MinhaConta />} />
             <Route path="/minha-conta/suporte" element={<SuporteCliente />} />
             <Route path="/minha-conta/suporte/chat" element={<SuporteChatCliente />} />
+            <Route path="/minha-conta/suporte/tickets" element={<SuporteCliente />} />
+            <Route path="/minha-conta/suporte/tickets/:ticketId" element={<TicketDetalhesCliente />} />
             <Route path="/minha-conta/pedidos/:orderId" element={<PedidoCliente />} />
             <Route path="/pedido/:code" element={<PedidoTracking />} />
             <Route path="/referencia/:token" element={<VisualReference />} />
@@ -168,6 +170,8 @@ const App = () => (
                 <Route path="/admin/politicas-entrega" element={<AdminPoliticasEntrega />} />
                 <Route path="/admin/aprovacao-estabelecimentos" element={<AdminAprovacaoEstabelecimentos />} />
                 <Route path="/admin/tickets" element={<AdminTickets />} />
+                <Route path="/admin/suporte/tickets" element={<AdminTickets />} />
+                <Route path="/admin/suporte/tickets/:ticketId" element={<AdminTickets />} />
                 <Route path="/admin/suporte" element={<AdminSuporte />} />
                 <Route path="/admin/suporte/chats" element={<AdminSuporte />} />
               </Route>
@@ -203,6 +207,8 @@ const App = () => (
               <Route path="motoboys" element={<PainelMotoboys />} />
               <Route path="suporte" element={<PainelSuporte />} />
               <Route path="suporte/chat" element={<PainelSuporteChat />} />
+              <Route path="suporte/tickets" element={<PainelSuporte />} />
+              <Route path="suporte/tickets/:ticketId" element={<PainelTicketDetalhes />} />
               <Route path="configuracoes" element={<PainelConfiguracoes />} />
             </Route>
 
