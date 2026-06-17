@@ -2,7 +2,7 @@ import { useParams } from "react-router-dom";
 import { PainelSection } from "./_shared";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
-import { useMyOpenChat, useOpenChat, useCloseChat, useChatQueuePosition } from "@/hooks/useSupportChat";
+import { useMyOpenChat, useOpenChat, useCloseChat } from "@/hooks/useSupportChat";
 import { ChatPanel } from "@/components/support/ChatPanel";
 import { toast } from "sonner";
 
@@ -11,7 +11,6 @@ export default function PainelSuporteChat() {
   const { data: chat, isLoading } = useMyOpenChat();
   const open = useOpenChat();
   const close = useCloseChat();
-  const { data: queuePosition } = useChatQueuePosition(chat);
 
   const handleOpen = async () => {
     try { await open.mutateAsync({ establishment_id: establishmentId ?? null }); }
@@ -46,13 +45,6 @@ export default function PainelSuporteChat() {
             chat={chat}
             senderRole="establishment"
             headerExtra={<Button size="sm" variant="outline" onClick={handleClose}>Encerrar</Button>}
-            banner={
-              chat.status === "waiting"
-                ? `Você está na fila de atendimento. Posição: ${queuePosition ?? "—"}.`
-                : chat.status === "active"
-                ? "Você está conversando com o suporte."
-                : undefined
-            }
           />
         )}
       </div>
