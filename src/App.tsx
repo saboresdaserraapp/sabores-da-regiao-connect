@@ -14,6 +14,7 @@ import Cadastro from "./pages/Cadastro.tsx";
 import RecuperarSenha from "./pages/RecuperarSenha.tsx";
 import ResetPassword from "./pages/ResetPassword.tsx";
 import MinhaConta from "./pages/MinhaConta.tsx";
+import SuporteCliente from "./pages/SuporteCliente.tsx";
 import PedidoDetalhesLoja from "./pages/minha-loja/pedidos/PedidoDetalhes.tsx";
 import PedidoTracking from "./pages/PedidoTracking.tsx";
 import VisualReference from "./pages/VisualReference.tsx";
@@ -45,6 +46,7 @@ import AdminBenchmark from "./pages/admin/Benchmark.tsx";
 import AdminPoliticaDados from "./pages/admin/PoliticaDados.tsx";
 import AdminPoliticasEntrega from "./pages/admin/PoliticasEntrega.tsx";
 import AdminAprovacaoEstabelecimentos from "./pages/admin/AprovacaoEstabelecimentos.tsx";
+import AdminTickets from "./pages/admin/Tickets.tsx";
 import MinhaLojaDispatcher from "./pages/minha-loja/Dispatcher.tsx";
 import MinhaLojaSelecionar from "./pages/minha-loja/Selecionar.tsx";
 import MinhaLojaStatus from "./pages/minha-loja/Status.tsx";
@@ -72,6 +74,7 @@ import PainelMidia from "./pages/minha-loja/painel/Midia.tsx";
 import PainelEditarProduto from "./pages/minha-loja/painel/EditarProduto.tsx";
 import PainelEquipe from "./pages/minha-loja/painel/Equipe.tsx";
 import PainelMotoboys from "./pages/minha-loja/painel/Motoboys.tsx";
+import PainelSuporte from "./pages/minha-loja/painel/Suporte.tsx";
 import { Navigate, useLocation } from "react-router-dom";
 import { CartFloatingButton } from "./components/CartFloatingButton";
 
@@ -111,6 +114,7 @@ const App = () => (
             <Route path="/recuperar-senha" element={<RecuperarSenha />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/minha-conta" element={<MinhaConta />} />
+            <Route path="/minha-conta/suporte" element={<SuporteCliente />} />
             <Route path="/pedido/:code" element={<PedidoTracking />} />
             <Route path="/referencia/:token" element={<VisualReference />} />
             <Route path="/referencias-entrega/:token" element={<DeliveryReference />} />
@@ -143,6 +147,7 @@ const App = () => (
                 <Route path="/admin/politica-dados" element={<AdminPoliticaDados />} />
                 <Route path="/admin/politicas-entrega" element={<AdminPoliticasEntrega />} />
                 <Route path="/admin/aprovacao-estabelecimentos" element={<AdminAprovacaoEstabelecimentos />} />
+                <Route path="/admin/tickets" element={<AdminTickets />} />
               </Route>
             </Route>
 
@@ -174,6 +179,7 @@ const App = () => (
               <Route path="midia" element={<PainelMidia />} />
               <Route path="equipe" element={<PainelEquipe />} />
               <Route path="motoboys" element={<PainelMotoboys />} />
+              <Route path="suporte" element={<PainelSuporte />} />
               <Route path="configuracoes" element={<PainelConfiguracoes />} />
             </Route>
 
