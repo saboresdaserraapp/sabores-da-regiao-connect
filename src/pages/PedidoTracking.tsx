@@ -78,7 +78,7 @@ export default function PedidoTracking() {
     return (
       <ErrorState
         title="Não conseguimos abrir este pedido"
-        message={resolveError}
+        description={resolveError}
         onRetry={() => setRetryTick((t) => t + 1)}
       />
     );
