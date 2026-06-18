@@ -14,6 +14,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useMyEstablishmentIds } from "@/hooks/useMyEstablishmentIds";
 
 const ORDER_TYPES = new Set([
+  "new_order",
   "new_order_message",
   "order_chat_message",
   "order_status_update",
@@ -29,17 +30,9 @@ const SUPPORT_CHAT_USER_TYPES = new Set([
 ]);
 const TICKET_USER_TYPES = new Set(["support_ticket_reply", "support_ticket_status_changed"]);
 
-// Tipos que SEMPRE são direcionados ao cliente (mesmo se o usuário também for dono)
-const CUSTOMER_ONLY_TYPES = new Set([
-  "order_status_update",
-  "order_chat_message",
-  "order_delivery_fee_proposal",
-]);
-// Tipos que SEMPRE são direcionados à loja
+// Tipos que SEMPRE são direcionados à loja, independente do destinatário
 const STORE_ONLY_TYPES = new Set([
-  "new_order_message",
-  "order_delivery_fee_accepted",
-  "order_delivery_fee_rejected",
+  "new_order",
   "support_chat_waiting",
   "support_ticket_created",
 ]);
@@ -69,9 +62,10 @@ export function NotificationCenter() {
     const data = n?.data ?? {};
     const estId = n?.related_establishment_id ?? n?.establishment_id ?? data.establishment_id;
     const isMine = !!estId && (myEstablishments ?? []).includes(estId);
-    if (type && CUSTOMER_ONLY_TYPES.has(type)) return "cliente";
     if (type && STORE_ONLY_TYPES.has(type)) return "loja";
-    // Suporte/tickets/chat: loja se pertencer a estabelecimento do usuário
+    // Para todas as outras notificações de pedido/chat/ticket: classificamos
+    // pelo destinatário real — se a notificação está vinculada a uma loja
+    // gerenciada pelo usuário, vai para a aba "Loja"; caso contrário "Cliente".
     return isMine ? "loja" : "cliente";
   };
 
@@ -91,21 +85,14 @@ export function NotificationCenter() {
     const isMyEstablishment = !!estId && (myEstablishments ?? []).includes(estId);
 
     if (type && ORDER_TYPES.has(type) && orderId) {
-      // Notificações destinadas ao CLIENTE — sempre abrem a tela do cliente,
-      // mesmo se o usuário também for dono do estabelecimento.
-      const customerSideTypes = new Set([
-        "order_delivery_fee_proposal",
-        "order_status_update",
-        "order_chat_message",
-        "new_order_message",
-      ]);
-      if (customerSideTypes.has(type)) {
-        return `/minha-conta/pedidos/${orderId}`;
+      // Roteia pelo destinatário real: se a notificação pertence a uma loja
+      // gerenciada pelo usuário, abre o painel da loja. Caso contrário, abre
+      // a tela do cliente. Isso garante que o mesmo usuário (dono + cliente)
+      // veja cada notificação na tela correta.
+      if (isMyEstablishment && estId) {
+        return `/minha-loja/${estId}/pedidos/${orderId}`;
       }
-      // Notificações destinadas à LOJA (aceite/recusa de proposta) abrem o painel.
-      return isMyEstablishment && estId
-        ? `/minha-loja/${estId}/pedidos/${orderId}`
-        : `/minha-conta/pedidos/${orderId}`;
+      return `/minha-conta/pedidos/${orderId}`;
     }
     if (type === "support_chat_waiting") {
       return isAdmin ? "/admin/suporte/chats" : null;
