@@ -121,6 +121,17 @@ export function NotificationCenter() {
     if (route) {
       setOpen(false);
       navigate(route);
+    } else {
+      const isOrderType = ORDER_TYPES.has(n?.type ?? "");
+      if (isOrderType) {
+        // eslint-disable-next-line no-console
+        console.warn("[NotificationCenter] unable to resolve route", {
+          type: n?.type,
+          related_order_id: n?.related_order_id,
+          related_establishment_id: n?.related_establishment_id,
+          data: n?.data,
+        });
+      }
     }
   };
 
