@@ -180,10 +180,11 @@ const App = () => (
                 <Route path="/admin/politica-dados" element={<AdminPoliticaDados />} />
                 <Route path="/admin/politicas-entrega" element={<AdminPoliticasEntrega />} />
                 <Route path="/admin/aprovacao-estabelecimentos" element={<AdminAprovacaoEstabelecimentos />} />
-                <Route path="/admin/tickets" element={<AdminTickets />} />
+                <Route path="/admin/tickets" element={<Navigate to="/admin/suporte/tickets" replace />} />
+                <Route path="/admin/tickets/:ticketId" element={<Navigate to="/admin/suporte/tickets" replace />} />
                 <Route path="/admin/suporte/tickets" element={<AdminTickets />} />
                 <Route path="/admin/suporte/tickets/:ticketId" element={<AdminTickets />} />
-                <Route path="/admin/suporte" element={<AdminSuporte />} />
+                <Route path="/admin/suporte" element={<Navigate to="/admin/suporte/chats" replace />} />
                 <Route path="/admin/suporte/chats" element={<AdminSuporte />} />
                 <Route path="/admin/suporte/chats/:chatId" element={<AdminSuporte />} />
               </Route>
