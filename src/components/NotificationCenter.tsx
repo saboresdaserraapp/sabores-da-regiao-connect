@@ -54,6 +54,18 @@ export function NotificationCenter() {
     const isMyEstablishment = !!estId && (myEstablishments ?? []).includes(estId);
 
     if (type && ORDER_TYPES.has(type) && orderId) {
+      // Notificações destinadas ao CLIENTE — sempre abrem a tela do cliente,
+      // mesmo se o usuário também for dono do estabelecimento.
+      const customerSideTypes = new Set([
+        "order_delivery_fee_proposal",
+        "order_status_update",
+        "order_chat_message",
+        "new_order_message",
+      ]);
+      if (customerSideTypes.has(type)) {
+        return `/minha-conta/pedidos/${orderId}`;
+      }
+      // Notificações destinadas à LOJA (aceite/recusa de proposta) abrem o painel.
       return isMyEstablishment && estId
         ? `/minha-loja/${estId}/pedidos/${orderId}`
         : `/minha-conta/pedidos/${orderId}`;

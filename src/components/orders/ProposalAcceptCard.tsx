@@ -12,18 +12,21 @@ import { Textarea } from "@/components/ui/textarea";
 import { brl } from "@/lib/format";
 import { toast } from "sonner";
 import { Loader2, Check, X, MessageCircle } from "lucide-react";
+import { OrderChatFloating } from "@/components/OrderChatFloating";
 
 type Props = {
   orderId: string;
+  establishmentId?: string;
   onChanged?: () => void;
 };
 
-export function ProposalAcceptCard({ orderId, onChanged }: Props) {
+export function ProposalAcceptCard({ orderId, establishmentId, onChanged }: Props) {
   const [proposal, setProposal] = useState<OrderProposal | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [rejectMode, setRejectMode] = useState(false);
   const [note, setNote] = useState("");
+  const [chatOpen, setChatOpen] = useState(false);
   const qc = useQueryClient();
 
   async function load() {
@@ -164,14 +167,21 @@ export function ProposalAcceptCard({ orderId, onChanged }: Props) {
           <Button variant="outline" onClick={() => setRejectMode(true)} disabled={busy}>
             <X className="mr-2 size-4" /> Recusar
           </Button>
-          <a
-            href="#order-chat"
-            className="text-xs text-muted-foreground inline-flex items-center gap-1 hover:underline sm:col-span-3"
+          <button
+            type="button"
+            onClick={() => setChatOpen(true)}
+            className="text-xs text-muted-foreground inline-flex items-center gap-1 hover:underline sm:col-span-3 justify-start"
           >
             <MessageCircle className="size-3" /> Falar com a loja
-          </a>
+          </button>
         </div>
       )}
+      <OrderChatFloating
+        orderId={orderId}
+        establishmentId={establishmentId}
+        open={chatOpen}
+        onOpenChange={setChatOpen}
+      />
     </section>
   );
 }
