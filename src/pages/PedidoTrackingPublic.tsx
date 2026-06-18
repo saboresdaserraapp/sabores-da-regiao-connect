@@ -44,7 +44,7 @@ const PedidoTrackingPublic = () => {
     <div className="min-h-screen bg-gradient-cream pb-16">
       <header className="sticky top-0 z-30 border-b border-border bg-background/85 backdrop-blur">
         <div className="container flex h-14 items-center gap-3">
-          <Link to={`/e/${order.establishment_slug}`} replace aria-label="Voltar ao cardápio"
+          <Link to={`/loja/${order.establishment_slug}`} replace aria-label="Voltar ao cardápio"
             className="grid size-9 place-items-center rounded-full hover:bg-muted">
             <ArrowLeft className="size-5" />
           </Link>
@@ -101,7 +101,7 @@ const PedidoTrackingPublic = () => {
         <CustomerReferencesPanel orderId={order.id} />
 
         <div className="text-center">
-          <Link to={`/e/${order.establishment_slug}`} replace
+          <Link to={`/loja/${order.establishment_slug}`} replace
             className="text-sm font-medium text-primary hover:underline">
             ← Voltar ao cardápio de {order.establishment_name}
           </Link>

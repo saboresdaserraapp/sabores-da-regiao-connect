@@ -65,7 +65,7 @@ export function CartFloatingButton() {
   return (
     <div className="safe-bottom fixed bottom-6 left-1/2 z-50 w-[calc(100%-2rem)] max-w-lg -translate-x-1/2">
       <Link
-        to={`/e/${state.establishmentSlug}/checkout`}
+        to={`/loja/${state.establishmentSlug}/checkout`}
         title={preview?.notice || undefined}
         className="flex items-center justify-between rounded-full bg-primary p-2 pl-6 pr-2 text-primary-foreground shadow-glow transition-transform active:scale-95"
       >
