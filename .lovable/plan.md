@@ -1,41 +1,43 @@
-## Problemas identificados
+## Problema
 
-### 1. Notificação "Confirme o valor final da entrega" abre rota inexistente
-Em `NotificationCenter.tsx` (`routeFor`), quando o usuário também é dono do estabelecimento do pedido, qualquer notificação de pedido é roteada para `/minha-loja/:establishmentId/pedidos/:orderId`. Isso está errado para notificações **destinadas ao cliente** — a proposta de revisão de valor precisa abrir a tela do cliente (`/minha-conta/pedidos/:orderId`), onde fica o `ProposalAcceptCard` com os botões Aceitar/Recusar. Em ambientes de teste em que dono e cliente são o mesmo usuário, o roteamento atual cai numa visão de loja que não corresponde a essa ação.
+Hoje o sininho mostra TODAS as notificações do usuário misturadas. Quando a mesma conta é dona de loja e também cliente, chegam juntas:
+- Status do pedido feito como cliente
+- Mensagens no chat do pedido (como cliente)
+- Novos pedidos recebidos na loja
+- Aceite/recusa de proposta de frete (loja)
+- Suporte de loja vs suporte de cliente
 
-### 2. "Falar com a loja" não abre chat flutuante
-Hoje os dois pontos de entrada apenas tentam rolar a página até a seção de mensagens do pedido:
-- `PedidoCliente.tsx` → `scrollToChat()` para `#order-chat-section`.
-- `ProposalAcceptCard.tsx` → âncora `#order-chat` (id que nem existe).
+## Solução
 
-O componente `OrderChat` já existe e funciona; falta apresentá-lo como sobreposição flutuante quando o usuário pede "Falar com a loja".
+Classificar cada notificação como **"loja"** ou **"cliente"** e exibir em **duas abas** dentro do popover do sininho, com contadores de não lidas independentes. O badge externo do sino mostra a soma, mas a aba ativa por padrão depende da rota atual:
+- Em `/minha-loja/*` ou `/admin/*` → abre na aba **Loja**
+- Demais rotas → abre na aba **Cliente**
 
-## Mudanças (somente frontend, sem mexer em backend, RLS, tabelas ou notificações)
+Nenhuma mudança de backend, RLS, triggers ou tabelas. Apenas classificação no front a partir do `type` + `related_establishment_id` cruzado com `useMyEstablishmentIds()`.
 
-### A. Roteamento correto da notificação do cliente
-`src/components/NotificationCenter.tsx`:
-- Diferenciar por tipo dentro de `ORDER_TYPES`:
-  - `order_delivery_fee_proposal` e `order_chat_message`/`new_order_message` cujo destinatário é o cliente → sempre `/minha-conta/pedidos/:orderId` (não considerar `isMyEstablishment`).
-  - `order_delivery_fee_accepted` / `order_delivery_fee_rejected` → mantêm o roteamento atual para o painel da loja.
-  - `order_status_update` → mantém heurística atual.
+### Regra de classificação (frontend)
 
-Isso resolve o caso em que o cliente também é dono e era enviado para uma página da loja onde a ação não existe.
+Uma notificação é **de loja** quando:
+- `related_establishment_id` pertence a um estabelecimento do usuário, E
+- o `type` é voltado ao lojista:
+  - `new_order_message` (novo pedido recebido na loja)
+  - `order_delivery_fee_accepted` / `order_delivery_fee_rejected` (cliente respondeu proposta)
+  - `support_chat_waiting`, `support_ticket_created` (admin/loja)
+  - `support_chat_*` / `support_ticket_*` quando o destino é o painel da loja
 
-### B. Chat flutuante "Falar com a loja"
-Criar `src/components/OrderChatFloating.tsx` (wrapper leve em torno do `OrderChat` existente) usando o `Dialog`/`Sheet` já disponíveis no design system:
-- Props: `orderId`, `establishmentId`, `open`, `onOpenChange`, `disabled?`, `disabledMessage?`.
-- Renderiza um painel flutuante (canto inferior direito no desktop, sheet no mobile) com header "Conversa com a loja" e o `OrderChat` dentro.
-- Sem nova tabela, sem novo canal: reaproveita exatamente o `OrderChat` do pedido (mesmo histórico, mesmas regras de RLS).
+É **de cliente** quando:
+- `type` é `order_status_update`, `order_chat_message`, `order_delivery_fee_proposal` (sempre — são ações dirigidas ao comprador), OU
+- notificação de suporte sem `establishment_id` próprio do usuário (suporte de cliente).
 
-Integrações:
-- `src/pages/PedidoCliente.tsx`: trocar `scrollToChat` por abrir o `OrderChatFloating` (estado local `chatOpen`). Manter a seção inline "Mensagens do pedido" como está.
-- `src/components/orders/ProposalAcceptCard.tsx`: substituir o link âncora quebrado `#order-chat` por um botão que abre o mesmo `OrderChatFloating` (recebendo `establishmentId` via prop adicional vinda do pai, ou buscando pelo `orderId`).
+Notificações sem rota/origem clara caem em "Cliente" por padrão.
 
-### C. Não alterar
-Checkout, carrinho, produtos, motoboys, referências visuais, cálculo de entrega, painel admin, painel da loja (exceto pelo que já foi feito), tickets, suporte rápido, tabelas, RLS, triggers, edge functions.
+## Arquivos
 
-## Verificação
-1. Logar como cliente (mesmo que dono): clicar na notificação "Confirme o valor final da entrega" → cai em `/minha-conta/pedidos/:id` com `ProposalAcceptCard` visível.
-2. Clicar em "Falar com a loja" (tanto no `PedidoCliente` quanto no `ProposalAcceptCard`) → abre painel flutuante com o chat do pedido funcionando em tempo real.
-3. Notificações de aceite/recusa continuam abrindo a tela do pedido no painel da loja.
-4. Chat do pedido, suporte rápido e tickets permanecem isolados.
+- **`src/components/NotificationCenter.tsx`**
+  - Adicionar função `bucketFor(n)` retornando `"loja" | "cliente"` usando a regra acima + `myEstablishments`.
+  - Adicionar `Tabs` (shadcn) com duas abas: "Cliente" e "Loja", cada uma com seu próprio contador de não lidas.
+  - Lista filtrada por aba; "Marcar todas como lidas" passa a marcar só as da aba ativa.
+  - Aba inicial decidida por `useLocation()`: rota inicia com `/minha-loja` ou `/admin` → "Loja"; caso contrário "Cliente".
+  - Badge do sino continua somando ambas.
+
+Sem alterações em `useNotifications`, rotas ou esquema.
