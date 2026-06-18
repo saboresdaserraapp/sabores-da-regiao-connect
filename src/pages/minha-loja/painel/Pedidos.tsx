@@ -456,7 +456,7 @@ export default function Pedidos() {
           </Button>
         )}
         <Button asChild size="sm" className="ml-auto">
-          <Link to={`/minha-loja/${ctx!.establishmentId}/pedidos/${o.id}`}>
+          <Link to={o.tracking_code ? `/pedido/${o.tracking_code}` : `/minha-loja/${ctx!.establishmentId}/pedidos/${o.id}`}>
             <ExternalLink className="size-3.5 mr-1" /> Abrir detalhes
           </Link>
         </Button>
