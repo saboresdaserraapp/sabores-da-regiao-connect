@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
 import { ArrowLeft, MapPin, Clock, Phone, Share2, Navigation, Star, ShoppingBag, MessageCircle, Loader2, Info, Plus, X, Minus, Flame, Ban, ChevronRight, ChevronLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -262,6 +263,45 @@ export default function EstablishmentPage() {
 
   return (
     <div className={cn("relative min-h-screen bg-background pb-28", fontClass)} style={pageStyle}>
+      {est && (
+        <Helmet>
+          <title>{`${est.name} — Sabores da Região`}</title>
+          <meta
+            name="description"
+            content={
+              (est.description && String(est.description).slice(0, 160)) ||
+              `Peça online em ${est.name}${est.neighborhood ? ` — ${est.neighborhood}` : ""}. Cardápio, preços e pedido direto pelo Sabores da Região.`
+            }
+          />
+          <link rel="canonical" href={`https://saboresapp.lovable.app/loja/${est.slug}`} />
+          <meta property="og:type" content="restaurant.restaurant" />
+          <meta property="og:title" content={`${est.name} — Sabores da Região`} />
+          <meta
+            property="og:description"
+            content={
+              (est.description && String(est.description).slice(0, 160)) ||
+              `Peça online em ${est.name}. Cardápio e pedido pelo Sabores da Região.`
+            }
+          />
+          <meta property="og:url" content={`https://saboresapp.lovable.app/loja/${est.slug}`} />
+          {(est.cover || est.logo) && <meta property="og:image" content={est.cover || est.logo} />}
+          <meta name="twitter:card" content="summary_large_image" />
+          <meta name="twitter:title" content={`${est.name} — Sabores da Região`} />
+          {(est.cover || est.logo) && <meta name="twitter:image" content={est.cover || est.logo} />}
+          <script type="application/ld+json">{JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Restaurant",
+            name: est.name,
+            url: `https://saboresapp.lovable.app/loja/${est.slug}`,
+            image: est.cover || est.logo || undefined,
+            description: est.description || undefined,
+            address: est.address ? { "@type": "PostalAddress", streetAddress: est.address, addressLocality: est.neighborhood || undefined } : undefined,
+            telephone: est.whatsapp || undefined,
+            servesCuisine: est.category || undefined,
+            aggregateRating: est.rating ? { "@type": "AggregateRating", ratingValue: est.rating, reviewCount: est.reviews_count || 1 } : undefined,
+          })}</script>
+        </Helmet>
+      )}
       <Dialog open={!!selectedProduct} onOpenChange={(v) => !v && setSelectedProduct(null)}>
         <DialogContent className="max-w-xl p-0 overflow-hidden rounded-t-3xl sm:rounded-3xl max-h-[90vh] flex flex-col border-none bg-background">
           {selectedProduct && (
