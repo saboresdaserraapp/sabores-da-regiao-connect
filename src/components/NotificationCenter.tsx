@@ -37,6 +37,15 @@ const STORE_ONLY_TYPES = new Set([
   "support_ticket_created",
 ]);
 
+// Tipos que SEMPRE são direcionados ao cliente, independente de o usuário
+// também ser dono do estabelecimento.
+const CUSTOMER_ONLY_TYPES = new Set([
+  "order_delivery_fee_proposal",
+  "order_delivery_fee_accepted",
+  "order_delivery_fee_rejected",
+  "order_status_update",
+]);
+
 function iconFor(type: string | null | undefined) {
   if (!type) return <Package className="size-4" />;
   if (ORDER_TYPES.has(type)) return <MessageSquare className="size-4" />;
@@ -63,6 +72,7 @@ export function NotificationCenter() {
     const estId = n?.related_establishment_id ?? n?.establishment_id ?? data.establishment_id;
     const isMine = !!estId && (myEstablishments ?? []).includes(estId);
     if (type && STORE_ONLY_TYPES.has(type)) return "loja";
+    if (type && CUSTOMER_ONLY_TYPES.has(type)) return "cliente";
     // Para todas as outras notificações de pedido/chat/ticket: classificamos
     // pelo destinatário real — se a notificação está vinculada a uma loja
     // gerenciada pelo usuário, vai para a aba "Loja"; caso contrário "Cliente".
@@ -85,6 +95,10 @@ export function NotificationCenter() {
     const isMyEstablishment = !!estId && (myEstablishments ?? []).includes(estId);
 
     if (type && ORDER_TYPES.has(type) && orderId) {
+      // Tipos sempre destinados ao cliente abrem a tela do cliente.
+      if (CUSTOMER_ONLY_TYPES.has(type)) {
+        return `/minha-conta/pedidos/${orderId}`;
+      }
       // Roteia pelo destinatário real: se a notificação pertence a uma loja
       // gerenciada pelo usuário, abre o painel da loja. Caso contrário, abre
       // a tela do cliente. Isso garante que o mesmo usuário (dono + cliente)
