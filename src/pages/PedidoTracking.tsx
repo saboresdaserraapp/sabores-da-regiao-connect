@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useMyEstablishmentIds } from "@/hooks/useMyEstablishmentIds";
@@ -58,6 +58,13 @@ export default function PedidoTracking() {
     if (resolved.user_id === user.id) {
       return <PedidoCliente orderId={resolved.id} />;
     }
+  }
+
+  // Usuário autenticado mas pedido não encontrado / sem acesso:
+  // pedido apagado, fechado, ou pertence a outra conta. Direciona para
+  // a aba de pedidos do perfil em vez de mostrar a tela pública vazia.
+  if (user && !resolved) {
+    return <Navigate to="/minha-conta?tab=pedidos" replace />;
   }
 
   return <PedidoTrackingPublic />;

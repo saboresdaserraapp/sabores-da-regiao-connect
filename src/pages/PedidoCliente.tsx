@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, Link, useNavigate, Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { OrderChat } from "@/components/OrderChat";
 import { Header } from "@/components/Header";
@@ -93,9 +93,7 @@ export default function PedidoCliente({ orderId: orderIdProp }: { orderId?: stri
         {loading ? (
           <div className="flex justify-center py-12"><Loader2 className="size-6 animate-spin text-muted-foreground" /></div>
         ) : error || !order ? (
-          <div className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">
-            Pedido não encontrado ou você não tem acesso.
-          </div>
+          <Navigate to="/minha-conta?tab=pedidos" replace />
         ) : (
           <div className="space-y-4">
             <div className="rounded-xl border border-border bg-card p-4">
