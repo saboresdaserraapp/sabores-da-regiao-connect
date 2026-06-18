@@ -235,7 +235,6 @@ const CheckoutPage = () => {
               title: "Novo pedido recebido!",
               message: `Você recebeu um novo pedido de ${data.name}.`,
               related_order_id: inserted.id,
-              related_establishment_id: establishmentId,
               establishment_id: establishmentId,
               data: { order_id: inserted.id, establishment_id: establishmentId } as any,
             });
