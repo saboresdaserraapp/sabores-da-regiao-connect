@@ -13,13 +13,20 @@ import { ROLE_LABEL, type AppRole } from "@/hooks/useAuth";
 export default function AdminAuditoria() {
   const [action, setAction] = useState("");
   const [type, setType] = useState("all");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
 
   const { data, isLoading } = useQuery({
-    queryKey: ["admin-audit", type, action],
+    queryKey: ["admin-audit", type, action, from, to],
     queryFn: async () => {
       let q = supabase.from("audit_log").select("*").order("created_at", { ascending: false }).limit(500);
       if (type !== "all") q = q.eq("target_type", type);
       if (action) q = q.ilike("action", `%${action}%`);
+      if (from) q = q.gte("created_at", new Date(from).toISOString());
+      if (to) {
+        const end = new Date(to); end.setHours(23, 59, 59, 999);
+        q = q.lte("created_at", end.toISOString());
+      }
       return (await q).data ?? [];
     },
   });
@@ -29,6 +36,8 @@ export default function AdminAuditoria() {
       <AdminHeader title="Auditoria" subtitle="Histórico de ações administrativas." actions={
         <>
           <Input placeholder="Filtrar ação…" value={action} onChange={(e) => setAction(e.target.value)} className="w-56" />
+          <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-40" aria-label="De" />
+          <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-40" aria-label="Até" />
           <Select value={type} onValueChange={setType}>
             <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
             <SelectContent>
