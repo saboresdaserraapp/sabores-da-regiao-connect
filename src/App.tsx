@@ -131,8 +131,8 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/loja" element={<Loja />} />
-            <Route path="/e/:slug" element={<Navigate to="/loja/:slug" replace />} />
-            <Route path="/e/:slug/checkout" element={<Navigate to="/loja/:slug/checkout" replace />} />
+            <Route path="/e/:slug" element={<EstablishmentRedirect />} />
+            <Route path="/e/:slug/checkout" element={<EstablishmentRedirect checkout />} />
             <Route path="/loja/:slug" element={<Establishment />} />
             <Route path="/loja/:slug/checkout" element={<Checkout />} />
 
