@@ -5,10 +5,11 @@ import { Button } from "./ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { ScrollArea } from "./ui/scroll-area";
 import { Badge } from "./ui/badge";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useMyEstablishmentIds } from "@/hooks/useMyEstablishmentIds";
 
@@ -28,6 +29,21 @@ const SUPPORT_CHAT_USER_TYPES = new Set([
 ]);
 const TICKET_USER_TYPES = new Set(["support_ticket_reply", "support_ticket_status_changed"]);
 
+// Tipos que SEMPRE são direcionados ao cliente (mesmo se o usuário também for dono)
+const CUSTOMER_ONLY_TYPES = new Set([
+  "order_status_update",
+  "order_chat_message",
+  "order_delivery_fee_proposal",
+]);
+// Tipos que SEMPRE são direcionados à loja
+const STORE_ONLY_TYPES = new Set([
+  "new_order_message",
+  "order_delivery_fee_accepted",
+  "order_delivery_fee_rejected",
+  "support_chat_waiting",
+  "support_ticket_created",
+]);
+
 function iconFor(type: string | null | undefined) {
   if (!type) return <Package className="size-4" />;
   if (ORDER_TYPES.has(type)) return <MessageSquare className="size-4" />;
@@ -38,11 +54,32 @@ function iconFor(type: string | null | undefined) {
 
 export function NotificationCenter() {
   const { data: notifications, isLoading, markAsRead, markAllAsRead } = useNotifications();
-  const unreadCount = notifications?.filter(n => !n.read_at).length || 0;
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const { isAdmin } = useAuth();
   const { data: myEstablishments } = useMyEstablishmentIds();
+
+  const isStoreContext =
+    location.pathname.startsWith("/minha-loja") || location.pathname.startsWith("/admin");
+  const [tab, setTab] = useState<"cliente" | "loja">(isStoreContext ? "loja" : "cliente");
+
+  const bucketFor = (n: any): "cliente" | "loja" => {
+    const type = n?.type as string | undefined;
+    const data = n?.data ?? {};
+    const estId = n?.related_establishment_id ?? n?.establishment_id ?? data.establishment_id;
+    const isMine = !!estId && (myEstablishments ?? []).includes(estId);
+    if (type && CUSTOMER_ONLY_TYPES.has(type)) return "cliente";
+    if (type && STORE_ONLY_TYPES.has(type)) return "loja";
+    // Suporte/tickets/chat: loja se pertencer a estabelecimento do usuário
+    return isMine ? "loja" : "cliente";
+  };
+
+  const clienteList = (notifications ?? []).filter((n) => bucketFor(n) === "cliente");
+  const lojaList = (notifications ?? []).filter((n) => bucketFor(n) === "loja");
+  const unreadCliente = clienteList.filter((n) => !n.read_at).length;
+  const unreadLoja = lojaList.filter((n) => !n.read_at).length;
+  const unreadCount = unreadCliente + unreadLoja;
 
   const routeFor = (n: any): string | null => {
     const type = n?.type as string | undefined;
@@ -100,6 +137,68 @@ export function NotificationCenter() {
     }
   };
 
+  const markBucketAsRead = (bucket: "cliente" | "loja") => {
+    const list = bucket === "cliente" ? clienteList : lojaList;
+    list.filter((n) => !n.read_at).forEach((n) => markAsRead.mutate(n.id));
+  };
+
+  const renderList = (list: any[]) => (
+    <ScrollArea className="h-[350px]">
+      {isLoading ? (
+        <div className="flex justify-center p-8"><Loader2 className="animate-spin" /></div>
+      ) : list.length === 0 ? (
+        <div className="text-center py-10 text-muted-foreground text-sm">
+          Nenhuma notificação por enquanto.
+        </div>
+      ) : (
+        <div className="divide-y">
+          {list.map((n) => (
+            <div
+              key={n.id}
+              className={cn(
+                "p-3 text-sm transition-colors hover:bg-muted/50 relative cursor-pointer",
+                !n.read_at && "bg-primary/5"
+              )}
+              onClick={() => handleClick(n)}
+            >
+              <div className="flex gap-3">
+                <div className="size-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 text-primary">
+                  {iconFor(n.type)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-xs mb-0.5">{n.title ?? ""}</div>
+                  <div className="text-xs text-muted-foreground line-clamp-2">{n.message ?? ""}</div>
+                  <div className="flex items-center justify-between mt-2 gap-2">
+                    <span className="text-[10px] text-muted-foreground">
+                      {n.created_at ? format(new Date(n.created_at), "dd 'de' MMM, HH:mm", { locale: ptBR }) : ""}
+                    </span>
+                    {(() => {
+                      const route = routeFor(n);
+                      const isOrder = ORDER_TYPES.has(n.type ?? "");
+                      if (isOrder && !route) {
+                        return <span className="text-[10px] text-muted-foreground italic">Pedido não disponível</span>;
+                      }
+                      if (route) {
+                        const label = isOrder
+                          ? "Ver pedido"
+                          : TICKET_USER_TYPES.has(n.type ?? "") || n.type === "support_ticket_created"
+                          ? "Ver ticket"
+                          : "Abrir";
+                        return <span className="text-[10px] font-medium text-primary">{label} →</span>;
+                      }
+                      return null;
+                    })()}
+                  </div>
+                </div>
+              </div>
+              {!n.read_at && <div className="absolute top-3 right-3 size-2 bg-primary rounded-full" />}
+            </div>
+          ))}
+        </div>
+      )}
+    </ScrollArea>
+  );
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -113,71 +212,37 @@ export function NotificationCenter() {
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-80 p-0 overflow-hidden" align="end">
-        <div className="p-3 border-b border-border/60 bg-muted/40 flex justify-between items-center">
-          <h3 className="font-semibold text-sm">Notificações</h3>
-          {unreadCount > 0 && (
-            <button
-              onClick={() => markAllAsRead.mutate()}
-              className="text-[10px] text-primary uppercase font-medium hover:underline"
-            >
-              Marcar todas como lidas
-            </button>
-          )}
-        </div>
-        <ScrollArea className="h-[350px]">
-          {isLoading ? (
-            <div className="flex justify-center p-8"><Loader2 className="animate-spin" /></div>
-          ) : notifications?.length === 0 ? (
-            <div className="text-center py-10 text-muted-foreground text-sm">
-              Nenhuma notificação por enquanto.
-            </div>
-          ) : (
-            <div className="divide-y">
-              {notifications?.map((n) => (
-                <div 
-                  key={n.id} 
-                  className={cn(
-                    "p-3 text-sm transition-colors hover:bg-muted/50 relative cursor-pointer",
-                    !n.read_at && "bg-primary/5"
-                  )}
-                  onClick={() => handleClick(n)}
+        <Tabs value={tab} onValueChange={(v) => setTab(v as "cliente" | "loja")}>
+          <div className="p-3 border-b border-border/60 bg-muted/40 flex flex-col gap-2">
+            <div className="flex justify-between items-center">
+              <h3 className="font-semibold text-sm">Notificações</h3>
+              {((tab === "cliente" ? unreadCliente : unreadLoja) > 0) && (
+                <button
+                  onClick={() => markBucketAsRead(tab)}
+                  className="text-[10px] text-primary uppercase font-medium hover:underline"
                 >
-                  <div className="flex gap-3">
-                    <div className="size-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 text-primary">
-                      {iconFor(n.type)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-semibold text-xs mb-0.5">{n.title ?? ""}</div>
-                      <div className="text-xs text-muted-foreground line-clamp-2">{n.message ?? ""}</div>
-                      <div className="flex items-center justify-between mt-2 gap-2">
-                        <span className="text-[10px] text-muted-foreground">
-                          {n.created_at ? format(new Date(n.created_at), "dd 'de' MMM, HH:mm", { locale: ptBR }) : ""}
-                        </span>
-                        {(() => {
-                          const route = routeFor(n);
-                          const isOrder = ORDER_TYPES.has(n.type ?? "");
-                          if (isOrder && !route) {
-                            return <span className="text-[10px] text-muted-foreground italic">Pedido não disponível</span>;
-                          }
-                          if (route) {
-                            const label = isOrder
-                              ? "Ver pedido"
-                              : TICKET_USER_TYPES.has(n.type ?? "") || n.type === "support_ticket_created"
-                              ? "Ver ticket"
-                              : "Abrir";
-                            return <span className="text-[10px] font-medium text-primary">{label} →</span>;
-                          }
-                          return null;
-                        })()}
-                      </div>
-                    </div>
-                  </div>
-                  {!n.read_at && <div className="absolute top-3 right-3 size-2 bg-primary rounded-full" />}
-                </div>
-              ))}
+                  Marcar como lidas
+                </button>
+              )}
             </div>
-          )}
-        </ScrollArea>
+            <TabsList className="grid w-full grid-cols-2 h-8">
+              <TabsTrigger value="cliente" className="text-xs gap-1.5">
+                Cliente
+                {unreadCliente > 0 && (
+                  <Badge className="h-4 min-w-4 px-1 text-[10px]">{unreadCliente}</Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="loja" className="text-xs gap-1.5">
+                Loja
+                {unreadLoja > 0 && (
+                  <Badge className="h-4 min-w-4 px-1 text-[10px]">{unreadLoja}</Badge>
+                )}
+              </TabsTrigger>
+            </TabsList>
+          </div>
+          <TabsContent value="cliente" className="m-0">{renderList(clienteList)}</TabsContent>
+          <TabsContent value="loja" className="m-0">{renderList(lojaList)}</TabsContent>
+        </Tabs>
       </PopoverContent>
     </Popover>
   );
