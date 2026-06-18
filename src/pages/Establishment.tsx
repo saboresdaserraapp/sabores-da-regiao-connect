@@ -284,21 +284,21 @@ export default function EstablishmentPage() {
             }
           />
           <meta property="og:url" content={`https://saboresapp.lovable.app/loja/${est.slug}`} />
-          {est.cover_image && <meta property="og:image" content={est.cover_image} />}
+          {(est.cover || est.logo) && <meta property="og:image" content={est.cover || est.logo} />}
           <meta name="twitter:card" content="summary_large_image" />
           <meta name="twitter:title" content={`${est.name} — Sabores da Região`} />
-          {est.cover_image && <meta name="twitter:image" content={est.cover_image} />}
+          {(est.cover || est.logo) && <meta name="twitter:image" content={est.cover || est.logo} />}
           <script type="application/ld+json">{JSON.stringify({
             "@context": "https://schema.org",
             "@type": "Restaurant",
             name: est.name,
             url: `https://saboresapp.lovable.app/loja/${est.slug}`,
-            image: est.cover_image || undefined,
+            image: est.cover || est.logo || undefined,
             description: est.description || undefined,
             address: est.address ? { "@type": "PostalAddress", streetAddress: est.address, addressLocality: est.neighborhood || undefined } : undefined,
-            telephone: est.whatsapp || est.phone || undefined,
+            telephone: est.whatsapp || undefined,
             servesCuisine: est.category || undefined,
-            aggregateRating: est.rating ? { "@type": "AggregateRating", ratingValue: est.rating, reviewCount: est.review_count || 1 } : undefined,
+            aggregateRating: est.rating ? { "@type": "AggregateRating", ratingValue: est.rating, reviewCount: est.reviews_count || 1 } : undefined,
           })}</script>
         </Helmet>
       )}
