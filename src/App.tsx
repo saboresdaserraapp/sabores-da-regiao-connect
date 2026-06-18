@@ -17,9 +17,8 @@ import MinhaConta from "./pages/MinhaConta.tsx";
 import SuporteCliente from "./pages/SuporteCliente.tsx";
 import SuporteChatCliente from "./pages/SuporteChatCliente.tsx";
 import TicketDetalhesCliente from "./pages/TicketDetalhesCliente.tsx";
-import PedidoCliente from "./pages/PedidoCliente.tsx";
-import PedidoDetalhesLoja from "./pages/minha-loja/pedidos/PedidoDetalhes.tsx";
 import PedidoTracking from "./pages/PedidoTracking.tsx";
+import { RedirectByOrderId } from "./components/RedirectByOrderId";
 import VisualReference from "./pages/VisualReference.tsx";
 import DeliveryReference from "./pages/DeliveryReference.tsx";
 import { lazy, Suspense } from "react";
@@ -146,7 +145,7 @@ const App = () => (
             <Route path="/minha-conta/suporte/chat" element={<SuporteChatCliente />} />
             <Route path="/minha-conta/suporte/tickets" element={<SuporteCliente />} />
             <Route path="/minha-conta/suporte/tickets/:ticketId" element={<TicketDetalhesCliente />} />
-            <Route path="/minha-conta/pedidos/:orderId" element={<PedidoCliente />} />
+            <Route path="/minha-conta/pedidos/:orderId" element={<RedirectByOrderId />} />
             <Route path="/pedido/:code" element={<PedidoTracking />} />
             <Route path="/referencia/:token" element={<VisualReference />} />
             <Route path="/referencias-entrega/:token" element={<DeliveryReference />} />
@@ -204,7 +203,7 @@ const App = () => (
               <Route path="promocoes" element={<PainelPromocoes />} />
               <Route path="entrega" element={<PainelEntrega />} />
               <Route path="pedidos" element={<PainelPedidos />} />
-              <Route path="pedidos/:orderId" element={<PedidoDetalhesLoja />} />
+              <Route path="pedidos/:orderId" element={<RedirectByOrderId />} />
               <Route path="avaliacoes" element={<PainelAvaliacoes />} />
               <Route path="metricas" element={<PainelMetricas />} />
               <Route path="inteligencia" element={<PainelInteligencia />} />

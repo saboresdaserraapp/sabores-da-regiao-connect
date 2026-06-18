@@ -25,8 +25,9 @@ type OrderRow = {
   establishment?: { name: string | null; logo: string | null } | null;
 };
 
-export default function PedidoCliente() {
-  const { orderId } = useParams<{ orderId: string }>();
+export default function PedidoCliente({ orderId: orderIdProp }: { orderId?: string } = {}) {
+  const params = useParams<{ orderId: string }>();
+  const orderId = orderIdProp ?? params.orderId;
   const { user } = useAuth();
   const navigate = useNavigate();
   const [order, setOrder] = useState<OrderRow | null>(null);
