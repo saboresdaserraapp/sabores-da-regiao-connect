@@ -455,6 +455,11 @@ export default function Pedidos() {
             {expandedRef === o.id ? <ChevronUp className="size-3.5 ml-1" /> : <ChevronDown className="size-3.5 ml-1" />}
           </Button>
         )}
+        <Button asChild size="sm" className="ml-auto">
+          <Link to={`/minha-loja/${ctx!.establishmentId}/pedidos/${o.id}`}>
+            <ExternalLink className="size-3.5 mr-1" /> Abrir detalhes
+          </Link>
+        </Button>
       </div>
       {expandedRef === o.id && o.address_id && (
         <div className="mt-4"><OrderReferencesPanel orderId={o.id} /></div>
