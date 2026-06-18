@@ -229,7 +229,7 @@ function FavoritosTab() {
         {estabs.length === 0 ? <Empty msg="Você ainda não favoritou nenhum estabelecimento." /> : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {estabs.map((e: any) => (
-              <Link key={e.id} to={`/e/${e.slug}`} className="overflow-hidden rounded-2xl border border-border bg-card hover:border-primary">
+              <Link key={e.id} to={`/loja/${e.slug}`} className="overflow-hidden rounded-2xl border border-border bg-card hover:border-primary">
                 <div className="aspect-[16/9] bg-muted"><img src={e.cover} alt="" className="size-full object-cover" /></div>
                 <div className="p-3">
                   <div className="font-semibold">{e.name}</div>
@@ -246,7 +246,7 @@ function FavoritosTab() {
         {products.length === 0 ? <Empty msg="Você ainda não favoritou nenhum produto." /> : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {products.map((p: any) => (
-              <Link key={p.id} to={`/e/${p.establishments?.slug}`} className="flex gap-3 rounded-2xl border border-border bg-card p-3 hover:border-primary">
+              <Link key={p.id} to={`/loja/${p.establishments?.slug}`} className="flex gap-3 rounded-2xl border border-border bg-card p-3 hover:border-primary">
                 <div className="size-20 shrink-0 overflow-hidden rounded-lg bg-muted"><img src={p.image} alt="" className="size-full object-cover" /></div>
                 <div className="min-w-0">
                   <div className="truncate font-medium">{p.name}</div>

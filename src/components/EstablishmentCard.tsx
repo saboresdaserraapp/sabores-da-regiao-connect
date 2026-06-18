@@ -8,7 +8,7 @@ export function EstablishmentCard({ e }: { e: Establishment }) {
   const closed = !e.openNow;
   return (
     <Link
-      to={`/e/${e.slug}`}
+      to={`/loja/${e.slug}`}
       className={
         "group relative block overflow-hidden rounded-3xl border border-border/60 bg-card shadow-card transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2" +
         (closed ? " opacity-75 saturate-[0.85]" : "")

@@ -167,7 +167,7 @@ const CheckoutPage = () => {
   const total = subtotal + (taxa ?? 0);
 
   const update = (patch: Partial<CheckoutData>) => setData((d) => ({ ...d, ...patch }));
-  const goBackToMenu = () => navigate(`/e/${e.slug}`, { replace: true });
+  const goBackToMenu = () => navigate(`/loja/${e.slug}`, { replace: true });
 
   const onSend = async () => {
     if (!data.name?.trim()) { toast.error("Informe seu nome"); return; }
@@ -308,7 +308,7 @@ const CheckoutPage = () => {
     toast.success("Pedido enviado! Acompanhe o status aqui.");
     cart.clear();
     if (trackingCode) navigate(`/pedido/${trackingCode}`, { replace: true });
-    else navigate(`/e/${e.slug}`, { replace: true });
+    else navigate(`/loja/${e.slug}`, { replace: true });
   };
 
   if (cartState.items.length === 0) {
@@ -317,7 +317,7 @@ const CheckoutPage = () => {
         <div className="container py-20 text-center">
           <ShoppingBag className="mx-auto size-12 text-muted-foreground" />
           <h2 className="mt-4 font-display text-2xl">Seu carrinho está vazio</h2>
-          <Link to={`/e/${e.slug}`} replace className="mt-4 inline-block rounded-full bg-primary px-5 py-2.5 text-primary-foreground">Voltar ao cardápio</Link>
+          <Link to={`/loja/${e.slug}`} replace className="mt-4 inline-block rounded-full bg-primary px-5 py-2.5 text-primary-foreground">Voltar ao cardápio</Link>
         </div>
       </div>
     );

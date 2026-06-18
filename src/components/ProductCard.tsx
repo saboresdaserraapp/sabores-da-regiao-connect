@@ -16,7 +16,7 @@ const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", curren
 export function ProductCard({ p, variant = "grid" }: Props) {
   const [open, setOpen] = useState(false);
   const e = p.establishment;
-  const href = `/e/${e.slug}#product-${p.id}`;
+  const href = `/loja/${e.slug}#product-${p.id}`;
   const isPromo = p.promo && p.promotional_price && Number(p.promotional_price) < Number(p.price);
   const oldPrice = isPromo ? p.price : null;
   const displayPrice = isPromo ? p.promotional_price : p.price;
