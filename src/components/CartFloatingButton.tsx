@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { cart, useCart } from "@/store/cart";
 import { brl } from "@/lib/format";
@@ -7,12 +7,14 @@ import { useAddresses } from "@/hooks/useAddresses";
 import { useDeliveryRegions, useDeliverySettings } from "@/hooks/useDeliverySettings";
 import { resolveDeliveryFeeWithDistance } from "@/lib/deliveryFee";
 import { supabase } from "@/integrations/supabase/client";
+import { CartPreviewSheet } from "./cart/CartPreviewSheet";
 
 export function CartFloatingButton() {
   const state = useCart();
   const { user } = useAuth();
+  const [open, setOpen] = useState(false);
   const establishmentId = state.establishmentId;
-  const enabled = !!state.items.length && !!state.establishmentSlug;
+  const enabled = state.items.length > 0;
 
   const { data: establishment } = useQuery({
     queryKey: ["cart-fab-establishment", establishmentId],
@@ -20,7 +22,7 @@ export function CartFloatingButton() {
     queryFn: async () => {
       const { data } = await supabase
         .from("establishments")
-        .select("id, delivery_fee, neighborhood, latitude, longitude")
+        .select("id, slug, delivery_fee, neighborhood, latitude, longitude")
         .eq("id", establishmentId!)
         .maybeSingle();
       return data;
@@ -29,6 +31,14 @@ export function CartFloatingButton() {
   const { data: settings } = useDeliverySettings(enabled ? establishmentId ?? undefined : undefined);
   const { data: regions } = useDeliveryRegions(enabled ? establishmentId ?? undefined : undefined, false);
   const { data: addresses } = useAddresses();
+
+  // Auto-cura: carrinhos antigos sem slug recebem o slug a partir do id.
+  useEffect(() => {
+    if (!establishmentId) return;
+    if (state.establishmentSlug) return;
+    const slug = (establishment as any)?.slug as string | undefined;
+    if (slug) cart.setEstablishment(establishmentId, slug);
+  }, [establishmentId, state.establishmentSlug, establishment]);
 
   if (!enabled) return null;
 
@@ -63,39 +73,44 @@ export function CartFloatingButton() {
   }
 
   return (
-    <div className="safe-bottom fixed bottom-6 left-1/2 z-50 w-[calc(100%-2rem)] max-w-lg -translate-x-1/2">
-      <Link
-        to={`/loja/${state.establishmentSlug}/checkout`}
-        title={preview?.notice || undefined}
-        className="flex items-center justify-between rounded-full bg-primary p-2 pl-6 pr-2 text-primary-foreground shadow-glow transition-transform active:scale-95"
-      >
-        <div className="flex items-center gap-3">
-          <div className="flex size-9 items-center justify-center rounded-full bg-white/20 font-bold">
-            {count}
+    <>
+      <div className="safe-bottom fixed bottom-6 left-1/2 z-50 w-[calc(100%-2rem)] max-w-lg -translate-x-1/2">
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-label={`Abrir carrinho com ${count} ${count === 1 ? "item" : "itens"}`}
+          title={preview?.notice || undefined}
+          className="flex w-full items-center justify-between rounded-full bg-primary p-2 pl-6 pr-2 text-left text-primary-foreground shadow-glow transition-transform active:scale-95"
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex size-9 items-center justify-center rounded-full bg-white/20 font-bold">
+              {count}
+            </div>
+            <div>
+              <div className="text-[10px] font-medium opacity-80 uppercase tracking-wider">Ver carrinho</div>
+              <div className="font-display text-lg font-bold leading-tight">{brl(subtotal)}</div>
+              {feeLabel && (
+                <div
+                  className={
+                    "text-[10px] font-medium leading-tight " +
+                    (feeLabel.tone === "warn"
+                      ? "text-red-100"
+                      : feeLabel.tone === "ok"
+                      ? "text-emerald-100"
+                      : "opacity-80")
+                  }
+                >
+                  {feeLabel.text}
+                </div>
+              )}
+            </div>
           </div>
-          <div>
-            <div className="text-[10px] font-medium opacity-80 uppercase tracking-wider">Ver carrinho</div>
-            <div className="font-display text-lg font-bold leading-tight">{brl(subtotal)}</div>
-            {feeLabel && (
-              <div
-                className={
-                  "text-[10px] font-medium leading-tight " +
-                  (feeLabel.tone === "warn"
-                    ? "text-red-100"
-                    : feeLabel.tone === "ok"
-                    ? "text-emerald-100"
-                    : "opacity-80")
-                }
-              >
-                {feeLabel.text}
-              </div>
-            )}
+          <div className="flex h-12 items-center gap-2 rounded-full bg-white px-6 text-sm font-bold text-primary">
+            Ver pedido
           </div>
-        </div>
-        <div className="flex h-12 items-center gap-2 rounded-full bg-white px-6 text-sm font-bold text-primary">
-          Finalizar Pedido
-        </div>
-      </Link>
-    </div>
+        </button>
+      </div>
+      <CartPreviewSheet open={open} onOpenChange={setOpen} />
+    </>
   );
 }

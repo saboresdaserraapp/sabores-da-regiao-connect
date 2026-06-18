@@ -28,10 +28,22 @@ interface CartState {
 let state: CartState = load();
 const listeners = new Set<() => void>();
 
+const STORAGE_KEY = "sdr_cart_v2";
+const LEGACY_KEY = "sdr_cart";
+
 function load(): CartState {
   if (typeof localStorage === "undefined") return { establishmentId: null, establishmentSlug: null, items: [] };
   try {
-    const data = localStorage.getItem("sdr_cart");
+    let data = localStorage.getItem(STORAGE_KEY);
+    if (!data) {
+      // Migra versão antiga (mesmo formato; só renomeia a chave).
+      const legacy = localStorage.getItem(LEGACY_KEY);
+      if (legacy) {
+        data = legacy;
+        try { localStorage.setItem(STORAGE_KEY, legacy); } catch { /* noop */ }
+        try { localStorage.removeItem(LEGACY_KEY); } catch { /* noop */ }
+      }
+    }
     if (!data) return { establishmentId: null, establishmentSlug: null, items: [] };
     const parsed = JSON.parse(data) as Partial<CartState>;
     return {
@@ -42,7 +54,7 @@ function load(): CartState {
   } catch { return { establishmentId: null, establishmentSlug: null, items: [] }; }
 }
 function persist() {
-  localStorage.setItem("sdr_cart", JSON.stringify(state));
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch { /* noop */ }
   listeners.forEach(l => l());
 }
 
@@ -74,6 +86,10 @@ export const cart = {
   },
   update(uid: string, qty: number) {
     state = { ...state, items: state.items.map(i => i.uid === uid ? { ...i, quantity: qty } : i).filter(i => i.quantity > 0) };
+    persist();
+  },
+  updateNote(uid: string, note: string) {
+    state = { ...state, items: state.items.map(i => i.uid === uid ? { ...i, note } : i) };
     persist();
   },
   remove(uid: string) {

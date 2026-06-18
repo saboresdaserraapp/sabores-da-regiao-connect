@@ -74,7 +74,7 @@ export function ProductCard({ p, variant = "grid" }: Props) {
             </div>
           </div>
         </Link>
-        <ProductQuickView productId={p.id} establishmentId={e.id} isOpen={open} onClose={() => setOpen(false)} />
+        <ProductQuickView productId={p.id} establishmentId={e.id} establishmentSlug={e.slug} isOpen={open} onClose={() => setOpen(false)} />
       </>
     );
   }
@@ -146,7 +146,7 @@ export function ProductCard({ p, variant = "grid" }: Props) {
           </div>
         </div>
       </Link>
-      <ProductQuickView productId={p.id} establishmentId={e.id} isOpen={open} onClose={() => setOpen(false)} />
+      <ProductQuickView productId={p.id} establishmentId={e.id} establishmentSlug={e.slug} isOpen={open} onClose={() => setOpen(false)} />
     </>
   );
 }

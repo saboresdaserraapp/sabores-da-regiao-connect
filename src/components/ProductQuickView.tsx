@@ -12,6 +12,7 @@ import { toast } from "sonner";
 interface Props {
   productId: string;
   establishmentId: string;
+  establishmentSlug?: string;
   isOpen: boolean;
   onClose: () => void;
 }
@@ -42,7 +43,7 @@ function getProductMainImage(p: any) {
   return p.image || "https://images.unsplash.com/photo-1504674900247-0877df9cc836";
 }
 
-export function ProductQuickView({ productId, establishmentId, isOpen, onClose }: Props) {
+export function ProductQuickView({ productId, establishmentId, establishmentSlug, isOpen, onClose }: Props) {
   const [product, setProduct] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [productOptions, setProductOptions] = useState<any[]>([]);
@@ -92,7 +93,7 @@ export function ProductQuickView({ productId, establishmentId, isOpen, onClose }
       const ok = window.confirm("Seu carrinho contém itens de outra loja. Deseja substituí-los pelos itens desta loja?");
       if (!ok) return;
     }
-    cart.setEstablishment(establishmentId);
+    cart.setEstablishment(establishmentId, establishmentSlug);
     cart.add({
       product: {
         ...product,
