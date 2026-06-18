@@ -13,29 +13,54 @@ import { useState } from "react";
 
 
 type Item = { to: string; label: string; icon: any; feature?: FeatureKey };
+type Group = { label: string; items: Item[] };
 
-const ITEMS: Item[] = [
-  { to: "",                  label: "Visão geral",            icon: LayoutDashboard },
-  { to: "dados",             label: "Dados da loja",          icon: Store,        feature: "basic_info" },
-  { to: "horarios",          label: "Horários e atendimento", icon: Calendar,     feature: "opening_hours" },
-  { to: "cardapio",          label: "Cardápio",               icon: ChefHat,      feature: "basic_menu" },
-  { to: "produtos",          label: "Produtos",               icon: Package,      feature: "product_management_basic" },
-  { to: "adicionais",        label: "Adicionais e variações", icon: Package,      feature: "simple_addons" },
-  { to: "promocoes",         label: "Promoções",              icon: Tag,          feature: "simple_promotions" },
-  { to: "estoque",           label: "Estoque",                icon: Warehouse,    feature: "stock_basic" },
-  { to: "entrega",           label: "Entrega e frete",        icon: Truck,        feature: "delivery_to_confirm" },
-  { to: "pedidos",           label: "Pedidos pelo WhatsApp",  icon: Receipt,      feature: "basic_orders_panel" },
-  { to: "financeiro",        label: "Vendas e financeiro",    icon: DollarSign,   feature: "financial_basic" },
-  { to: "midia",             label: "Mídia da loja",          icon: ImageIcon },
-  { to: "avaliacoes",        label: "Avaliações",             icon: MessageSquare,feature: "basic_reviews" },
-  { to: "metricas",          label: "Métricas",               icon: BarChart3,    feature: "basic_metrics" },
-  { to: "inteligencia",      label: "Inteligência comercial", icon: Brain,        feature: "commercial_insights" },
-  { to: "personalizacao",    label: "Personalização visual",  icon: Palette,      feature: "visual_customization" },
-  { to: "equipe",            label: "Equipe e permissões",    icon: Users,        feature: "team_basic" },
-  { to: "motoboys",          label: "Motoboys",               icon: Smartphone,   feature: "delivery_drivers" },
-  { to: "suporte",           label: "Suporte",                icon: LifeBuoy },
-  { to: "plano",             label: "Plano e assinatura",     icon: Crown },
-  { to: "configuracoes",     label: "Configurações",          icon: Settings },
+const GROUPS: Group[] = [
+  {
+    label: "Operação",
+    items: [
+      { to: "",          label: "Visão geral",           icon: LayoutDashboard },
+      { to: "pedidos",   label: "Pedidos",               icon: Receipt,    feature: "basic_orders_panel" },
+      { to: "estoque",   label: "Estoque",               icon: Warehouse,  feature: "stock_basic" },
+      { to: "motoboys",  label: "Motoboys",              icon: Smartphone, feature: "delivery_drivers" },
+    ],
+  },
+  {
+    label: "Cardápio",
+    items: [
+      { to: "cardapio",   label: "Cardápio",             icon: ChefHat,  feature: "basic_menu" },
+      { to: "produtos",   label: "Produtos",             icon: Package,  feature: "product_management_basic" },
+      { to: "adicionais", label: "Adicionais",           icon: Package,  feature: "simple_addons" },
+      { to: "promocoes",  label: "Promoções",            icon: Tag,      feature: "simple_promotions" },
+    ],
+  },
+  {
+    label: "Loja",
+    items: [
+      { to: "dados",          label: "Dados da loja",     icon: Store,     feature: "basic_info" },
+      { to: "horarios",       label: "Horários",          icon: Calendar,  feature: "opening_hours" },
+      { to: "entrega",        label: "Entrega e frete",   icon: Truck,     feature: "delivery_to_confirm" },
+      { to: "midia",          label: "Mídia",             icon: ImageIcon },
+      { to: "personalizacao", label: "Personalização",    icon: Palette,   feature: "visual_customization" },
+    ],
+  },
+  {
+    label: "Análise",
+    items: [
+      { to: "metricas",     label: "Métricas",             icon: BarChart3,    feature: "basic_metrics" },
+      { to: "inteligencia", label: "Inteligência",         icon: Brain,        feature: "commercial_insights" },
+      { to: "avaliacoes",   label: "Avaliações",           icon: MessageSquare,feature: "basic_reviews" },
+      { to: "financeiro",   label: "Vendas e financeiro",  icon: DollarSign,   feature: "financial_basic" },
+    ],
+  },
+  {
+    label: "Gestão",
+    items: [
+      { to: "equipe",  label: "Equipe e permissões", icon: Users,   feature: "team_basic" },
+      { to: "suporte", label: "Suporte",             icon: LifeBuoy },
+      { to: "plano",   label: "Plano e assinatura",  icon: Crown },
+    ],
+  },
 ];
 
 function STATUS_LABEL(s: string) {
@@ -62,30 +87,39 @@ function Inner() {
   const suspended = ctx.establishmentStatus === "suspenso";
 
   const renderNav = (onNavigate?: () => void) => (
-    <nav className="grid gap-0.5">
-      {ITEMS.map((item) => {
-        const allowed = !item.feature || canUseFeature(ctx, item.feature);
-        const minPlan = item.feature ? FEATURE_MIN_PLAN[item.feature] : undefined;
-        const to = item.to ? `/minha-loja/${establishmentId}/${item.to}` : `/minha-loja/${establishmentId}`;
-        const isActive = location.pathname === to || (item.to === "" && location.pathname === `/minha-loja/${establishmentId}`);
-        return (
-          <NavLink
-            key={item.to}
-            to={to}
-            end={item.to === ""}
-            onClick={onNavigate}
-            className={() =>
-              `group flex items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-sm transition-colors ${isActive ? "bg-primary/10 text-primary font-medium" : "text-foreground/80 hover:bg-muted hover:text-foreground"}`
-            }
-            title={!allowed && minPlan ? `Disponível no plano ${PLAN_LABEL[minPlan]}` : undefined}
-          >
-            <span className="flex items-center gap-2">
-              <item.icon className={`size-4 ${isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground"}`} /> {item.label}
-            </span>
-            {!allowed && <span className="text-[10px] text-muted-foreground">🔒</span>}
-          </NavLink>
-        );
-      })}
+    <nav className="grid gap-4">
+      {GROUPS.map((group) => (
+        <div key={group.label} className="space-y-1">
+          <div className="px-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+            {group.label}
+          </div>
+          <div className="grid gap-0.5">
+            {group.items.map((item) => {
+              const allowed = !item.feature || canUseFeature(ctx, item.feature);
+              const minPlan = item.feature ? FEATURE_MIN_PLAN[item.feature] : undefined;
+              const to = item.to ? `/minha-loja/${establishmentId}/${item.to}` : `/minha-loja/${establishmentId}`;
+              const isActive = location.pathname === to || (item.to === "" && location.pathname === `/minha-loja/${establishmentId}`);
+              return (
+                <NavLink
+                  key={item.to}
+                  to={to}
+                  end={item.to === ""}
+                  onClick={onNavigate}
+                  className={() =>
+                    `group flex items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-sm transition-colors ${isActive ? "bg-primary/10 text-primary font-medium" : "text-foreground/80 hover:bg-muted hover:text-foreground"}`
+                  }
+                  title={!allowed && minPlan ? `Disponível no plano ${PLAN_LABEL[minPlan]}` : undefined}
+                >
+                  <span className="flex items-center gap-2">
+                    <item.icon className={`size-4 ${isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground"}`} /> {item.label}
+                  </span>
+                  {!allowed && <span className="text-[10px] text-muted-foreground">🔒</span>}
+                </NavLink>
+              );
+            })}
+          </div>
+        </div>
+      ))}
     </nav>
   );
 
