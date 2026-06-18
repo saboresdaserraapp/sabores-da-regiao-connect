@@ -1,43 +1,68 @@
-## Problema
+## Auditoria — Resultado
 
-Hoje o sininho mostra TODAS as notificações do usuário misturadas. Quando a mesma conta é dona de loja e também cliente, chegam juntas:
-- Status do pedido feito como cliente
-- Mensagens no chat do pedido (como cliente)
-- Novos pedidos recebidos na loja
-- Aceite/recusa de proposta de frete (loja)
-- Suporte de loja vs suporte de cliente
+Rodei o scanner de segurança + linter Supabase + revisão de policies, funções e código cliente.
 
-## Solução
+**Diagnóstico geral:** RLS está habilitado em todas as 53 tabelas `public`, GRANTs corretos, roles em tabela separada (`user_roles`) com `has_role()`/`is_admin()` SECURITY DEFINER, gateways de proposta (`accept_order_proposal`/`reject_order_proposal`) já validam `auth.uid()`, segredos não vazam no frontend. Não há SQL injection (todo acesso é via PostgREST/RPC parametrizado).
 
-Classificar cada notificação como **"loja"** ou **"cliente"** e exibir em **duas abas** dentro do popover do sininho, com contadores de não lidas independentes. O badge externo do sino mostra a soma, mas a aba ativa por padrão depende da rota atual:
-- Em `/minha-loja/*` ou `/admin/*` → abre na aba **Loja**
-- Demais rotas → abre na aba **Cliente**
+Os 113 alertas do scanner se concentram em **3 padrões**, e a maioria é benigna ou já intencional. O plano abaixo só mexe no que é **real risco** — não vou rodar refactor amplo de schema (já está normalizado e em uso) nem renomear tabelas (quebraria tudo).
 
-Nenhuma mudança de backend, RLS, triggers ou tabelas. Apenas classificação no front a partir do `type` + `related_establishment_id` cruzado com `useMyEstablishmentIds()`.
+---
 
-### Regra de classificação (frontend)
+## Riscos reais encontrados (a corrigir)
 
-Uma notificação é **de loja** quando:
-- `related_establishment_id` pertence a um estabelecimento do usuário, E
-- o `type` é voltado ao lojista:
-  - `new_order_message` (novo pedido recebido na loja)
-  - `order_delivery_fee_accepted` / `order_delivery_fee_rejected` (cliente respondeu proposta)
-  - `support_chat_waiting`, `support_ticket_created` (admin/loja)
-  - `support_chat_*` / `support_ticket_*` quando o destino é o painel da loja
+### ALTO
+1. **`profiles` legível por qualquer usuário autenticado** — qualquer login pode ler `display_name`/`phone` de todos. Restringir SELECT ao próprio usuário + admins.
+2. **`addresses` / `house_references` / `house_reference_media`** — verificar se policies escopam por `user_id = auth.uid()` (algumas têm leitura cruzada via order share).
+3. **`order_messages` / `notifications`** — confirmar que cliente só lê os próprios; loja só lê do próprio estabelecimento.
+4. **`delivery_drivers`** (PII de motoboys — telefone) — confirmar escopo por estabelecimento.
 
-É **de cliente** quando:
-- `type` é `order_status_update`, `order_chat_message`, `order_delivery_fee_proposal` (sempre — são ações dirigidas ao comprador), OU
-- notificação de suporte sem `establishment_id` próprio do usuário (suporte de cliente).
+### MÉDIO
+5. **`anon` pode executar funções SECURITY DEFINER administrativas** (`admin_find_user_by_email`, `claim_support_chat`, `log_action`, `ensure_official_admin`, `seed_initial_data`, `increment_banner_metric`). Elas já validam `is_admin()` internamente, mas devem ser `REVOKE EXECUTE FROM anon, public` para reduzir superfície.
+6. **Policies `WITH CHECK (true)` em INSERT** de `events`, `reports`, `reviews` — abre spam anônimo. Adicionar checagem mínima (`auth.uid() IS NOT NULL` para reviews/reports; manter events público mas com rate via trigger).
+7. **`audit_log` INSERT `with_check true`** — manter (é gravado por SECURITY DEFINER), mas restringir GRANT INSERT a `service_role` apenas.
 
-Notificações sem rota/origem clara caem em "Cliente" por padrão.
+### BAIXO (configuração)
+8. **Leaked Password Protection (HIBP)** — ativar via `configure_auth`.
+9. **Confirmação de email** — verificar que `auto_confirm_email` está desligado em produção.
 
-## Arquivos
+---
 
-- **`src/components/NotificationCenter.tsx`**
-  - Adicionar função `bucketFor(n)` retornando `"loja" | "cliente"` usando a regra acima + `myEstablishments`.
-  - Adicionar `Tabs` (shadcn) com duas abas: "Cliente" e "Loja", cada uma com seu próprio contador de não lidas.
-  - Lista filtrada por aba; "Marcar todas como lidas" passa a marcar só as da aba ativa.
-  - Aba inicial decidida por `useLocation()`: rota inicia com `/minha-loja` ou `/admin` → "Loja"; caso contrário "Cliente".
-  - Badge do sino continua somando ambas.
+## Plano de execução
 
-Sem alterações em `useNotifications`, rotas ou esquema.
+### Passo 1 — Migração de RLS (uma migration única)
+- `profiles`: substituir SELECT público por `auth.uid() = id OR is_admin(auth.uid())`.
+- Revisar e endurecer policies de `addresses`, `house_references`, `house_reference_media`, `order_messages`, `notifications`, `delivery_drivers` para garantir escopo estrito por dono / estabelecimento / pedido.
+- `events`, `reports`, `reviews`: trocar `WITH CHECK (true)` por `WITH CHECK (auth.uid() IS NOT NULL)` (reports/reviews) e por filtro mínimo de coluna em `events`.
+- `audit_log`: `REVOKE INSERT ... FROM authenticated, anon`; manter só `service_role`.
+
+### Passo 2 — Endurecer funções SECURITY DEFINER
+```sql
+REVOKE EXECUTE ON FUNCTION
+  public.admin_find_user_by_email(text),
+  public.ensure_official_admin(),
+  public.seed_initial_data(),
+  public.log_action(text,text,uuid,jsonb),
+  public.claim_support_chat(uuid),
+  public.increment_banner_metric(uuid,text)
+FROM anon, public;
+GRANT EXECUTE ON FUNCTION ... TO authenticated;  -- onde aplicável
+```
+Manter executáveis por `anon` apenas as públicas legítimas: `get_order_by_tracking`, `get_share_link_by_token`, `get_visual_reference_by_token`, `slugify`, `unaccent_safe`, `gen_tracking_code`.
+
+### Passo 3 — Configuração de auth
+Chamar `configure_auth` com `password_hibp_enabled: true`, `auto_confirm_email: false`, `disable_signup: false`, `external_anonymous_users_enabled: false`.
+
+### Passo 4 — Validação
+- Rerodar `security--run_security_scan` e `supabase--linter`.
+- Smoke test: login cliente vê só seus pedidos/endereços; login loja vê só seus pedidos; admin continua tendo acesso amplo via `is_admin()`.
+
+---
+
+## Fora do escopo (intencional)
+
+- **Renomear tabelas / normalizar schema:** já está coerente e em produção; mudanças quebrariam código e tipos gerados sem ganho real.
+- **Mover storage policies:** não foi reportado problema; pode entrar em ciclo futuro se necessário.
+- **Rate limiting de API:** Supabase/PostgREST não tem primitiva nativa no app — só faria sentido via edge function dedicada.
+- **Edge functions:** só há `send-announcement-email`, sem inputs sensíveis adicionais detectados.
+
+Aprovando, sigo com a migração única (Passos 1+2) + `configure_auth` (Passo 3) + revalidação.
