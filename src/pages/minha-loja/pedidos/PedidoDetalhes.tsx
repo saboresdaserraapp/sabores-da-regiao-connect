@@ -33,8 +33,13 @@ const STATUS_OPTIONS: { value: string; label: string }[] = [
   { value: "needs_more_reference",          label: "Precisa de referência" },
 ];
 
-export default function PedidoDetalhesLoja() {
-  const { orderId, establishmentId } = useParams();
+export default function PedidoDetalhesLoja({
+  orderId: orderIdProp,
+  establishmentId: establishmentIdProp,
+}: { orderId?: string; establishmentId?: string } = {}) {
+  const params = useParams();
+  const orderId = orderIdProp ?? params.orderId;
+  const establishmentId = establishmentIdProp ?? params.establishmentId;
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
