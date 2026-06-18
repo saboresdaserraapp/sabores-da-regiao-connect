@@ -21,6 +21,7 @@ import PedidoTracking from "./pages/PedidoTracking.tsx";
 import { RedirectByOrderId } from "./components/RedirectByOrderId";
 import VisualReference from "./pages/VisualReference.tsx";
 import DeliveryReference from "./pages/DeliveryReference.tsx";
+import Privacidade from "./pages/Privacidade.tsx";
 import { lazy, Suspense } from "react";
 const CatalogDebug = lazy(() => import("./pages/CatalogDebug.tsx"));
 const StorageDebug = lazy(() => import("./pages/StorageDebug.tsx"));
@@ -149,6 +150,7 @@ const App = () => (
             <Route path="/pedido/:code" element={<PedidoTracking />} />
             <Route path="/referencia/:token" element={<VisualReference />} />
             <Route path="/referencias-entrega/:token" element={<DeliveryReference />} />
+            <Route path="/privacidade" element={<Privacidade />} />
             {IS_DEV && (
               <>
                 <Route path="/debug/catalogo" element={<Suspense fallback={null}><CatalogDebug /></Suspense>} />
