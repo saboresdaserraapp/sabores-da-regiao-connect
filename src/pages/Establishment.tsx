@@ -263,6 +263,45 @@ export default function EstablishmentPage() {
 
   return (
     <div className={cn("relative min-h-screen bg-background pb-28", fontClass)} style={pageStyle}>
+      {est && (
+        <Helmet>
+          <title>{`${est.name} — Sabores da Região`}</title>
+          <meta
+            name="description"
+            content={
+              (est.description && String(est.description).slice(0, 160)) ||
+              `Peça online em ${est.name}${est.neighborhood ? ` — ${est.neighborhood}` : ""}. Cardápio, preços e pedido direto pelo Sabores da Região.`
+            }
+          />
+          <link rel="canonical" href={`https://saboresapp.lovable.app/loja/${est.slug}`} />
+          <meta property="og:type" content="restaurant.restaurant" />
+          <meta property="og:title" content={`${est.name} — Sabores da Região`} />
+          <meta
+            property="og:description"
+            content={
+              (est.description && String(est.description).slice(0, 160)) ||
+              `Peça online em ${est.name}. Cardápio e pedido pelo Sabores da Região.`
+            }
+          />
+          <meta property="og:url" content={`https://saboresapp.lovable.app/loja/${est.slug}`} />
+          {est.cover_image && <meta property="og:image" content={est.cover_image} />}
+          <meta name="twitter:card" content="summary_large_image" />
+          <meta name="twitter:title" content={`${est.name} — Sabores da Região`} />
+          {est.cover_image && <meta name="twitter:image" content={est.cover_image} />}
+          <script type="application/ld+json">{JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Restaurant",
+            name: est.name,
+            url: `https://saboresapp.lovable.app/loja/${est.slug}`,
+            image: est.cover_image || undefined,
+            description: est.description || undefined,
+            address: est.address ? { "@type": "PostalAddress", streetAddress: est.address, addressLocality: est.neighborhood || undefined } : undefined,
+            telephone: est.whatsapp || est.phone || undefined,
+            servesCuisine: est.category || undefined,
+            aggregateRating: est.rating ? { "@type": "AggregateRating", ratingValue: est.rating, reviewCount: est.review_count || 1 } : undefined,
+          })}</script>
+        </Helmet>
+      )}
       <Dialog open={!!selectedProduct} onOpenChange={(v) => !v && setSelectedProduct(null)}>
         <DialogContent className="max-w-xl p-0 overflow-hidden rounded-t-3xl sm:rounded-3xl max-h-[90vh] flex flex-col border-none bg-background">
           {selectedProduct && (
