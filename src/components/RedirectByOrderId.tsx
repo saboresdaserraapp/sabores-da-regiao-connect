@@ -35,7 +35,7 @@ export function RedirectByOrderId() {
   if (code === undefined) {
     return <LoadingState variant="page" label="Abrindo pedido..." />;
   }
-  if (!code) return <Navigate to="/minha-conta" replace />;
+  if (!code) return <Navigate to="/minha-conta?tab=pedidos" replace />;
   return <Navigate to={`/pedido/${code}`} replace />;
 }
 
