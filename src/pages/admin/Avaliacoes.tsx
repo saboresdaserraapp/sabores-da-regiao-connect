@@ -5,12 +5,14 @@ import { AdminHeader } from "@/components/admin/AdminHeader";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 export default function AdminAvaliacoes() {
   const qc = useQueryClient();
   const [status, setStatus] = useState<string>("all");
+  const [search, setSearch] = useState("");
 
   const { data, isLoading } = useQuery({
     queryKey: ["admin-reviews", status],
@@ -32,20 +34,28 @@ export default function AdminAvaliacoes() {
   return (
     <>
       <AdminHeader title="Avaliações" subtitle="Modere avaliações deixadas por clientes." actions={
-        <Select value={status} onValueChange={setStatus}>
-          <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os status</SelectItem>
-            <SelectItem value="pendente">Pendentes</SelectItem>
-            <SelectItem value="aprovado">Aprovadas</SelectItem>
-            <SelectItem value="reprovado">Reprovadas</SelectItem>
-          </SelectContent>
-        </Select>
+        <>
+          <Input placeholder="Buscar autor, texto ou loja…" value={search} onChange={(e) => setSearch(e.target.value)} className="w-72" />
+          <Select value={status} onValueChange={setStatus}>
+            <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os status</SelectItem>
+              <SelectItem value="pendente">Pendentes</SelectItem>
+              <SelectItem value="aprovado">Aprovadas</SelectItem>
+              <SelectItem value="reprovado">Reprovadas</SelectItem>
+            </SelectContent>
+          </Select>
+        </>
       } />
       <div className="p-6 space-y-3">
-        {isLoading ? <Loader2 className="size-5 animate-spin" /> : (data ?? []).length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nenhuma avaliação.</p>
-        ) : (data ?? []).map((r: any) => (
+        {isLoading ? <Loader2 className="size-5 animate-spin" /> : (() => {
+          const term = search.trim().toLowerCase();
+          const filtered = (data ?? []).filter((r: any) => !term ||
+            r.author?.toLowerCase().includes(term) ||
+            r.text?.toLowerCase().includes(term) ||
+            r.establishments?.name?.toLowerCase().includes(term));
+          if (filtered.length === 0) return <p className="text-sm text-muted-foreground">Nenhuma avaliação.</p>;
+          return filtered.map((r: any) => (
           <div key={r.id} className="rounded-xl border border-border bg-card p-4">
             <div className="flex items-center justify-between">
               <div className="font-medium">{r.author} · {"★".repeat(r.rating)} <span className="text-xs text-muted-foreground">em {r.establishments?.name}</span></div>
@@ -64,7 +74,8 @@ export default function AdminAvaliacoes() {
               }}>Excluir</Button>
             </div>
           </div>
-        ))}
+          ));
+        })()}
       </div>
     </>
   );
