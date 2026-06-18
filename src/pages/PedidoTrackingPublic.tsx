@@ -9,7 +9,7 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 
-const PedidoTracking = () => {
+const PedidoTrackingPublic = () => {
   const { code } = useParams();
   const { order, loading } = useOrderTracking(code);
 
@@ -111,4 +111,4 @@ const PedidoTracking = () => {
   );
 };
 
-export default PedidoTracking;
+export default PedidoTrackingPublic;
