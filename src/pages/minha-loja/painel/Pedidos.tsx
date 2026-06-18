@@ -329,6 +329,12 @@ export default function Pedidos() {
         </SelectContent>
       </Select>
 
+      <Button asChild size="sm" className="mt-1.5 h-8 w-full text-xs">
+        <Link to={`/minha-loja/${ctx!.establishmentId}/pedidos/${o.id}`}>
+          <ExternalLink className="size-3.5 mr-1" /> Abrir detalhes do pedido
+        </Link>
+      </Button>
+
       <div className={`mt-1.5 grid gap-1.5 ${o.payment_status !== "paid" ? "grid-cols-2" : "grid-cols-1"}`}>
         <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => openWhats(o)}>
           <MessageCircle className="size-3.5 mr-1" /> WhatsApp
