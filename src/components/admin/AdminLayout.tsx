@@ -6,23 +6,56 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useState } from "react";
 
-const NAV = [
-  { to: "/admin", label: "Visão geral", icon: LayoutDashboard, end: true },
-  { to: "/admin/estabelecimentos", label: "Estabelecimentos", icon: Store },
-  { to: "/admin/aprovacao-estabelecimentos", label: "Aprovação de Estabelecimentos", icon: ClipboardCheck },
-  { to: "/admin/inteligencia", label: "Inteligência Comercial", icon: Brain },
-  { to: "/admin/relatorios", label: "Relatórios Consultivos", icon: FileText },
-  { to: "/admin/benchmark", label: "Benchmark de Mercado", icon: BarChart3 },
-  { to: "/admin/avaliacoes", label: "Avaliações", icon: MessageSquare },
-  { to: "/admin/denuncias", label: "Denúncias", icon: Flag },
-  { to: "/admin/tickets", label: "Tickets de Suporte", icon: LifeBuoy },
-  { to: "/admin/suporte", label: "Suporte ao vivo", icon: MessageSquare },
-  { to: "/admin/comunicados", label: "Comunicados", icon: Megaphone },
-  { to: "/admin/site", label: "Gestão do site", icon: Settings2 },
-  { to: "/admin/usuarios", label: "Usuários & papéis", icon: Users, manageOnly: true },
-  { to: "/admin/auditoria", label: "Auditoria", icon: FileClock },
-  { to: "/admin/politicas-entrega", label: "Políticas de Entrega", icon: Truck },
-  { to: "/admin/politica-dados", label: "Política de Dados", icon: Lock },
+type NavItem = { to: string; label: string; icon: any; end?: boolean; manageOnly?: boolean };
+type NavGroup = { label: string; items: NavItem[] };
+
+const NAV_GROUPS: NavGroup[] = [
+  {
+    label: "Operação",
+    items: [
+      { to: "/admin", label: "Visão geral", icon: LayoutDashboard, end: true },
+      { to: "/admin/estabelecimentos", label: "Estabelecimentos", icon: Store },
+      { to: "/admin/aprovacao-estabelecimentos", label: "Aprovações", icon: ClipboardCheck },
+    ],
+  },
+  {
+    label: "Moderação",
+    items: [
+      { to: "/admin/avaliacoes", label: "Avaliações", icon: MessageSquare },
+      { to: "/admin/denuncias", label: "Denúncias", icon: Flag },
+    ],
+  },
+  {
+    label: "Suporte",
+    items: [
+      { to: "/admin/suporte/tickets", label: "Tickets", icon: LifeBuoy },
+      { to: "/admin/suporte/chats", label: "Chat ao vivo", icon: MessageSquare },
+    ],
+  },
+  {
+    label: "Inteligência",
+    items: [
+      { to: "/admin/inteligencia", label: "Inteligência comercial", icon: Brain },
+      { to: "/admin/relatorios", label: "Relatórios", icon: FileText },
+      { to: "/admin/benchmark", label: "Benchmark", icon: BarChart3 },
+    ],
+  },
+  {
+    label: "Conteúdo",
+    items: [
+      { to: "/admin/comunicados", label: "Comunicados", icon: Megaphone },
+      { to: "/admin/site", label: "Gestão do site", icon: Settings2 },
+    ],
+  },
+  {
+    label: "Configuração",
+    items: [
+      { to: "/admin/usuarios", label: "Usuários & papéis", icon: Users, manageOnly: true },
+      { to: "/admin/auditoria", label: "Auditoria", icon: FileClock },
+      { to: "/admin/politicas-entrega", label: "Políticas de entrega", icon: Truck },
+      { to: "/admin/politica-dados", label: "Política de dados", icon: Lock },
+    ],
+  },
 ];
 
 export default function AdminLayout() {
@@ -31,21 +64,33 @@ export default function AdminLayout() {
   const primaryRole = roles[0];
   const [open, setOpen] = useState(false);
 
-  const items = NAV.filter(n => !n.manageOnly || canManage);
+  const groups = NAV_GROUPS
+    .map(g => ({ ...g, items: g.items.filter(n => !n.manageOnly || canManage) }))
+    .filter(g => g.items.length > 0);
+
   const renderNav = (onNavigate?: () => void) => (
-    <nav className="flex-1 space-y-0.5 overflow-y-auto p-3">
-      {items.map(item => (
-        <NavLink key={item.to} to={item.to} end={item.end} onClick={onNavigate} className={({ isActive }) =>
-          cn("group flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-            isActive ? "bg-primary/10 text-primary shadow-sm" : "text-muted-foreground hover:bg-muted hover:text-foreground")
-        }>
-          {({ isActive }: any) => (
-            <>
-              <item.icon className={cn("size-4 transition-colors", isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
-              <span className="truncate">{item.label}</span>
-            </>
-          )}
-        </NavLink>
+    <nav className="flex-1 space-y-4 overflow-y-auto p-3">
+      {groups.map(group => (
+        <div key={group.label} className="space-y-1">
+          <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+            {group.label}
+          </div>
+          <div className="space-y-0.5">
+            {group.items.map(item => (
+              <NavLink key={item.to} to={item.to} end={item.end} onClick={onNavigate} className={({ isActive }) =>
+                cn("group flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                  isActive ? "bg-primary/10 text-primary shadow-sm" : "text-muted-foreground hover:bg-muted hover:text-foreground")
+              }>
+                {({ isActive }: any) => (
+                  <>
+                    <item.icon className={cn("size-4 transition-colors", isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
+                    <span className="truncate">{item.label}</span>
+                  </>
+                )}
+              </NavLink>
+            ))}
+          </div>
+        </div>
       ))}
     </nav>
   );
