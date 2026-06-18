@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useParams } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -28,6 +28,13 @@ const StorageDebug = lazy(() => import("./pages/StorageDebug.tsx"));
 const TesteStorage = lazy(() => import("./pages/TesteStorage.tsx"));
 const VisualReferenceFallbackTest = lazy(() => import("./pages/VisualReferenceFallbackTest.tsx"));
 const IS_DEV = import.meta.env.DEV;
+
+function EstablishmentRedirect({ checkout = false }: { checkout?: boolean }) {
+  const { slug } = useParams<{ slug: string }>();
+  const { search, hash } = useLocation();
+  const target = `/loja/${slug}${checkout ? "/checkout" : ""}${search}${hash}`;
+  return <Navigate to={target} replace />;
+}
 
 
 import { AuthProvider } from "@/hooks/useAuth";
