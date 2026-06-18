@@ -104,7 +104,7 @@ export function PendingProposalDialog() {
         </DialogHeader>
         <ProposalAcceptCard orderId={orderId} onChanged={() => { setOpen(false); refetch(); }} />
         <div className="flex justify-end gap-2 pt-2">
-          <Button variant="outline" onClick={() => { setOpen(false); navigate(`/minha-conta/pedidos/${orderId}`); }}>
+          <Button variant="outline" onClick={() => { setOpen(false); navigate(tracking ? `/pedido/${tracking}` : `/minha-conta/pedidos/${orderId}`); }}>
             Ver detalhes do pedido
           </Button>
         </div>
