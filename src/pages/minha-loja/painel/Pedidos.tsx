@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { useActiveEstablishment } from "@/contexts/ActiveEstablishmentContext";
+import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { PainelSection } from "./_shared";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MessageCircle, ImageIcon, ChevronDown, ChevronUp, Smartphone, AlertTriangle, CheckCircle2, LayoutGrid, List, MessageSquare } from "lucide-react";
+import { MessageCircle, ImageIcon, ChevronDown, ChevronUp, Smartphone, AlertTriangle, CheckCircle2, LayoutGrid, List, MessageSquare, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { OrderReferencesPanel } from "@/components/orders/OrderReferencesPanel";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -328,6 +329,12 @@ export default function Pedidos() {
         </SelectContent>
       </Select>
 
+      <Button asChild size="sm" className="mt-1.5 h-8 w-full text-xs">
+        <Link to={`/minha-loja/${ctx!.establishmentId}/pedidos/${o.id}`}>
+          <ExternalLink className="size-3.5 mr-1" /> Abrir detalhes do pedido
+        </Link>
+      </Button>
+
       <div className={`mt-1.5 grid gap-1.5 ${o.payment_status !== "paid" ? "grid-cols-2" : "grid-cols-1"}`}>
         <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => openWhats(o)}>
           <MessageCircle className="size-3.5 mr-1" /> WhatsApp
@@ -448,6 +455,11 @@ export default function Pedidos() {
             {expandedRef === o.id ? <ChevronUp className="size-3.5 ml-1" /> : <ChevronDown className="size-3.5 ml-1" />}
           </Button>
         )}
+        <Button asChild size="sm" className="ml-auto">
+          <Link to={`/minha-loja/${ctx!.establishmentId}/pedidos/${o.id}`}>
+            <ExternalLink className="size-3.5 mr-1" /> Abrir detalhes
+          </Link>
+        </Button>
       </div>
       {expandedRef === o.id && o.address_id && (
         <div className="mt-4"><OrderReferencesPanel orderId={o.id} /></div>
