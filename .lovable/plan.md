@@ -1,68 +1,72 @@
-## Auditoria — Resultado
+## Resultado da Fase 0 — Auditoria
 
-Rodei o scanner de segurança + linter Supabase + revisão de policies, funções e código cliente.
+Já existe no projeto (não vou recriar):
 
-**Diagnóstico geral:** RLS está habilitado em todas as 53 tabelas `public`, GRANTs corretos, roles em tabela separada (`user_roles`) com `has_role()`/`is_admin()` SECURITY DEFINER, gateways de proposta (`accept_order_proposal`/`reject_order_proposal`) já validam `auth.uid()`, segredos não vazam no frontend. Não há SQL injection (todo acesso é via PostgREST/RPC parametrizado).
+**Rotas**
+- Cliente: `/minha-conta/pedidos/:orderId` → `PedidoCliente.tsx` (existe)
+- Loja: `/minha-loja/:establishmentId/pedidos` → `PainelPedidos` (existe, 490 linhas)
+- Loja: `/minha-loja/:establishmentId/pedidos/:orderId` → `PedidoDetalhes` (existe, 360 linhas)
+- Tracking público: `/pedido/:code` → `PedidoTracking` (mantém)
+- Lista cliente (`/minha-conta/pedidos`) **não existe** como rota separada — hoje fica dentro de `/minha-conta` (aba histórico). Vou manter assim (não faz parte do problema reportado).
 
-Os 113 alertas do scanner se concentram em **3 padrões**, e a maioria é benigna ou já intencional. O plano abaixo só mexe no que é **real risco** — não vou rodar refactor amplo de schema (já está normalizado e em uso) nem renomear tabelas (quebraria tudo).
+**Componentes**
+- `NotificationCenter.tsx` já tem `routeFor()` e abas Cliente/Loja
+- `OrderChatFloating.tsx` (chat pop-up cliente) já existe
+- `OrderChat.tsx` (chat embutido no detalhe) já existe
+- `useOrderMessages.ts` já faz INSERT em `order_messages` + Realtime
+- `PendingProposalDialog.tsx` já existe
 
----
+**Tabelas**: `orders`, `order_messages`, `notifications` (com `related_order_id` + `related_establishment_id`), `order_confirmation_proposals` — todas com RLS já corrigida em auditoria anterior.
 
-## Riscos reais encontrados (a corrigir)
+## Bugs concretos encontrados
 
-### ALTO
-1. **`profiles` legível por qualquer usuário autenticado** — qualquer login pode ler `display_name`/`phone` de todos. Restringir SELECT ao próprio usuário + admins.
-2. **`addresses` / `house_references` / `house_reference_media`** — verificar se policies escopam por `user_id = auth.uid()` (algumas têm leitura cruzada via order share).
-3. **`order_messages` / `notifications`** — confirmar que cliente só lê os próprios; loja só lê do próprio estabelecimento.
-4. **`delivery_drivers`** (PII de motoboys — telefone) — confirmar escopo por estabelecimento.
+1. **`Checkout.tsx` cria notificação `type: "new_order"`**, mas o `ORDER_TYPES` de `NotificationCenter.tsx` só conhece `new_order_message`. Resultado: clique em "Novo pedido" da loja não redireciona para lugar nenhum.
+2. **`PainelPedidos` não tem Realtime** — loja não vê novos pedidos/mensagens sem F5.
+3. **Cliente acaba de enviar pelo `OrderChatFloating` mas a loja não recebe notificação `order_chat_message`** (precisa verificar/adicionar trigger ou criação manual).
+4. Notificação `order_chat_message` para a **loja** hoje cai em `CUSTOMER_ONLY_TYPES` no `routeFor` — quando a mensagem vem do cliente, sempre manda para `/minha-conta/...`, mesmo se o destinatário for o lojista. Precisa rotear por **destinatário (`user_id`)** e não pelo tipo.
 
-### MÉDIO
-5. **`anon` pode executar funções SECURITY DEFINER administrativas** (`admin_find_user_by_email`, `claim_support_chat`, `log_action`, `ensure_official_admin`, `seed_initial_data`, `increment_banner_metric`). Elas já validam `is_admin()` internamente, mas devem ser `REVOKE EXECUTE FROM anon, public` para reduzir superfície.
-6. **Policies `WITH CHECK (true)` em INSERT** de `events`, `reports`, `reviews` — abre spam anônimo. Adicionar checagem mínima (`auth.uid() IS NOT NULL` para reviews/reports; manter events público mas com rate via trigger).
-7. **`audit_log` INSERT `with_check true`** — manter (é gravado por SECURITY DEFINER), mas restringir GRANT INSERT a `service_role` apenas.
+## Plano de correção (mínimo, sem reescrever páginas que já funcionam)
 
-### BAIXO (configuração)
-8. **Leaked Password Protection (HIBP)** — ativar via `configure_auth`.
-9. **Confirmação de email** — verificar que `auto_confirm_email` está desligado em produção.
+### 1. `NotificationCenter.tsx` — rotear pelo destinatário real
+- Adicionar `"new_order"` ao `ORDER_TYPES`.
+- Substituir `CUSTOMER_ONLY_TYPES`/`STORE_ONLY_TYPES` por uma regra única: **se a notificação pertence a uma das minhas lojas (`related_establishment_id` ∈ myEstablishments) → `/minha-loja/:est/pedidos/:orderId`; caso contrário → `/minha-conta/pedidos/:orderId`**. Isso resolve o caso em que o mesmo usuário é dono e cliente: cada notificação foi criada para um `user_id` específico, e o `related_establishment_id` indica se é uma notificação da loja.
+- Toast amigável "Não foi possível abrir este item" quando faltar `orderId`.
 
----
+### 2. `Checkout.tsx` / criação de pedido
+- Garantir que a notificação de novo pedido tenha `related_order_id = order.id` e `related_establishment_id = order.establishment_id` (verificar payload existente; ajustar se faltar).
+- Após criar o pedido, redirecionar cliente para `/minha-conta/pedidos/:orderId` (já é o comportamento; validar).
 
-## Plano de execução
+### 3. `OrderChatFloating.tsx` — criar notificação para a loja
+- Após `INSERT` em `order_messages` com `sender_type = "customer"`, chamar `supabase.functions`/`rpc create_notification` (ou inserir direto, se permitido) para cada owner da loja, com:
+  - `type: "order_chat_message"`, `related_order_id`, `related_establishment_id`, `user_id` = owner.
+- Mesma lógica espelhada quando loja responde no `OrderChat`: criar notificação para `orders.user_id`.
 
-### Passo 1 — Migração de RLS (uma migration única)
-- `profiles`: substituir SELECT público por `auth.uid() = id OR is_admin(auth.uid())`.
-- Revisar e endurecer policies de `addresses`, `house_references`, `house_reference_media`, `order_messages`, `notifications`, `delivery_drivers` para garantir escopo estrito por dono / estabelecimento / pedido.
-- `events`, `reports`, `reviews`: trocar `WITH CHECK (true)` por `WITH CHECK (auth.uid() IS NOT NULL)` (reports/reviews) e por filtro mínimo de coluna em `events`.
-- `audit_log`: `REVOKE INSERT ... FROM authenticated, anon`; manter só `service_role`.
+### 4. `PainelPedidos.tsx` — Realtime + toast
+- Adicionar `useEffect` com `supabase.channel("painel-pedidos-{est}")`:
+  - `postgres_changes` em `orders` filtrado por `establishment_id=eq.{est}` (INSERT/UPDATE) → `queryClient.invalidateQueries(...)` + `toast("Novo pedido recebido")` em INSERT.
+  - `postgres_changes` em `order_messages` filtrado por `establishment_id=eq.{est}` (INSERT) → invalidate + toast "Nova mensagem de cliente" quando `sender_type='customer'`.
+  - `postgres_changes` em `order_confirmation_proposals` (INSERT/UPDATE) → invalidate + toast "Cliente aceitou/recusou…".
+- Cleanup com `supabase.removeChannel(channel)`.
+- Garantir que as tabelas estão em `supabase_realtime` publication (migration leve se faltar — verificar primeiro).
 
-### Passo 2 — Endurecer funções SECURITY DEFINER
-```sql
-REVOKE EXECUTE ON FUNCTION
-  public.admin_find_user_by_email(text),
-  public.ensure_official_admin(),
-  public.seed_initial_data(),
-  public.log_action(text,text,uuid,jsonb),
-  public.claim_support_chat(uuid),
-  public.increment_banner_metric(uuid,text)
-FROM anon, public;
-GRANT EXECUTE ON FUNCTION ... TO authenticated;  -- onde aplicável
-```
-Manter executáveis por `anon` apenas as públicas legítimas: `get_order_by_tracking`, `get_share_link_by_token`, `get_visual_reference_by_token`, `slugify`, `unaccent_safe`, `gen_tracking_code`.
+### 5. Botão "Abrir pedido" nos cards de `PainelPedidos`
+- Conferir se já navega para `/minha-loja/:est/pedidos/:orderId`. Ajustar se algum card ainda abre modal/drawer ao invés da rota real.
 
-### Passo 3 — Configuração de auth
-Chamar `configure_auth` com `password_hibp_enabled: true`, `auto_confirm_email: false`, `disable_signup: false`, `external_anonymous_users_enabled: false`.
+## Fora do escopo agora (já está OK ou não foi reportado)
+- Recriar `PedidoCliente` / `PedidoDetalhes` (já existem com dados reais).
+- Reformular layout da página de pedidos da loja (já tem filtros, status, etc.). Só adiciono Realtime + toasts.
+- Mexer em produtos, carrinho, busca, motoboys, referências visuais (regras pedidas).
+- Mudanças de RLS (já feitas na auditoria anterior).
 
-### Passo 4 — Validação
-- Rerodar `security--run_security_scan` e `supabase--linter`.
-- Smoke test: login cliente vê só seus pedidos/endereços; login loja vê só seus pedidos; admin continua tendo acesso amplo via `is_admin()`.
+## Arquivos que serão editados
+- `src/components/NotificationCenter.tsx` (regra de roteamento por destinatário + `new_order`)
+- `src/components/OrderChatFloating.tsx` (criar notificação para a loja)
+- `src/components/OrderChat.tsx` (criar notificação para cliente quando loja responde)
+- `src/pages/Checkout.tsx` (validar payload da notificação)
+- `src/pages/minha-loja/painel/Pedidos.tsx` (Realtime + toasts)
+- Possível migration para adicionar tabelas à publication `supabase_realtime` se faltar.
 
----
-
-## Fora do escopo (intencional)
-
-- **Renomear tabelas / normalizar schema:** já está coerente e em produção; mudanças quebrariam código e tipos gerados sem ganho real.
-- **Mover storage policies:** não foi reportado problema; pode entrar em ciclo futuro se necessário.
-- **Rate limiting de API:** Supabase/PostgREST não tem primitiva nativa no app — só faria sentido via edge function dedicada.
-- **Edge functions:** só há `send-announcement-email`, sem inputs sensíveis adicionais detectados.
-
-Aprovando, sigo com a migração única (Passos 1+2) + `configure_auth` (Passo 3) + revalidação.
+## Validação
+- Logar como cliente em uma aba e como dono da mesma conta — disparar mensagem nos dois lados e confirmar que cada notificação abre a página certa.
+- Abrir `PainelPedidos` em uma aba, criar pedido em outra — card aparece sem F5 com toast.
+- Cliente aceita proposta → loja recebe toast e card atualizado.

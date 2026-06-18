@@ -92,6 +92,50 @@ export default function Pedidos() {
   }
   useEffect(() => { refresh(); /* eslint-disable-next-line */ }, [ctx?.establishmentId]);
 
+  // Realtime: novos pedidos, mensagens e propostas para esta loja
+  useEffect(() => {
+    if (!ctx?.establishmentId) return;
+    const estId = ctx.establishmentId;
+    const channel = supabase
+      .channel(`painel-pedidos-${estId}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "orders", filter: `establishment_id=eq.${estId}` },
+        () => {
+          toast.success("Novo pedido recebido");
+          refresh();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "orders", filter: `establishment_id=eq.${estId}` },
+        () => { refresh(); }
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "order_messages", filter: `establishment_id=eq.${estId}` },
+        (payload: any) => {
+          if (payload?.new?.sender_type === "customer") {
+            toast("Nova mensagem de cliente");
+          }
+          refresh();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "order_confirmation_proposals", filter: `establishment_id=eq.${estId}` },
+        (payload: any) => {
+          const status = payload?.new?.status;
+          if (status === "accepted") toast.success("Cliente aceitou o valor final da entrega");
+          else if (status === "rejected") toast.warning("Cliente recusou o valor final da entrega");
+          refresh();
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ctx?.establishmentId]);
+
   const BLOCKED_WITHOUT_ACCEPTANCE = new Set([
     "confirmed_by_business",
     "preparing",
