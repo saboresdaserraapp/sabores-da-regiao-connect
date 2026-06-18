@@ -11,6 +11,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useCreateTicket } from "@/hooks/useSupportTickets";
 import { toast } from "sonner";
+import { OrderChatFloating } from "@/components/OrderChatFloating";
 
 type OrderRow = {
   id: string;
@@ -32,13 +33,12 @@ export default function PedidoCliente() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
   const createTicket = useCreateTicket();
 
-  const scrollToChat = () => {
+  const openFloatingChat = () => {
     setHelpOpen(false);
-    setTimeout(() => {
-      document.getElementById("order-chat-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 50);
+    setChatOpen(true);
   };
 
   const openTicket = async () => {
@@ -147,7 +147,7 @@ export default function PedidoCliente() {
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-2">
-            <Button variant="outline" className="justify-start h-auto py-3" onClick={scrollToChat}>
+            <Button variant="outline" className="justify-start h-auto py-3" onClick={openFloatingChat}>
               <MessageSquare className="size-4 mr-3 shrink-0" />
               <div className="text-left">
                 <div className="font-medium">Falar com a loja</div>
@@ -164,6 +164,17 @@ export default function PedidoCliente() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {order && (
+        <OrderChatFloating
+          orderId={order.id}
+          establishmentId={order.establishment_id}
+          open={chatOpen}
+          onOpenChange={setChatOpen}
+          disabled={["delivered","canceled_by_customer","canceled_by_business","not_completed","customer_not_responding"].includes(order.status)}
+          disabledMessage="Este pedido foi finalizado. Para problemas, abra um ticket de suporte."
+        />
+      )}
     </div>
   );
 }
