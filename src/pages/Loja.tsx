@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { BannerCarousel } from "@/components/banners/BannerCarousel";
 import { LoadingState } from "@/components/ui/loading-state";
 import { EmptyState } from "@/components/ui/empty-state";
+import { ErrorState } from "@/components/ui/error-state";
 
 type SortKey = "relevancia" | "vendidos" | "avaliados" | "preco-asc" | "preco-desc" | "perto" | "promo";
 
@@ -44,7 +45,7 @@ const Loja = () => {
     }
   }, [params]);
 
-  const { data: all = [], isLoading } = usePublicProducts();
+  const { data: all = [], isLoading, isError, refetch } = usePublicProducts();
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -173,7 +174,13 @@ const Loja = () => {
             {/* Toolbar */}
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <div className="text-sm text-muted-foreground">
-                <strong className="text-foreground">{filtered.length}</strong> produto{filtered.length === 1 ? "" : "s"}
+                {isLoading ? (
+                  <span>Carregando produtos...</span>
+                ) : (
+                  <>
+                    <strong className="text-foreground">{filtered.length}</strong> produto{filtered.length === 1 ? "" : "s"}
+                  </>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
@@ -243,6 +250,18 @@ const Loja = () => {
             {/* Results */}
             {isLoading ? (
               <LoadingState variant="page" label="Carregando produtos..." />
+            ) : isError ? (
+              <ErrorState
+                title="Não foi possível carregar a vitrine"
+                description="Verifique sua conexão e tente novamente."
+                onRetry={() => refetch()}
+              />
+            ) : all.length === 0 ? (
+              <EmptyState
+                icon={ShoppingBag}
+                title="Novas lojas chegando em breve"
+                description="Estamos preparando o catálogo da sua região. Volte em instantes para conferir as novidades."
+              />
             ) : filtered.length === 0 ? (
               <EmptyState
                 icon={SearchX}

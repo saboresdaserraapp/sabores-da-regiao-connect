@@ -10,6 +10,8 @@ import { trackEvent } from "@/lib/track";
 import { BannerCarousel } from "@/components/banners/BannerCarousel";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
+import { ErrorState } from "@/components/ui/error-state";
+import { LoadingState } from "@/components/ui/loading-state";
 
 
 
@@ -28,7 +30,7 @@ const Index = () => {
   const [query, setQuery] = useState("");
   const [activeCat, setActiveCat] = useState<string | null>(null);
   const [filters, setFilters] = useState<string[]>([]);
-  const { data: establishments = [] } = usePublicEstablishments();
+  const { data: establishments = [], isLoading: estabsLoading, isError: estabsError, refetch: refetchEstabs } = usePublicEstablishments();
   const { data: allProducts = [] } = usePublicProducts();
 
   useEffect(() => { trackEvent("pageview", { meta: { route: "/" } }); }, []);
@@ -167,7 +169,27 @@ const Index = () => {
         <BannerCarousel placement="home_top" categoryKey={activeCat || undefined} />
       </section>
 
-      {list.length === 0 ? (
+      {estabsLoading ? (
+        <section className="container py-8">
+          <LoadingState variant="page" label="Carregando estabelecimentos..." />
+        </section>
+      ) : estabsError ? (
+        <section className="container py-8">
+          <ErrorState
+            title="Não foi possível carregar a vitrine"
+            description="Verifique sua conexão e tente novamente."
+            onRetry={() => refetchEstabs()}
+          />
+        </section>
+      ) : establishments.length === 0 ? (
+        <section className="container py-8">
+          <EmptyState
+            icon={Sparkles}
+            title="Novas lojas chegando em breve"
+            description="Estamos preparando o catálogo da sua região. Volte em instantes para conferir as novidades."
+          />
+        </section>
+      ) : list.length === 0 ? (
         <section className="container py-8">
           <EmptyState
             icon={SearchX}
