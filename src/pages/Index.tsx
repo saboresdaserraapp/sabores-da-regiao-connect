@@ -28,7 +28,7 @@ const Index = () => {
   const [query, setQuery] = useState("");
   const [activeCat, setActiveCat] = useState<string | null>(null);
   const [filters, setFilters] = useState<string[]>([]);
-  const { data: establishments = [] } = usePublicEstablishments();
+  const { data: establishments = [], isLoading: estabsLoading, isError: estabsError, refetch: refetchEstabs } = usePublicEstablishments();
   const { data: allProducts = [] } = usePublicProducts();
 
   useEffect(() => { trackEvent("pageview", { meta: { route: "/" } }); }, []);
