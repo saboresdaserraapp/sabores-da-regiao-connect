@@ -174,7 +174,7 @@ export default function PedidoCliente({ orderId: orderIdProp }: { orderId?: stri
         establishment: order.establishment as never,
       } as never);
       toast.success(`${result.added} itens adicionados ao carrinho`);
-      navigate(`/checkout`);
+      navigate(`/loja/${result.slug}/checkout`);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Não foi possível repetir o pedido.";
       toast.error(msg);
