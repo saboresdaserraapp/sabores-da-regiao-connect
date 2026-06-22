@@ -69,6 +69,7 @@ export function usePublicEstablishments() {
       return (data ?? []).map(mapEstab);
     },
     staleTime: 30_000,
+    retry: 2,
   });
 }
 
@@ -94,6 +95,7 @@ export function usePublicProducts() {
       return (prods ?? []).map((p) => ({ ...mapProduct(p), establishment: byId.get(p.establishment_id)! }));
     },
     staleTime: 5_000,
+    retry: 2,
   });
 }
 
