@@ -12,6 +12,12 @@ import { Button } from "@/components/ui/button";
 import { Check, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import type { Database } from "@/integrations/supabase/types";
+
+type PlanRow = Pick<
+  Database["public"]["Tables"]["plans"]["Row"],
+  "id" | "name" | "slug" | "price_cents" | "benefits" | "features_json" | "position" | "description"
+>;
 
 const FEATURE_GROUPS: { title: string; items: { key: FeatureKey; label: string }[] }[] = [
   {
@@ -88,14 +94,14 @@ function planRank(slug?: PlanSlug | null) {
 export default function PlanosComparar() {
   const { ctx } = useActiveEstablishment();
   const [search] = useSearchParams();
-  const [plans, setPlans] = useState<any[]>([]);
+  const [plans, setPlans] = useState<PlanRow[]>([]);
   const fromFeature = search.get("from") as FeatureKey | null;
 
   useEffect(() => {
     supabase.from("plans")
       .select("id,name,slug,price_cents,benefits,features_json,position,description")
       .eq("is_active", true).order("position")
-      .then(({ data }) => setPlans(data ?? []));
+      .then(({ data }) => setPlans((data ?? []) as PlanRow[]));
   }, []);
 
   if (!ctx) return null;
@@ -113,7 +119,7 @@ export default function PlanosComparar() {
       description: `Loja ${ctx.establishmentName} solicitou upgrade${fromFeature ? ` para liberar “${planLabelForFeature(fromFeature)}”` : ""}.`,
       recommendation: "Entre em contato com a loja para concluir o upgrade.",
       severity: "info", status: "open",
-    } as any);
+    });
     toast.success("Solicitação de upgrade enviada");
   };
 
