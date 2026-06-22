@@ -3,15 +3,22 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 
 type OrderRow = Database["public"]["Tables"]["orders"]["Row"];
+// RPC `get_order_by_tracking` returns the order row plus joined establishment fields.
+export type TrackingOrder = OrderRow & {
+  establishment_name?: string | null;
+  establishment_slug?: string | null;
+  establishment_whatsapp?: string | null;
+  establishment_logo?: string | null;
+};
 
 export function useOrderTracking(trackingCode?: string) {
-  const [order, setOrder] = useState<OrderRow | null>(null);
+  const [order, setOrder] = useState<TrackingOrder | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchOrder = async () => {
     if (!trackingCode) return;
     const { data } = await supabase.rpc("get_order_by_tracking" as never, { _code: trackingCode } as never);
-    const row = Array.isArray(data) ? ((data as unknown as OrderRow[])[0] ?? null) : null;
+    const row = Array.isArray(data) ? ((data as unknown as TrackingOrder[])[0] ?? null) : null;
     setOrder(row ?? null);
     setLoading(false);
   };
