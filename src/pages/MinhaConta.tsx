@@ -207,20 +207,34 @@ function SenhaCard() {
 }
 
 function FavoritosTab() {
-  const { data: favs = [] } = useFavorites();
+  const { data: favs = [], isLoading: loadingFavs, error: favsError } = useFavorites();
   const estabIds = favs.filter((f: any) => f.kind === "establishment").map((f: any) => f.target_id);
   const productIds = favs.filter((f: any) => f.kind === "product").map((f: any) => f.target_id);
 
   const { data: estabs = [] } = useQuery({
     queryKey: ["fav-estabs", estabIds],
     enabled: estabIds.length > 0,
-    queryFn: async () => (await supabase.from("establishments").select("id,slug,name,logo,cover,category_label,rating,reviews_count").in("id", estabIds)).data ?? [],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("establishments").select("id,slug,name,logo,cover,category_label,rating,reviews_count").in("id", estabIds);
+      if (error) throw error;
+      return data ?? [];
+    },
   });
   const { data: products = [] } = useQuery({
     queryKey: ["fav-products", productIds],
     enabled: productIds.length > 0,
-    queryFn: async () => (await supabase.from("products").select("id,name,price,image,establishment_id,establishments(name,slug)").in("id", productIds)).data ?? [],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("products").select("id,name,price,image,establishment_id,establishments(name,slug)").in("id", productIds);
+      if (error) throw error;
+      return data ?? [];
+    },
   });
+
+  if (loadingFavs) return <Empty msg="Carregando seus favoritos..." />;
+  if (favsError) return <Empty msg="Não foi possível carregar seus favoritos agora." />;
+
+  const hiddenEstabs = Math.max(estabIds.length - estabs.length, 0);
+  const hiddenProducts = Math.max(productIds.length - products.length, 0);
 
   return (
     <div className="space-y-8">
@@ -240,6 +254,7 @@ function FavoritosTab() {
             ))}
           </div>
         )}
+        {hiddenEstabs > 0 && <p className="mt-2 text-xs text-muted-foreground">{hiddenEstabs} estabelecimento(s) favoritado(s) não estão disponíveis para exibição no momento.</p>}
       </section>
       <section>
         <h3 className="mb-3 font-display text-lg font-semibold">Produtos favoritos</h3>
@@ -257,6 +272,7 @@ function FavoritosTab() {
             ))}
           </div>
         )}
+        {hiddenProducts > 0 && <p className="mt-2 text-xs text-muted-foreground">{hiddenProducts} produto(s) favoritado(s) não estão disponíveis para exibição no momento.</p>}
       </section>
     </div>
   );
@@ -303,7 +319,7 @@ function EnderecosTab() {
         ))}
       </div>
       {editing !== null && (
-        <AddressForm initial={editing} onClose={() => setEditing(null)} onSave={async (v: any) => { await save(v); setEditing(null); }} />
+        <AddressForm initial={editing} onClose={() => setEditing(null)} onSave={async (v: any) => { const ok = await save(v); if (ok) setEditing(null); }} />
       )}
       {editingRef !== null && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4 overflow-y-auto">

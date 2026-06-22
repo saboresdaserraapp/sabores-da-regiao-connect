@@ -1,4 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -26,11 +27,24 @@ export interface Address {
 
 export function useAddresses() {
   const { user } = useAuth();
+  const qc = useQueryClient();
+  useEffect(() => {
+    if (!user?.id) return;
+    const channel = supabase
+      .channel(`addresses-${user.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "addresses", filter: `user_id=eq.${user.id}` }, () => {
+        qc.invalidateQueries({ queryKey: ["addresses", user.id] });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user?.id, qc]);
+
   return useQuery({
     queryKey: ["addresses", user?.id],
     enabled: !!user,
     queryFn: async () => {
-      const { data } = await supabase.from("addresses").select("*").eq("user_id", user!.id).order("is_default", { ascending: false });
+      const { data, error } = await supabase.from("addresses").select("*").eq("user_id", user!.id).order("is_default", { ascending: false });
+      if (error) throw error;
       return (data ?? []) as Address[];
     },
   });
@@ -43,26 +57,46 @@ export function useAddressMutations() {
 
   return {
     async save(addr: Partial<Address> & { street: string }) {
-      if (!user) return;
+      if (!user) {
+        toast.error("Faça login para salvar endereços");
+        return false;
+      }
       if (addr.is_default) {
-        await supabase.from("addresses").update({ is_default: false }).eq("user_id", user.id);
+        const { error } = await supabase.from("addresses").update({ is_default: false }).eq("user_id", user.id);
+        if (error) {
+          toast.error(error.message);
+          return false;
+        }
       }
       if (addr.id) {
-        const { error } = await supabase.from("addresses").update(addr).eq("id", addr.id);
-        if (error) return toast.error(error.message);
+        const { data, error } = await supabase.from("addresses").update(addr).eq("id", addr.id).select("*").maybeSingle();
+        if (error) {
+          toast.error(error.message);
+          return false;
+        }
         toast.success("Endereço atualizado");
+        await invalidate();
+        return data as Address;
       } else {
-        const { error } = await supabase.from("addresses").insert({ ...addr, user_id: user.id } as any);
-        if (error) return toast.error(error.message);
+        const { data, error } = await supabase.from("addresses").insert({ ...addr, user_id: user.id } as any).select("*").maybeSingle();
+        if (error) {
+          toast.error(error.message);
+          return false;
+        }
         toast.success("Endereço adicionado");
+        await invalidate();
+        return data as Address;
       }
-      invalidate();
     },
     async remove(id: string) {
       const { error } = await supabase.from("addresses").delete().eq("id", id);
-      if (error) return toast.error(error.message);
+      if (error) {
+        toast.error(error.message);
+        return false;
+      }
       toast.success("Endereço removido");
-      invalidate();
+      await invalidate();
+      return true;
     },
   };
 }

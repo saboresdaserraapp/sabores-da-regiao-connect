@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback, useEffect } from "react";
+import { useRef, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,8 +49,8 @@ export function MediaUploader({
   const acceptAttr = accept || allowed.join(",");
   const maxBytes = (allowVideo ? Math.max(maxSizeMB, 20) : maxSizeMB) * 1024 * 1024;
 
-  const upload = useCallback(async (file: File, isAutoRetry = false) => {
-    if (!isAutoRetry) setRetryCount(0);
+  const upload = useCallback(async (file: File, attempt = 0) => {
+    if (attempt === 0) setRetryCount(0);
     setError(null);
 
     setLastFile(file);
@@ -115,6 +115,9 @@ export function MediaUploader({
         } else if (uploadError.message.includes("already exists") || (uploadError as any).status === 409) {
           friendlyMsg = "Conflito de caminho: arquivo já existe.";
           errType = "conflict";
+        } else if (uploadError.message.includes("database schema is invalid") || uploadError.message.includes("schema is out of sync")) {
+          friendlyMsg = "Serviço de arquivos temporariamente indisponível. Tente novamente em instantes.";
+          errType = "storage-schema";
         }
 
         setError({ message: friendlyMsg, type: errType });
@@ -127,7 +130,10 @@ export function MediaUploader({
         publicUrl = data.publicUrl;
       } else {
         const { data, error: signedError } = await supabase.storage.from(bucket).createSignedUrl(path, 60 * 60 * 24 * 365);
-        if (signedError) throw signedError;
+        if (signedError) {
+          setError({ message: signedError.message, type: "signed-url" });
+          throw signedError;
+        }
         publicUrl = data?.signedUrl || "";
       }
 
@@ -137,23 +143,24 @@ export function MediaUploader({
     } catch (e: any) {
       console.error("Full upload process error:", e);
       
-      const shouldAutoRetry = retryCount < 2 && !e.message.includes("Permissão") && !e.message.includes("grande");
+      const message = e?.message || "Falha ao enviar arquivo.";
+      const shouldAutoRetry = attempt < 2 && !message.includes("Permissão") && !message.includes("grande") && !message.includes("login");
       
-      if (shouldAutoRetry && lastFile) {
-        setRetryCount(prev => prev + 1);
-        toast.info(`Falha na conexão. Tentando novamente (${retryCount + 1}/2)...`);
-        setTimeout(() => upload(lastFile, true), 1500);
+      if (shouldAutoRetry) {
+        const nextAttempt = attempt + 1;
+        setRetryCount(nextAttempt);
+        toast.info(`Falha no envio. Tentando novamente (${nextAttempt}/2)...`);
+        setTimeout(() => upload(file, nextAttempt), 1500);
         return;
       }
 
-      if (!error) {
-        toast.error(e.message || "Falha ao enviar arquivo.");
-      }
+      setError((current) => current ?? { message, type: "storage" });
+      toast.error(message);
     } finally {
       setUploading(false);
     }
 
-  }, [allowed, allowVideo, bucket, folder, maxBytes, onChange, supabase]);
+  }, [allowed, allowVideo, bucket, folder, maxBytes, onChange]);
 
   const isVideo = value?.match(/\.(mp4|webm|mov)(\?|$)/i);
 
