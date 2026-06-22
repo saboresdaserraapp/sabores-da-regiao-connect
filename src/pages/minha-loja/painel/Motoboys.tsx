@@ -48,7 +48,9 @@ import { Textarea } from "@/components/ui/textarea";
 import type { Database } from "@/integrations/supabase/types";
 
 type DriverRow = Database["public"]["Tables"]["delivery_drivers"]["Row"];
-type DriverForm = Record<string, unknown>;
+type DriverInsert = Database["public"]["Tables"]["delivery_drivers"]["Insert"];
+type DriverUpdate = Database["public"]["Tables"]["delivery_drivers"]["Update"];
+type DriverForm = Partial<Omit<DriverInsert, "establishment_id">>;
 
 export default function PainelMotoboys() {
   const { ctx } = useActiveEstablishment();
@@ -80,13 +82,13 @@ export default function PainelMotoboys() {
       if (editingDriver) {
         const { error } = await supabase
           .from("delivery_drivers")
-          .update(formData as DriverForm)
+          .update(formData as DriverUpdate)
           .eq("id", editingDriver.id);
         if (error) throw error;
       } else {
         const { error } = await supabase
           .from("delivery_drivers")
-          .insert([{ ...formData, establishment_id: establishmentId! } as Database["public"]["Tables"]["delivery_drivers"]["Insert"]]);
+          .insert([{ ...formData, establishment_id: establishmentId! } as DriverInsert]);
         if (error) throw error;
       }
     },
