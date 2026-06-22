@@ -2,6 +2,11 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import type { Database } from "@/integrations/supabase/types";
+
+type OrderRow = Database["public"]["Tables"]["orders"]["Row"];
+type EstabRow = Database["public"]["Tables"]["establishments"]["Row"];
+type EstabLite = Pick<EstabRow, "id" | "name" | "slug" | "logo" | "whatsapp">;
 
 export type OrderHistoryFilter = "all" | "ongoing" | "done" | "canceled";
 
@@ -25,7 +30,7 @@ export interface HistoryOrder {
   id: string;
   tracking_code: string | null;
   establishment_id: string;
-  items: any[];
+  items: unknown[];
   subtotal: number | null;
   delivery_fee: number | null;
   total: number | null;
@@ -65,19 +70,23 @@ export function useOrderHistory(filter: OrderHistoryFilter, search: string) {
         .order("created_at", { ascending: false })
         .limit(200);
       if (error) throw error;
-      const orders = (data ?? []) as any[];
+      const orders = (data ?? []) as Array<Pick<OrderRow,
+        "id" | "tracking_code" | "establishment_id" | "items" | "subtotal" |
+        "delivery_fee" | "total" | "final_total" | "final_delivery_fee" |
+        "confirmation_flow_status" | "status" | "payment_method" | "notes" |
+        "address_id" | "created_at">>;
       const estabIds = Array.from(new Set(orders.map((o) => o.establishment_id).filter(Boolean)));
-      let estabsById = new Map<string, HistoryOrder["establishment"]>();
+      const estabsById = new Map<string, HistoryOrder["establishment"]>();
       if (estabIds.length) {
         const { data: estabs } = await supabase
           .from("establishments")
           .select("id, name, slug, logo, whatsapp")
           .in("id", estabIds);
-        (estabs ?? []).forEach((e: any) => estabsById.set(e.id, e));
+        (estabs ?? []).forEach((e: EstabLite) => estabsById.set(e.id, e));
       }
       return orders.map((o) => ({
         ...o,
-        items: Array.isArray(o.items) ? o.items : [],
+        items: Array.isArray(o.items) ? (o.items as unknown[]) : [],
         establishment: estabsById.get(o.establishment_id) ?? null,
       })) as HistoryOrder[];
     },
