@@ -49,7 +49,7 @@ export default function Estoque() {
         .select("id,product_id,delta,reason,created_at,user_id, product:products(name)")
         .eq("establishment_id", ctx.establishmentId)
         .order("created_at", { ascending: false }).limit(50);
-      mv = (mvData ?? []) as StockMovement[];
+      mv = (mvData ?? []) as unknown as StockMovement[];
     }
 
     setProducts(ps ?? []);

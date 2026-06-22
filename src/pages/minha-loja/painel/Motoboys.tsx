@@ -48,7 +48,7 @@ import { Textarea } from "@/components/ui/textarea";
 import type { Database } from "@/integrations/supabase/types";
 
 type DriverRow = Database["public"]["Tables"]["delivery_drivers"]["Row"];
-type DriverForm = Partial<Database["public"]["Tables"]["delivery_drivers"]["Insert"]>;
+type DriverForm = Record<string, unknown>;
 
 export default function PainelMotoboys() {
   const { ctx } = useActiveEstablishment();
