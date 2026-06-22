@@ -38,8 +38,13 @@ const IS_DEV = import.meta.env.DEV;
 function EstablishmentRedirect({ checkout = false }: { checkout?: boolean }) {
   const { slug } = useParams<{ slug: string }>();
   const { search, hash } = useLocation();
-  const target = `/loja/${slug}${checkout ? "/checkout" : ""}${search}${hash}`;
-  return <Navigate to={target} replace />;
+  if (checkout) return <Navigate to={`/carrinho${search}${hash}`} replace />;
+  return <Navigate to={`/loja/${slug}${search}${hash}`} replace />;
+}
+
+function CheckoutSlugRedirect() {
+  const { search, hash } = useLocation();
+  return <Navigate to={`/carrinho${search}${hash}`} replace />;
 }
 
 
@@ -116,7 +121,7 @@ function RouteFallback() {
 
 function GlobalCartButton() {
   const { pathname } = useLocation();
-  if (/\/checkout(\/|$)/.test(pathname)) return null;
+  if (/^\/carrinho(\/|$)/.test(pathname)) return null;
   const allowed =
     pathname === "/" ||
     pathname === "/loja" ||
@@ -133,7 +138,7 @@ function GlobalSupportWidget() {
   if (!user) return null;
   if (/^\/admin(\/|$)/.test(pathname)) return null;
   if (/^\/minha-loja(\/|$)/.test(pathname)) return null;
-  if (/^\/checkout(\/|$)/.test(pathname)) return null;
+  if (/^\/carrinho(\/|$)/.test(pathname)) return null;
   return <SupportChatWidget />;
 }
 
@@ -160,7 +165,9 @@ const App = () => (
             <Route path="/e/:slug" element={<EstablishmentRedirect />} />
             <Route path="/e/:slug/checkout" element={<EstablishmentRedirect checkout />} />
             <Route path="/loja/:slug" element={<Establishment />} />
-            <Route path="/loja/:slug/checkout" element={<Checkout />} />
+            <Route path="/loja/:slug/checkout" element={<CheckoutSlugRedirect />} />
+            <Route path="/carrinho" element={<Checkout />} />
+            <Route path="/checkout" element={<Navigate to="/carrinho" replace />} />
 
             <Route path="/painel" element={<Navigate to="/minha-loja" replace />} />
             <Route path="/login" element={<Login />} />

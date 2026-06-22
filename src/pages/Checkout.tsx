@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, MessageCircle, Trash2, Plus, Minus, Truck, ShoppingBag, Utensils, AlertCircle, MapPin, Pencil, Image as ImageIcon, Video, Loader2 } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { ArrowLeft, MessageCircle, Plus, Truck, ShoppingBag, Utensils, AlertCircle, MapPin, Pencil, Image as ImageIcon, Video, Loader2 } from "lucide-react";
 import { cart, useCart } from "@/store/cart";
 import { brl } from "@/lib/format";
 import { buildWhatsappMessage, whatsappLink, type OrderType, type CheckoutData, type V2DeliveryMessageInfo } from "@/lib/whatsapp";
@@ -24,19 +24,23 @@ import { Label } from "@/components/ui/label";
 import { consumeReorderPrefill } from "@/lib/reorder";
 
 const CheckoutPage = () => {
-  const { slug } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
   const cartState = useCart();
+  const slug = cartState.establishmentSlug ?? undefined;
+  const cartEstabId = cartState.establishmentId ?? undefined;
   const [type, setType] = useState<OrderType>("entrega");
   const [data, setData] = useState<CheckoutData>({ type: "entrega", name: "" });
   const [sending, setSending] = useState(false);
 
   const { data: est, isLoading: loadingEstab } = useQuery({
-    queryKey: ["establishment", slug],
-    enabled: !!slug,
+    queryKey: ["checkout-establishment", cartEstabId ?? slug],
+    enabled: !!(cartEstabId || slug),
     queryFn: async () => {
-      const { data } = await supabase.from("establishments").select("*").eq("slug", slug!).maybeSingle();
+      const query = supabase.from("establishments").select("*");
+      const { data } = await (cartEstabId
+        ? query.eq("id", cartEstabId).maybeSingle()
+        : query.eq("slug", slug!).maybeSingle());
       return data;
     },
   });
@@ -158,7 +162,20 @@ const CheckoutPage = () => {
     );
   }
 
-  if (!e) return <div className="container py-20 text-center font-display text-xl">Estabelecimento não encontrado.</div>;
+  if (!e) {
+    return (
+      <div className="min-h-screen bg-gradient-cream">
+        <div className="container max-w-md py-20 text-center space-y-4">
+          <ShoppingBag className="mx-auto size-12 text-muted-foreground" />
+          <h2 className="font-display text-2xl font-semibold">Carrinho vazio</h2>
+          <p className="text-sm text-muted-foreground">Escolha uma loja para começar seu pedido.</p>
+          <Link to="/" className="inline-block rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground">
+            Ver lojas
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   const taxa = type === "entrega" ? (deliveryInfo?.fee ?? null) : 0;
   const total = subtotal + (taxa ?? 0);
@@ -311,25 +328,52 @@ const CheckoutPage = () => {
   if (cartState.items.length === 0) {
     return (
       <div className="min-h-screen bg-gradient-cream">
-        <div className="container py-20 text-center">
-          <ShoppingBag className="mx-auto size-12 text-muted-foreground" />
-          <h2 className="mt-4 font-display text-2xl">Seu carrinho está vazio</h2>
-          <Link to={`/loja/${e.slug}`} replace className="mt-4 inline-block rounded-full bg-primary px-5 py-2.5 text-primary-foreground">Voltar ao cardápio</Link>
+        <div className="container max-w-md py-20 text-center space-y-4">
+          <div className="mx-auto grid size-16 place-items-center rounded-full bg-primary/10 text-primary">
+            <ShoppingBag className="size-7" />
+          </div>
+          <h2 className="font-display text-2xl font-semibold">Seu carrinho está vazio</h2>
+          <p className="text-sm text-muted-foreground">Adicione itens do cardápio para finalizar seu pedido.</p>
+          <Link to={`/loja/${e.slug}`} replace className="inline-block rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground shadow-sm">
+            Voltar ao cardápio
+          </Link>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-cream pb-32">
-      <header className="sticky top-0 z-30 border-b border-border/60 bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/70">
-        <div className="container flex h-14 items-center gap-3">
-          <button onClick={goBackToMenu} className="grid size-9 place-items-center rounded-full hover:bg-muted"><ArrowLeft className="size-5" /></button>
-          <div className="truncate font-display text-base font-semibold">{e.name}</div>
+    <div className="min-h-screen bg-gradient-cream pb-36">
+      <header className="sticky top-0 z-30 border-b border-border/60 bg-background/85 backdrop-blur-md supports-[backdrop-filter]:bg-background/70">
+        <div className="container flex h-14 max-w-2xl items-center gap-3">
+          <button onClick={goBackToMenu} className="grid size-9 place-items-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-foreground" aria-label="Voltar ao cardápio">
+            <ArrowLeft className="size-5" />
+          </button>
+          <div className="min-w-0 flex-1">
+            <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Finalizar pedido</div>
+            <div className="truncate font-display text-base font-semibold leading-tight">{e.name}</div>
+          </div>
         </div>
       </header>
 
-      <div className="container space-y-6 py-6">
+      <div className="container max-w-2xl space-y-5 py-6">
+        <section className="relative overflow-hidden rounded-3xl border border-border/50 bg-card p-5 shadow-card">
+          <div aria-hidden className="pointer-events-none absolute -right-16 -top-16 size-48 rounded-full bg-primary/5 blur-3xl" />
+          <div className="relative flex items-center gap-4">
+            {e.logo ? (
+              <img src={e.logo} alt="" className="size-14 rounded-2xl object-cover ring-1 ring-border" />
+            ) : (
+              <div className="grid size-14 place-items-center rounded-2xl bg-primary/10 text-primary">
+                <ShoppingBag className="size-6" />
+              </div>
+            )}
+            <div className="min-w-0">
+              <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Você está pedindo em</div>
+              <div className="truncate font-display text-lg font-semibold">{e.name}</div>
+            </div>
+          </div>
+        </section>
+
         <section className="rounded-3xl bg-card p-4 shadow-card">
           <h2 className="mb-3 font-display text-lg font-semibold">Seu pedido</h2>
           <div className="divide-y divide-border">
@@ -581,20 +625,26 @@ const CheckoutPage = () => {
         )}
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 p-4 backdrop-blur shadow-glow">
-        <button
-          onClick={onSend}
-          disabled={sending || (type === "entrega" && isLoadingHouseRef)}
-          title={type === "entrega" && isLoadingHouseRef ? "Carregando referências…" : undefined}
-          className="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-4 font-semibold text-primary-foreground shadow-glow disabled:opacity-60"
-        >
-          {sending ? <Loader2 className="size-5 animate-spin" /> : <MessageCircle className="size-5" />}
-          {sending
-            ? "Enviando…"
-            : type === "entrega" && isLoadingHouseRef
-            ? "Carregando referências…"
-            : "Enviar pedido para confirmação no WhatsApp"}
-        </button>
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border/60 bg-card/95 backdrop-blur shadow-glow">
+        <div className="container max-w-2xl px-4 py-3 space-y-2">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Total estimado</span>
+            <span className="font-display text-lg font-bold text-primary">{brl(total)}</span>
+          </div>
+          <button
+            onClick={onSend}
+            disabled={sending || (type === "entrega" && isLoadingHouseRef)}
+            title={type === "entrega" && isLoadingHouseRef ? "Carregando referências…" : undefined}
+            className="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3.5 text-sm font-semibold text-primary-foreground shadow-glow transition active:scale-[0.99] disabled:opacity-60"
+          >
+            {sending ? <Loader2 className="size-5 animate-spin" /> : <MessageCircle className="size-5" />}
+            {sending
+              ? "Enviando…"
+              : type === "entrega" && isLoadingHouseRef
+              ? "Carregando referências…"
+              : "Confirmar pelo WhatsApp"}
+          </button>
+        </div>
       </div>
 
       <Dialog open={!!editingAddress} onOpenChange={() => setEditingAddress(null)}>
