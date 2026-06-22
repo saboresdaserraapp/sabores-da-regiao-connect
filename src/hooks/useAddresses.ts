@@ -1,4 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -26,6 +27,18 @@ export interface Address {
 
 export function useAddresses() {
   const { user } = useAuth();
+  const qc = useQueryClient();
+  useEffect(() => {
+    if (!user?.id) return;
+    const channel = supabase
+      .channel(`addresses-${user.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "addresses", filter: `user_id=eq.${user.id}` }, () => {
+        qc.invalidateQueries({ queryKey: ["addresses", user.id] });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user?.id, qc]);
+
   return useQuery({
     queryKey: ["addresses", user?.id],
     enabled: !!user,
