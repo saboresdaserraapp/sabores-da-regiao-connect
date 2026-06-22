@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, MessageCircle, Trash2, Plus, Minus, Truck, ShoppingBag, Utensils, AlertCircle, MapPin, Pencil, Image as ImageIcon, Video, Loader2 } from "lucide-react";
 import { cart, useCart } from "@/store/cart";
@@ -321,41 +321,138 @@ const CheckoutPage = () => {
     );
   }
 
+  const itemsCount = cartState.items.reduce((s, i) => s + i.quantity, 0);
+
+  const SummaryCard = (
+    <div className="relative overflow-hidden rounded-[2rem] bg-secondary p-6 text-secondary-foreground shadow-elevated sm:p-7">
+      <div className="pointer-events-none absolute -right-16 -top-16 size-56 rounded-full bg-accent/15" />
+      <div className="relative">
+        <div className="flex items-baseline justify-between">
+          <h2 className="font-display text-2xl font-semibold">Seu pedido</h2>
+          <span className="text-xs uppercase tracking-widest text-secondary-foreground/60">{itemsCount} {itemsCount === 1 ? "item" : "itens"}</span>
+        </div>
+
+        <div className="mt-5 max-h-72 space-y-3 overflow-y-auto pr-1">
+          {cartState.items.map((i) => (
+            <div key={i.uid} className="flex items-start gap-3">
+              <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-accent text-xs font-bold text-accent-foreground">
+                {i.quantity}×
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="truncate font-medium leading-tight">{i.product.name}</div>
+                {i.note && <div className="mt-0.5 truncate text-[11px] italic text-secondary-foreground/60">{i.note}</div>}
+              </div>
+              <div className="shrink-0 font-display text-sm font-semibold tabular-nums">{brl(i.unitPrice * i.quantity)}</div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-6 space-y-2 border-t border-secondary-foreground/15 pt-5 text-sm">
+          <div className="flex items-center justify-between text-secondary-foreground/75">
+            <span>Subtotal</span>
+            <span className="tabular-nums">{brl(subtotal)}</span>
+          </div>
+          <div className="flex items-center justify-between text-secondary-foreground/75">
+            <span>Taxa de entrega</span>
+            <span className="tabular-nums">{taxa != null ? brl(taxa) : <span className="italic text-accent">a confirmar</span>}</span>
+          </div>
+          <div className="flex items-end justify-between pt-3">
+            <span className="font-display text-lg">Total</span>
+            <span className="font-display text-3xl font-bold tracking-tight text-accent tabular-nums">{brl(total)}</span>
+          </div>
+          {type === "entrega" && (
+            <p className="pt-1 text-[11px] leading-relaxed text-secondary-foreground/55">
+              Valor final sujeito à confirmação do estabelecimento via WhatsApp.
+            </p>
+          )}
+        </div>
+
+        <button
+          onClick={onSend}
+          disabled={sending || (type === "entrega" && isLoadingHouseRef)}
+          className="mt-6 hidden w-full items-center justify-center gap-2 rounded-2xl bg-primary py-4 font-semibold text-primary-foreground shadow-glow transition-all hover:brightness-110 active:scale-[0.99] disabled:opacity-60 lg:flex"
+        >
+          {sending ? <Loader2 className="size-5 animate-spin" /> : <MessageCircle className="size-5" />}
+          {sending ? "Enviando…" : "Confirmar no WhatsApp"}
+        </button>
+      </div>
+    </div>
+  );
+
   return (
-    <div className="min-h-screen bg-gradient-cream pb-32">
+    <div className="min-h-screen bg-gradient-cream pb-32 lg:pb-10">
       <header className="sticky top-0 z-30 border-b border-border/60 bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/70">
         <div className="container flex h-14 items-center gap-3">
           <button onClick={goBackToMenu} className="grid size-9 place-items-center rounded-full hover:bg-muted"><ArrowLeft className="size-5" /></button>
-          <div className="truncate font-display text-base font-semibold">{e.name}</div>
+          <div className="min-w-0 flex-1">
+            <div className="truncate font-display text-base font-semibold leading-tight">{e.name}</div>
+            <div className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Finalizar pedido</div>
+          </div>
         </div>
       </header>
 
-      <div className="container space-y-6 py-6">
-        <section className="rounded-3xl bg-card p-4 shadow-card">
-          <h2 className="mb-3 font-display text-lg font-semibold">Seu pedido</h2>
-          <div className="divide-y divide-border">
+      <div className="container py-6 lg:py-10">
+        <div className="mb-6 hidden lg:block">
+          <span className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Checkout</span>
+          <h1 className="mt-1 font-display text-4xl font-bold text-foreground">Finalize seu pedido</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Revise os itens, escolha como receber e confirme pelo WhatsApp.</p>
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-12 lg:items-start">
+          <div className="space-y-5 lg:col-span-7 xl:col-span-8">
+
+        <section className="rounded-3xl border border-border/60 bg-card p-5 shadow-card lg:hidden">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="font-display text-lg font-semibold">Seu pedido</h2>
+            <span className="text-[11px] uppercase tracking-widest text-muted-foreground">{itemsCount} {itemsCount === 1 ? "item" : "itens"}</span>
+          </div>
+          <div className="divide-y divide-border/70">
             {cartState.items.map((i) => (
-              <div key={i.uid} className="flex gap-3 py-3">
-                <img src={i.product.image} alt="" className="size-16 rounded-xl object-cover" />
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium truncate">{i.product.name}</div>
-                  <div className="text-xs text-muted-foreground">Qtd: {i.quantity} · {brl(i.unitPrice * i.quantity)}</div>
+              <div key={i.uid} className="flex items-center gap-3 py-3">
+                {i.product.image ? (
+                  <img src={i.product.image} alt="" className="size-14 rounded-xl object-cover" />
+                ) : (
+                  <div className="grid size-14 place-items-center rounded-xl bg-muted text-xs font-bold text-muted-foreground">{i.quantity}×</div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="truncate font-medium leading-tight">{i.product.name}</div>
+                  <div className="text-xs text-muted-foreground">Qtd: {i.quantity}</div>
                 </div>
+                <div className="shrink-0 font-display text-sm font-semibold tabular-nums">{brl(i.unitPrice * i.quantity)}</div>
               </div>
             ))}
           </div>
         </section>
 
-        <section className="rounded-3xl bg-card p-4 shadow-card">
-          <h2 className="mb-3 font-display text-lg font-semibold">Como deseja receber?</h2>
-          <div className="grid grid-cols-3 gap-2">
-            {[ { k: "entrega", l: "Entrega", icon: Truck }, { k: "retirada", l: "Retirada", icon: ShoppingBag }, { k: "local", l: "Local", icon: Utensils } ].map(({ k, l, icon: Icon }) => (
-              <button key={k} onClick={() => setType(k as any)} disabled={!e.services.includes(k)} className={cn("flex flex-col items-center gap-1 rounded-2xl border p-3 text-xs transition-all", type === k ? "border-primary bg-primary/5 text-primary" : "border-border")}>
-                <Icon className="size-5" /> {l}
-              </button>
-            ))}
+        <SectionCard
+          eyebrow="Modalidade"
+          title="Como deseja receber?"
+        >
+          <div className="grid grid-cols-3 gap-2.5">
+            {[ { k: "entrega", l: "Entrega", icon: Truck, sub: "Receber em casa" }, { k: "retirada", l: "Retirada", icon: ShoppingBag, sub: "Buscar na loja" }, { k: "local", l: "Local", icon: Utensils, sub: "Comer no local" } ].map(({ k, l, icon: Icon, sub }) => {
+              const enabled = e.services.includes(k);
+              const active = type === k;
+              return (
+                <button
+                  key={k}
+                  onClick={() => setType(k as any)}
+                  disabled={!enabled}
+                  className={cn(
+                    "group relative flex flex-col items-center justify-center gap-1.5 rounded-2xl border-2 p-4 text-center transition-all",
+                    active
+                      ? "border-primary bg-primary/5 text-primary shadow-soft"
+                      : "border-border bg-background hover:border-primary/40",
+                    !enabled && "opacity-40 cursor-not-allowed"
+                  )}
+                >
+                  <Icon className={cn("size-6 transition-transform", active && "scale-110")} />
+                  <span className="text-xs font-semibold">{l}</span>
+                  <span className="hidden text-[10px] text-muted-foreground sm:block">{sub}</span>
+                </button>
+              );
+            })}
           </div>
-        </section>
+        </SectionCard>
 
         {v2 && type === "entrega" && (
            <section className="rounded-3xl bg-card p-4 shadow-card space-y-4">
@@ -493,7 +590,7 @@ const CheckoutPage = () => {
           );
         })()}
 
-        <section className="rounded-3xl bg-card p-4 shadow-card">
+        <section className="rounded-3xl border border-border/60 bg-card p-4 shadow-card lg:hidden">
           <Row label="Subtotal" value={brl(subtotal)} />
           <Row label="Taxa" value={taxa ? brl(taxa) : "a confirmar"} />
           <div className="my-2 border-t border-border" />
@@ -580,21 +677,31 @@ const CheckoutPage = () => {
             )}
           </section>
         )}
+          </div>
+
+          <aside className="lg:col-span-5 xl:col-span-4">
+            <div className="lg:sticky lg:top-24">{SummaryCard}</div>
+          </aside>
+        </div>
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 p-4 backdrop-blur shadow-glow">
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 p-3 backdrop-blur shadow-overlay safe-bottom lg:hidden">
+        <div className="mb-2 flex items-center justify-between px-1 text-xs">
+          <span className="text-muted-foreground">Total{type === "entrega" ? " estimado" : ""}</span>
+          <span className="font-display text-lg font-bold tabular-nums">{brl(total)}</span>
+        </div>
         <button
           onClick={onSend}
           disabled={sending || (type === "entrega" && isLoadingHouseRef)}
           title={type === "entrega" && isLoadingHouseRef ? "Carregando referências…" : undefined}
-          className="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-4 font-semibold text-primary-foreground shadow-glow disabled:opacity-60"
+          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary py-4 font-semibold text-primary-foreground shadow-glow transition-all active:scale-[0.99] disabled:opacity-60"
         >
           {sending ? <Loader2 className="size-5 animate-spin" /> : <MessageCircle className="size-5" />}
           {sending
             ? "Enviando…"
             : type === "entrega" && isLoadingHouseRef
             ? "Carregando referências…"
-            : "Enviar pedido para confirmação no WhatsApp"}
+            : "Confirmar no WhatsApp"}
         </button>
       </div>
 
@@ -612,11 +719,30 @@ const CheckoutPage = () => {
   );
 };
 
+function SectionCard({ eyebrow, title, children, className }: { eyebrow?: string; title?: string; children: ReactNode; className?: string }) {
+  return (
+    <section className={cn("rounded-3xl border border-border/60 bg-card p-5 shadow-card", className)}>
+      {(eyebrow || title) && (
+        <div className="mb-4">
+          {eyebrow && <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary/80">{eyebrow}</div>}
+          {title && <h2 className="mt-0.5 font-display text-lg font-semibold leading-tight">{title}</h2>}
+        </div>
+      )}
+      {children}
+    </section>
+  );
+}
+
 function Field({ label, value, onChange, placeholder }: any) {
   return (
     <div>
-      <label className="mb-1 block text-[10px] font-bold text-muted-foreground uppercase">{label}</label>
-      <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="w-full rounded-xl border border-border bg-background p-3 text-sm outline-none focus:border-primary" />
+      <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{label}</label>
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full rounded-xl border border-border bg-background/60 px-3.5 py-3 text-sm outline-none transition-all placeholder:text-muted-foreground/50 focus:border-primary focus:bg-background focus:ring-2 focus:ring-primary/20"
+      />
     </div>
   );
 }
