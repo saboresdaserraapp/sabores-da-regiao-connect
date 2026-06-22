@@ -1,5 +1,5 @@
 import type { CartItem } from "@/store/cart";
-import type { Establishment } from "@/data/mockData";
+import type { Establishment } from "@/data/catalogTypes";
 import { brl } from "./format";
 
 export type OrderType = "entrega" | "retirada" | "local";

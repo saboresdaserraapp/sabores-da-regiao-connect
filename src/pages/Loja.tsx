@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { ProductCard } from "@/components/ProductCard";
 import { LojaFilters, DEFAULT_FILTERS, type LojaFiltersState } from "@/components/LojaFilters";
-import { CATEGORIES, type CategoryKey } from "@/data/mockData";
+import { CATEGORIES, type CategoryKey } from "@/data/catalogTypes";
 import { usePublicProducts } from "@/hooks/usePublicCatalog";
 import { Search, SlidersHorizontal, LayoutGrid, List, ShoppingBag, SearchX } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";

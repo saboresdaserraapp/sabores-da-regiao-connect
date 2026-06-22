@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { ProductOptionsSelector } from "@/components/ProductOptionsSelector";
-import type { ProductWithEstablishment } from "@/data/mockData";
+import type { ProductWithEstablishment } from "@/data/catalogTypes";
 import React from "react";
 
 const mockEstablishment = {

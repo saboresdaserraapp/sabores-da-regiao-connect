@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ProductCard } from "./ProductCard";
-import { CATEGORIES, type ProductWithEstablishment, type CategoryKey } from "@/data/mockData";
+import { CATEGORIES, type ProductWithEstablishment, type CategoryKey } from "@/data/catalogTypes";
 import { cn } from "@/lib/utils";
 import { ChevronRight } from "lucide-react";
 
