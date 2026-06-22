@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Header } from "@/components/Header";
 import { EstablishmentCard } from "@/components/EstablishmentCard";
 import { ProductRow } from "@/components/ProductRow";
-import { CATEGORIES } from "@/data/mockData";
+import { CATEGORIES } from "@/data/catalogTypes";
 import { usePublicEstablishments, usePublicProducts } from "@/hooks/usePublicCatalog";
 import { Search, Filter, Sparkles, SearchX } from "lucide-react";
 import { cn } from "@/lib/utils";

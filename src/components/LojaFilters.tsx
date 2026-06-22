@@ -1,7 +1,7 @@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
-import { CATEGORIES, type CategoryKey } from "@/data/mockData";
+import { CATEGORIES, type CategoryKey } from "@/data/catalogTypes";
 import { X } from "lucide-react";
 
 export interface LojaFiltersState {

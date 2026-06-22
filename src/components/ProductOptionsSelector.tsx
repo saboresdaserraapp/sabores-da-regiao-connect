@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Plus, Minus, X } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import type { ProductWithEstablishment, ProductOption } from "@/data/mockData";
+import type { ProductWithEstablishment, ProductOption } from "@/data/catalogTypes";
 
 interface Props {
   product: ProductWithEstablishment | null;

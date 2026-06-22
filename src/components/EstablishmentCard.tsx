@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { Star, MapPin, Clock } from "lucide-react";
 import { StatusBadge } from "./StatusBadge";
-import type { Establishment } from "@/data/mockData";
+import type { Establishment } from "@/data/catalogTypes";
 import { FavoriteButton } from "./FavoriteButton";
 
 export function EstablishmentCard({ e }: { e: Establishment }) {

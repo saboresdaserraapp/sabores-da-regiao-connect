@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import type { Establishment, Product, ProductWithEstablishment, CategoryKey, ServiceType } from "@/data/mockData";
+import type { Establishment, Product, ProductWithEstablishment, CategoryKey, ServiceType } from "@/data/catalogTypes";
 
 function mapEstab(row: any): Establishment {
   return {

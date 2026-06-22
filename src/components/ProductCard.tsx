@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { useState } from "react";
 import { Star, Flame, Award, Sparkles, Plus } from "lucide-react";
-import type { ProductWithEstablishment } from "@/data/mockData";
+import type { ProductWithEstablishment } from "@/data/catalogTypes";
 import { cn } from "@/lib/utils";
 import { FavoriteButton } from "./FavoriteButton";
 import { ProductQuickView } from "./ProductQuickView";

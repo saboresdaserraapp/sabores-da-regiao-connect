@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import type { Product as MockProduct, ProductOption } from "@/data/mockData";
+import type { Product as MockProduct, ProductOption } from "@/data/catalogTypes";
 
 export interface Product extends MockProduct {
   promotion_starts_at?: string | null;
