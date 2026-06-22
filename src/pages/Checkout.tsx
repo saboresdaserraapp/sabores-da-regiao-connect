@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, MessageCircle, Trash2, Plus, Minus, Truck, ShoppingBag, Utensils, AlertCircle, MapPin, Pencil, Image as ImageIcon, Video, Loader2 } from "lucide-react";
-import { getEstablishment } from "@/data/mockData";
 import { cart, useCart } from "@/store/cart";
 import { brl } from "@/lib/format";
 import { buildWhatsappMessage, whatsappLink, type OrderType, type CheckoutData, type V2DeliveryMessageInfo } from "@/lib/whatsapp";
@@ -42,9 +41,7 @@ const CheckoutPage = () => {
     },
   });
 
-  const eMock = getEstablishment(slug || "");
   const e = est ? {
-    ...eMock,
     id: est.id,
     slug: est.slug,
     name: est.name,
@@ -53,10 +50,10 @@ const CheckoutPage = () => {
     deliveryFee: est.delivery_fee,
     neighborhood: est.neighborhood,
     menuType: est.menu_type,
-    logo: est.logo || eMock?.logo,
-    brandColor: est.brand_color || eMock?.brandColor,
-    payments: est.payments || eMock?.payments || []
-  } as any : eMock;
+    logo: est.logo,
+    brandColor: est.brand_color,
+    payments: est.payments || [],
+  } as any : null;
 
   const establishmentId = est?.id;
 
