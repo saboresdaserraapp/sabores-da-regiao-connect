@@ -44,9 +44,9 @@ export default function Financeiro() {
     const { data: ms } = await supabase.from("order_financial_marks")
       .select("order_id,paid_status,paid_at,payment_method_real,amount_received")
       .eq("establishment_id", ctx.establishmentId);
-    setOrders((os ?? []) as any);
+    setOrders((os ?? []) as Order[]);
     const map: Record<string, Mark> = {};
-    (ms ?? []).forEach((m: any) => { map[m.order_id] = m; });
+    (ms ?? []).forEach((m) => { map[m.order_id] = m as Mark; });
     setMarks(map);
     setLoading(false);
   }

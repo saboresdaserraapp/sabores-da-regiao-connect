@@ -45,6 +45,10 @@ import {
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import type { Database } from "@/integrations/supabase/types";
+
+type DriverRow = Database["public"]["Tables"]["delivery_drivers"]["Row"];
+type DriverForm = Record<string, unknown>;
 
 export default function PainelMotoboys() {
   const { ctx } = useActiveEstablishment();
@@ -54,7 +58,7 @@ export default function PainelMotoboys() {
   const [neighborhoodFilter, setNeighborhoodFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("active");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [editingDriver, setEditingDriver] = useState<any>(null);
+  const [editingDriver, setEditingDriver] = useState<DriverRow | null>(null);
 
   const { data: drivers, isLoading } = useQuery({
     queryKey: ["delivery-drivers", establishmentId],
@@ -72,17 +76,17 @@ export default function PainelMotoboys() {
   });
 
   const saveMutation = useMutation({
-    mutationFn: async (formData: any) => {
+    mutationFn: async (formData: DriverForm) => {
       if (editingDriver) {
         const { error } = await supabase
           .from("delivery_drivers")
-          .update(formData)
+          .update(formData as DriverForm)
           .eq("id", editingDriver.id);
         if (error) throw error;
       } else {
         const { error } = await supabase
           .from("delivery_drivers")
-          .insert([{ ...formData, establishment_id: establishmentId }]);
+          .insert([{ ...formData, establishment_id: establishmentId! } as Database["public"]["Tables"]["delivery_drivers"]["Insert"]]);
         if (error) throw error;
       }
     },
@@ -92,8 +96,8 @@ export default function PainelMotoboys() {
       setIsAddDialogOpen(false);
       setEditingDriver(null);
     },
-    onError: (error: any) => {
-      toast.error("Erro ao salvar: " + error.message);
+    onError: (error: unknown) => {
+      toast.error("Erro ao salvar: " + ((error as Error)?.message ?? "desconhecido"));
     },
   });
 

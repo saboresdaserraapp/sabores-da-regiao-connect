@@ -1,8 +1,8 @@
 import { useActiveEstablishment } from "@/contexts/ActiveEstablishmentContext";
 import { PainelSection, Gated } from "./_shared";
-import { Lightbulb, Target, TrendingUp } from "lucide-react";
+import { Lightbulb, Target, TrendingUp, type LucideIcon } from "lucide-react";
 
-function Insight({ icon: Icon, title, desc }: { icon: any; title: string; desc: string }) {
+function Insight({ icon: Icon, title, desc }: { icon: LucideIcon; title: string; desc: string }) {
   return (
     <div className="flex gap-3 rounded-xl border border-border bg-card p-4">
       <div className="grid size-9 place-items-center rounded-lg bg-primary/10 text-primary">
