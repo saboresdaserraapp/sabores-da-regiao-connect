@@ -16,6 +16,19 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Pencil, Trash2, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
+import type { EstablishmentContext } from "@/lib/permissions";
+
+type ProductOptionType = "simple" | "variation" | "combo";
+
+type ProductOption = {
+  name: string;
+  price: number;
+  type?: ProductOptionType;
+  min?: number;
+  max?: number;
+};
+
+type AvailabilityRules = Record<string, unknown> | null;
 
 type Product = {
   id: string; name: string; description: string | null; price: number;
@@ -28,14 +41,33 @@ type Product = {
   is_active?: boolean;
   track_stock?: boolean;
   stock_quantity?: number | null;
-  options?: any;
-  availability_rules_json?: any;
+  options?: ProductOption[] | null;
+  availability_rules_json?: AvailabilityRules;
 };
 
-type Opt = { name: string; price: number; type?: "simple" | "variation" | "combo"; min?: number; max?: number };
+type Opt = ProductOption;
 
-function ProductForm({ ctx, initial, onDone }: { ctx: any; initial?: Partial<Product>; onDone: () => void }) {
-  const [f, setF] = useState<any>({
+type FormState = {
+  name: string;
+  description: string;
+  price: number | string;
+  image: string;
+  featured: boolean;
+  promo: boolean;
+  menu_category_id: string | null;
+  is_available: boolean;
+  is_active: boolean;
+  track_stock: boolean;
+  stock_quantity: number | string;
+  short_description: string;
+  options: ProductOption[];
+  availability_rules_json: AvailabilityRules;
+};
+
+type MenuCategoryLite = { id: string; name: string };
+
+function ProductForm({ ctx, initial, onDone }: { ctx: EstablishmentContext; initial?: Partial<Product>; onDone: () => void }) {
+  const [f, setF] = useState<FormState>({
     name: initial?.name ?? "", 
     description: initial?.description ?? "",
     price: initial?.price ?? 0, 
@@ -49,7 +81,7 @@ function ProductForm({ ctx, initial, onDone }: { ctx: any; initial?: Partial<Pro
     track_stock: !!initial?.track_stock,
     stock_quantity: initial?.stock_quantity ?? 0,
     short_description: initial?.short_description ?? "",
-    options: Array.isArray(initial?.options) ? initial.options : [],
+    options: Array.isArray(initial?.options) ? (initial!.options as ProductOption[]) : [],
     availability_rules_json: initial?.availability_rules_json ?? null,
   });
   
@@ -63,18 +95,18 @@ function ProductForm({ ctx, initial, onDone }: { ctx: any; initial?: Partial<Pro
     queryKey: ["mc-select", ctx.establishmentId],
     queryFn: async () => {
       const { data } = await supabase.from("menu_categories").select("id,name").eq("establishment_id", ctx.establishmentId).order("position");
-      return data ?? [];
+      return (data ?? []) as MenuCategoryLite[];
     },
   });
 
   const save = async () => {
-    if (f.options?.some((o: any) => (o.min ?? 0) > (o.max ?? 1))) {
+    if (f.options?.some((o) => (o.min ?? 0) > (o.max ?? 1))) {
       return toast.error("O mínimo não pode ser maior que o máximo nos adicionais");
     }
     
     if (!f.name) return toast.error("Nome é obrigatório");
     
-    const payload: any = {
+    const payload = {
       establishment_id: ctx.establishmentId,
       name: f.name, 
       description: f.description || null,
@@ -89,8 +121,8 @@ function ProductForm({ ctx, initial, onDone }: { ctx: any; initial?: Partial<Pro
       track_stock: f.track_stock,
       stock_quantity: Number(f.stock_quantity) || 0,
       short_description: f.short_description || null,
-      options: f.options,
-      availability_rules_json: f.availability_rules_json,
+      options: f.options as unknown as never,
+      availability_rules_json: f.availability_rules_json as unknown as never,
     };
     const q = initial?.id
       ? supabase.from("products").update(payload).eq("id", initial.id)
@@ -113,7 +145,7 @@ function ProductForm({ ctx, initial, onDone }: { ctx: any; initial?: Partial<Pro
   };
 
   const removeOption = (index: number) => {
-    setF({ ...f, options: f.options.filter((_: any, i: number) => i !== index) });
+    setF({ ...f, options: f.options.filter((_, i) => i !== index) });
   };
 
   return (
@@ -132,7 +164,7 @@ function ProductForm({ ctx, initial, onDone }: { ctx: any; initial?: Partial<Pro
             <SelectTrigger><SelectValue placeholder="Sem categoria" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="none">Sem categoria</SelectItem>
-              {cats.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+              {cats.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
@@ -153,7 +185,7 @@ function ProductForm({ ctx, initial, onDone }: { ctx: any; initial?: Partial<Pro
             {f.options.length === 0 && (
               <p className="text-xs text-muted-foreground italic">Nenhum adicional cadastrado.</p>
             )}
-            {f.options.map((o: Opt, i: number) => (
+            {f.options.map((o, i) => (
               <div key={i} className="rounded-lg border border-border bg-card p-2 animate-in fade-in slide-in-from-left-2 space-y-2">
                 <div className="flex items-center gap-2">
                   <Input 
@@ -171,7 +203,7 @@ function ProductForm({ ctx, initial, onDone }: { ctx: any; initial?: Partial<Pro
                     placeholder="R$"
                   />
                   {canAdvancedAddons && (
-                    <Select value={o.type ?? "simple"} onValueChange={(v: any) => updateOption(i, { type: v })}>
+                    <Select value={o.type ?? "simple"} onValueChange={(v) => updateOption(i, { type: v as ProductOptionType })}>
                       <SelectTrigger className="w-20 h-8 text-[9px]"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="simple" className="text-[10px]">Simple</SelectItem>
