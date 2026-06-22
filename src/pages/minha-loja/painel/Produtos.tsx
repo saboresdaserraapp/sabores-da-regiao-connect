@@ -16,7 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Pencil, Trash2, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
-import type { EstablishmentContext } from "@/lib/permissions";
+import type { ActiveEstablishment } from "@/lib/permissions";
 
 type ProductOptionType = "simple" | "variation" | "combo";
 
@@ -66,7 +66,7 @@ type FormState = {
 
 type MenuCategoryLite = { id: string; name: string };
 
-function ProductForm({ ctx, initial, onDone }: { ctx: EstablishmentContext; initial?: Partial<Product>; onDone: () => void }) {
+function ProductForm({ ctx, initial, onDone }: { ctx: ActiveEstablishment; initial?: Partial<Product>; onDone: () => void }) {
   const [f, setF] = useState<FormState>({
     name: initial?.name ?? "", 
     description: initial?.description ?? "",
