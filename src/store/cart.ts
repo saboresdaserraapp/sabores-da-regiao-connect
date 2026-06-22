@@ -66,7 +66,7 @@ function load(): CartState {
     (window as any).__CART_DEBUG_RESULT = result;
     console.warn("CART_LOAD_PARSED items=" + result.items.length);
     return result;
-  } catch { return { establishmentId: null, establishmentSlug: null, items: [] }; }
+  } catch (err) { console.error("[cart.load] ERROR", err); (window as any).__CART_LOAD_ERR = String(err); return { establishmentId: null, establishmentSlug: null, items: [] }; }
 }
 function persist() {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch { /* noop */ }
