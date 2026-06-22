@@ -11,7 +11,8 @@ export function useFavorites() {
     queryKey: ["favorites", user?.id],
     enabled: !!user,
     queryFn: async () => {
-      const { data } = await supabase.from("favorites").select("*").eq("user_id", user!.id);
+      const { data, error } = await supabase.from("favorites").select("*").eq("user_id", user!.id);
+      if (error) throw error;
       return data ?? [];
     },
   });
@@ -25,18 +26,30 @@ export function useFavoriteToggle() {
       toast.error("Faça login para favoritar");
       return false;
     }
-    const { data: existing } = await supabase
+    const { data: existing, error: lookupError } = await supabase
       .from("favorites")
       .select("id")
       .eq("user_id", user.id).eq("kind", kind).eq("target_id", targetId).maybeSingle();
+    if (lookupError) {
+      toast.error(lookupError.message);
+      return false;
+    }
     if (existing) {
-      await supabase.from("favorites").delete().eq("id", existing.id);
+      const { error } = await supabase.from("favorites").delete().eq("id", existing.id);
+      if (error) {
+        toast.error(error.message);
+        return false;
+      }
       toast.success("Removido dos favoritos");
     } else {
-      await supabase.from("favorites").insert({ user_id: user.id, kind, target_id: targetId });
+      const { error } = await supabase.from("favorites").insert({ user_id: user.id, kind, target_id: targetId });
+      if (error) {
+        toast.error(error.message);
+        return false;
+      }
       toast.success("Adicionado aos favoritos");
     }
-    qc.invalidateQueries({ queryKey: ["favorites", user.id] });
+    await qc.invalidateQueries({ queryKey: ["favorites", user.id] });
     return !existing;
   };
 }

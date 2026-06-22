@@ -303,7 +303,7 @@ function EnderecosTab() {
         ))}
       </div>
       {editing !== null && (
-        <AddressForm initial={editing} onClose={() => setEditing(null)} onSave={async (v: any) => { await save(v); setEditing(null); }} />
+        <AddressForm initial={editing} onClose={() => setEditing(null)} onSave={async (v: any) => { const ok = await save(v); if (ok) setEditing(null); }} />
       )}
       {editingRef !== null && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4 overflow-y-auto">

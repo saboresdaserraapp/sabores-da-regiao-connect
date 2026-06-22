@@ -30,7 +30,8 @@ export function useAddresses() {
     queryKey: ["addresses", user?.id],
     enabled: !!user,
     queryFn: async () => {
-      const { data } = await supabase.from("addresses").select("*").eq("user_id", user!.id).order("is_default", { ascending: false });
+      const { data, error } = await supabase.from("addresses").select("*").eq("user_id", user!.id).order("is_default", { ascending: false });
+      if (error) throw error;
       return (data ?? []) as Address[];
     },
   });
@@ -43,26 +44,44 @@ export function useAddressMutations() {
 
   return {
     async save(addr: Partial<Address> & { street: string }) {
-      if (!user) return;
+      if (!user) {
+        toast.error("Faça login para salvar endereços");
+        return false;
+      }
       if (addr.is_default) {
-        await supabase.from("addresses").update({ is_default: false }).eq("user_id", user.id);
+        const { error } = await supabase.from("addresses").update({ is_default: false }).eq("user_id", user.id);
+        if (error) {
+          toast.error(error.message);
+          return false;
+        }
       }
       if (addr.id) {
         const { error } = await supabase.from("addresses").update(addr).eq("id", addr.id);
-        if (error) return toast.error(error.message);
+        if (error) {
+          toast.error(error.message);
+          return false;
+        }
         toast.success("Endereço atualizado");
       } else {
         const { error } = await supabase.from("addresses").insert({ ...addr, user_id: user.id } as any);
-        if (error) return toast.error(error.message);
+        if (error) {
+          toast.error(error.message);
+          return false;
+        }
         toast.success("Endereço adicionado");
       }
-      invalidate();
+      await invalidate();
+      return true;
     },
     async remove(id: string) {
       const { error } = await supabase.from("addresses").delete().eq("id", id);
-      if (error) return toast.error(error.message);
+      if (error) {
+        toast.error(error.message);
+        return false;
+      }
       toast.success("Endereço removido");
-      invalidate();
+      await invalidate();
+      return true;
     },
   };
 }
