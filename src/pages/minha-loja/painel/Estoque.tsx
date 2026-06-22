@@ -10,6 +10,9 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { AlertTriangle, History, Package } from "lucide-react";
+import type { Database } from "@/integrations/supabase/types";
+
+type StockRow = Database["public"]["Tables"]["product_stock"]["Row"];
 
 type Product = { id: string; name: string };
 type Stock = {
@@ -40,19 +43,19 @@ export default function Estoque() {
     const { data: st } = await supabase.from("product_stock").select("*")
       .eq("establishment_id", ctx.establishmentId);
     
-    let mv: any[] = [];
+    let mv: StockMovement[] = [];
     if (canAdvanced) {
       const { data: mvData } = await supabase.from("stock_movements")
         .select("id,product_id,delta,reason,created_at,user_id, product:products(name)")
         .eq("establishment_id", ctx.establishmentId)
         .order("created_at", { ascending: false }).limit(50);
-      mv = mvData ?? [];
+      mv = (mvData ?? []) as StockMovement[];
     }
 
     setProducts(ps ?? []);
     setMovements(mv);
     const map: Record<string, Stock> = {};
-    (st ?? []).forEach((s: any) => { map[s.product_id] = s; });
+    (st ?? []).forEach((s: StockRow) => { map[s.product_id] = s as unknown as Stock; });
     setStock(map);
     setLoading(false);
   }
@@ -143,7 +146,7 @@ export default function Estoque() {
                 {movements.map(m => (
                   <div key={m.id} className="rounded-xl border border-border/70 p-3 text-xs flex items-center justify-between gap-4 transition-shadow hover:shadow-sm">
                     <div className="min-w-0">
-                      <div className="font-medium">{(m.product as any)?.name ?? "Produto removido"}</div>
+                      <div className="font-medium">{m.product?.name ?? "Produto removido"}</div>
                       <div className="text-muted-foreground">{m.reason ?? "Ajuste"} · {new Date(m.created_at).toLocaleString()}</div>
                     </div>
                     <div className={`font-mono font-bold text-sm ${m.delta > 0 ? "text-emerald-600" : "text-rose-600"}`}>
