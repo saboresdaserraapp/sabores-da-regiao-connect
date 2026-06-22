@@ -69,7 +69,7 @@ export function OrderHistoryTab() {
       }
       toast.success(`${res.added} item(ns) adicionados ao carrinho`);
       setOpen(null);
-      navigate(`/carrinho?reorder=1`);
+      navigate(`/checkout?reorder=1`);
     } catch (e: any) {
       toast.error(e?.message ?? "Não foi possível repetir o pedido");
     } finally {
