@@ -324,43 +324,43 @@ const CheckoutPage = () => {
   const itemsCount = cartState.items.reduce((s, i) => s + i.quantity, 0);
 
   const SummaryCard = (
-    <div className="relative overflow-hidden rounded-[2rem] bg-primary p-6 text-primary-foreground shadow-elevated sm:p-7">
+    <div className="relative overflow-hidden rounded-[2rem] bg-gradient-warm p-6 text-white shadow-elevated sm:p-7">
       <div className="relative">
         <div className="flex items-baseline justify-between">
-          <h2 className="font-display text-2xl font-semibold">Seu pedido</h2>
-          <span className="text-xs uppercase tracking-widest text-primary-foreground/70">{itemsCount} {itemsCount === 1 ? "item" : "itens"}</span>
+          <h2 className="font-display text-2xl font-semibold text-white">Seu pedido</h2>
+          <span className="text-xs uppercase tracking-widest text-white/80">{itemsCount} {itemsCount === 1 ? "item" : "itens"}</span>
         </div>
 
         <div className="mt-5 max-h-72 space-y-3 overflow-y-auto pr-1">
           {cartState.items.map((i) => (
             <div key={i.uid} className="flex items-start gap-3">
-              <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-white/15 text-xs font-bold text-primary-foreground">
+              <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-white/20 text-xs font-bold text-white">
                 {i.quantity}×
               </span>
               <div className="min-w-0 flex-1">
-                <div className="truncate font-medium leading-tight">{i.product.name}</div>
-                {i.note && <div className="mt-0.5 truncate text-[11px] italic text-primary-foreground/70">{i.note}</div>}
+                <div className="truncate font-medium leading-tight text-white">{i.product.name}</div>
+                {i.note && <div className="mt-0.5 truncate text-[11px] italic text-white/80">{i.note}</div>}
               </div>
-              <div className="shrink-0 font-display text-sm font-semibold tabular-nums">{brl(i.unitPrice * i.quantity)}</div>
+              <div className="shrink-0 font-display text-sm font-semibold tabular-nums text-white">{brl(i.unitPrice * i.quantity)}</div>
             </div>
           ))}
         </div>
 
-        <div className="mt-6 space-y-2 border-t border-primary-foreground/20 pt-5 text-sm">
-          <div className="flex items-center justify-between text-primary-foreground/85">
+        <div className="mt-6 space-y-2 border-t border-white/25 pt-5 text-sm">
+          <div className="flex items-center justify-between text-white/90">
             <span>Subtotal</span>
             <span className="tabular-nums">{brl(subtotal)}</span>
           </div>
-          <div className="flex items-center justify-between text-primary-foreground/85">
+          <div className="flex items-center justify-between text-white/90">
             <span>Taxa de entrega</span>
-            <span className="tabular-nums">{taxa != null ? brl(taxa) : <span className="italic text-primary-foreground/90">a confirmar</span>}</span>
+            <span className="tabular-nums">{taxa != null ? brl(taxa) : <span className="italic text-white">a confirmar</span>}</span>
           </div>
           <div className="flex items-end justify-between pt-3">
-            <span className="font-display text-lg">Total</span>
-            <span className="font-display text-3xl font-bold tracking-tight text-primary-foreground tabular-nums">{brl(total)}</span>
+            <span className="font-display text-lg text-white">Total</span>
+            <span className="font-display text-3xl font-bold tracking-tight text-white tabular-nums">{brl(total)}</span>
           </div>
           {type === "entrega" && (
-            <p className="pt-1 text-[11px] leading-relaxed text-primary-foreground/70">
+            <p className="pt-1 text-[11px] leading-relaxed text-white/80">
               Valor final sujeito à confirmação do estabelecimento via WhatsApp.
             </p>
           )}
