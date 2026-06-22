@@ -1,10 +1,20 @@
 import { useSyncExternalStore } from "react";
 import type { Product as MockProduct, ProductOption } from "@/data/catalogTypes";
 
+export interface ProductOptionGroupSnapshot {
+  id?: string;
+  name?: string;
+  min_select?: number;
+  max_select?: number;
+  required?: boolean;
+  options?: ProductOption[];
+  [key: string]: unknown;
+}
+
 export interface Product extends MockProduct {
   promotion_starts_at?: string | null;
   promotion_ends_at?: string | null;
-  product_option_groups?: any[];
+  product_option_groups?: ProductOptionGroupSnapshot[];
   auto_pause_when_zero?: boolean;
   stock_quantity?: number;
 }
