@@ -195,10 +195,6 @@ export const ESTABLISHMENTS: Establishment[] = DEV_ESTABLISHMENTS;
 export const getEstablishment = (slug: string) =>
   ESTABLISHMENTS.find(e => e.slug === slug);
 
-export interface ProductWithEstablishment extends Product {
-  establishment: Establishment;
-}
-
 export const getAllProducts = (): ProductWithEstablishment[] =>
   ESTABLISHMENTS.flatMap(e =>
     e.products.map(p => ({ ...p, establishment: e }))
