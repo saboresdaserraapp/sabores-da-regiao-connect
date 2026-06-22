@@ -1,28 +1,35 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes, useParams } from "react-router-dom";
+import { BrowserRouter, Route, Routes, useParams, Navigate, useLocation } from "react-router-dom";
+import { lazy, Suspense } from "react";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+
+// Public essentials — keep eager so the first paint is instant
 import Index from "./pages/Index.tsx";
-import NotFound from "./pages/NotFound.tsx";
-import Establishment from "./pages/Establishment.tsx";
-import Checkout from "./pages/Checkout.tsx";
-import Dashboard from "./pages/Dashboard.tsx";
 import Loja from "./pages/Loja.tsx";
-import Login from "./pages/Login.tsx";
-import Cadastro from "./pages/Cadastro.tsx";
-import RecuperarSenha from "./pages/RecuperarSenha.tsx";
-import ResetPassword from "./pages/ResetPassword.tsx";
-import MinhaConta from "./pages/MinhaConta.tsx";
-import SuporteCliente from "./pages/SuporteCliente.tsx";
-import SuporteChatCliente from "./pages/SuporteChatCliente.tsx";
-import TicketDetalhesCliente from "./pages/TicketDetalhesCliente.tsx";
-import PedidoTracking from "./pages/PedidoTracking.tsx";
+import Establishment from "./pages/Establishment.tsx";
+import NotFound from "./pages/NotFound.tsx";
 import { RedirectByOrderId } from "./components/RedirectByOrderId";
-import VisualReference from "./pages/VisualReference.tsx";
-import DeliveryReference from "./pages/DeliveryReference.tsx";
-import Privacidade from "./pages/Privacidade.tsx";
-import { lazy, Suspense } from "react";
+
+// Auth (lightweight, lazy is fine)
+const Login = lazy(() => import("./pages/Login.tsx"));
+const Cadastro = lazy(() => import("./pages/Cadastro.tsx"));
+const RecuperarSenha = lazy(() => import("./pages/RecuperarSenha.tsx"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword.tsx"));
+
+// Checkout & customer area
+const Checkout = lazy(() => import("./pages/Checkout.tsx"));
+const Dashboard = lazy(() => import("./pages/Dashboard.tsx"));
+const MinhaConta = lazy(() => import("./pages/MinhaConta.tsx"));
+const SuporteCliente = lazy(() => import("./pages/SuporteCliente.tsx"));
+const SuporteChatCliente = lazy(() => import("./pages/SuporteChatCliente.tsx"));
+const TicketDetalhesCliente = lazy(() => import("./pages/TicketDetalhesCliente.tsx"));
+const PedidoTracking = lazy(() => import("./pages/PedidoTracking.tsx"));
+const VisualReference = lazy(() => import("./pages/VisualReference.tsx"));
+const DeliveryReference = lazy(() => import("./pages/DeliveryReference.tsx"));
+const Privacidade = lazy(() => import("./pages/Privacidade.tsx"));
+
 const CatalogDebug = lazy(() => import("./pages/CatalogDebug.tsx"));
 const StorageDebug = lazy(() => import("./pages/StorageDebug.tsx"));
 const TesteStorage = lazy(() => import("./pages/TesteStorage.tsx"));
@@ -40,61 +47,73 @@ function EstablishmentRedirect({ checkout = false }: { checkout?: boolean }) {
 import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedAdminRoute } from "@/components/admin/ProtectedAdminRoute";
 import AdminLayout from "@/components/admin/AdminLayout";
-import AdminLogin from "./pages/admin/AdminLogin.tsx";
-import AdminDashboard from "./pages/admin/Dashboard.tsx";
-import AdminEstabelecimentos from "./pages/admin/Estabelecimentos.tsx";
-import EstabelecimentoPerfil from "./pages/admin/EstabelecimentoPerfil.tsx";
-import AdminAvaliacoes from "./pages/admin/Avaliacoes.tsx";
-import AdminDenuncias from "./pages/admin/Denuncias.tsx";
-import AdminComunicados from "./pages/admin/Comunicados.tsx";
-import AdminSite from "./pages/admin/SiteAdmin.tsx";
-import AdminUsuarios from "./pages/admin/Usuarios.tsx";
-import AdminAuditoria from "./pages/admin/Auditoria.tsx";
-import AdminInteligencia from "./pages/admin/Inteligencia.tsx";
-import AdminRelatorios from "./pages/admin/Relatorios.tsx";
-import AdminBenchmark from "./pages/admin/Benchmark.tsx";
-import AdminPoliticaDados from "./pages/admin/PoliticaDados.tsx";
-import AdminPoliticasEntrega from "./pages/admin/PoliticasEntrega.tsx";
-import AdminAprovacaoEstabelecimentos from "./pages/admin/AprovacaoEstabelecimentos.tsx";
-import AdminTickets from "./pages/admin/Tickets.tsx";
-import AdminSuporte from "./pages/admin/Suporte.tsx";
-import MinhaLojaDispatcher from "./pages/minha-loja/Dispatcher.tsx";
-import MinhaLojaSelecionar from "./pages/minha-loja/Selecionar.tsx";
-import MinhaLojaStatus from "./pages/minha-loja/Status.tsx";
-import MinhaLojaCadastrar from "./pages/minha-loja/Cadastrar.tsx";
-import MinhaLojaPainelLayout from "./pages/minha-loja/PainelLayout.tsx";
-import PainelVisaoGeral from "./pages/minha-loja/painel/VisaoGeral.tsx";
-import PainelDados from "./pages/minha-loja/painel/DadosLoja.tsx";
-import PainelHorarios from "./pages/minha-loja/painel/Horarios.tsx";
-import PainelCardapio from "./pages/minha-loja/painel/Cardapio.tsx";
-import PainelProdutos from "./pages/minha-loja/painel/Produtos.tsx";
-import PainelAdicionais from "./pages/minha-loja/painel/Adicionais.tsx";
-import PainelPromocoes from "./pages/minha-loja/painel/Promocoes.tsx";
-import PainelEntrega from "./pages/minha-loja/painel/Entrega.tsx";
-import PainelPedidos from "./pages/minha-loja/painel/Pedidos.tsx";
-import PainelAvaliacoes from "./pages/minha-loja/painel/Avaliacoes.tsx";
-import PainelMetricas from "./pages/minha-loja/painel/Metricas.tsx";
-import PainelInteligencia from "./pages/minha-loja/painel/Inteligencia.tsx";
-import PainelPersonalizacao from "./pages/minha-loja/painel/Personalizacao.tsx";
-import PainelPlano from "./pages/minha-loja/painel/PlanoAssinatura.tsx";
-import PainelPlanosComparar from "./pages/minha-loja/painel/PlanosComparar.tsx";
-import PainelConfiguracoes from "./pages/minha-loja/painel/Configuracoes.tsx";
-import PainelFinanceiro from "./pages/minha-loja/painel/Financeiro.tsx";
-import PainelEstoque from "./pages/minha-loja/painel/Estoque.tsx";
-import PainelMidia from "./pages/minha-loja/painel/Midia.tsx";
-import PainelEditarProduto from "./pages/minha-loja/painel/EditarProduto.tsx";
-import PainelEquipe from "./pages/minha-loja/painel/Equipe.tsx";
-import PainelMotoboys from "./pages/minha-loja/painel/Motoboys.tsx";
-import PainelSuporte from "./pages/minha-loja/painel/Suporte.tsx";
-import PainelSuporteChat from "./pages/minha-loja/painel/SuporteChat.tsx";
-import PainelTicketDetalhes from "./pages/minha-loja/painel/TicketDetalhes.tsx";
-import { Navigate, useLocation } from "react-router-dom";
+
+// Admin — fully lazy
+const AdminLogin = lazy(() => import("./pages/admin/AdminLogin.tsx"));
+const AdminDashboard = lazy(() => import("./pages/admin/Dashboard.tsx"));
+const AdminEstabelecimentos = lazy(() => import("./pages/admin/Estabelecimentos.tsx"));
+const EstabelecimentoPerfil = lazy(() => import("./pages/admin/EstabelecimentoPerfil.tsx"));
+const AdminAvaliacoes = lazy(() => import("./pages/admin/Avaliacoes.tsx"));
+const AdminDenuncias = lazy(() => import("./pages/admin/Denuncias.tsx"));
+const AdminComunicados = lazy(() => import("./pages/admin/Comunicados.tsx"));
+const AdminSite = lazy(() => import("./pages/admin/SiteAdmin.tsx"));
+const AdminUsuarios = lazy(() => import("./pages/admin/Usuarios.tsx"));
+const AdminAuditoria = lazy(() => import("./pages/admin/Auditoria.tsx"));
+const AdminInteligencia = lazy(() => import("./pages/admin/Inteligencia.tsx"));
+const AdminRelatorios = lazy(() => import("./pages/admin/Relatorios.tsx"));
+const AdminBenchmark = lazy(() => import("./pages/admin/Benchmark.tsx"));
+const AdminPoliticaDados = lazy(() => import("./pages/admin/PoliticaDados.tsx"));
+const AdminPoliticasEntrega = lazy(() => import("./pages/admin/PoliticasEntrega.tsx"));
+const AdminAprovacaoEstabelecimentos = lazy(() => import("./pages/admin/AprovacaoEstabelecimentos.tsx"));
+const AdminTickets = lazy(() => import("./pages/admin/Tickets.tsx"));
+const AdminSuporte = lazy(() => import("./pages/admin/Suporte.tsx"));
+
+// Minha Loja — fully lazy
+const MinhaLojaDispatcher = lazy(() => import("./pages/minha-loja/Dispatcher.tsx"));
+const MinhaLojaSelecionar = lazy(() => import("./pages/minha-loja/Selecionar.tsx"));
+const MinhaLojaStatus = lazy(() => import("./pages/minha-loja/Status.tsx"));
+const MinhaLojaCadastrar = lazy(() => import("./pages/minha-loja/Cadastrar.tsx"));
+const MinhaLojaPainelLayout = lazy(() => import("./pages/minha-loja/PainelLayout.tsx"));
+const PainelVisaoGeral = lazy(() => import("./pages/minha-loja/painel/VisaoGeral.tsx"));
+const PainelDados = lazy(() => import("./pages/minha-loja/painel/DadosLoja.tsx"));
+const PainelHorarios = lazy(() => import("./pages/minha-loja/painel/Horarios.tsx"));
+const PainelCardapio = lazy(() => import("./pages/minha-loja/painel/Cardapio.tsx"));
+const PainelProdutos = lazy(() => import("./pages/minha-loja/painel/Produtos.tsx"));
+const PainelAdicionais = lazy(() => import("./pages/minha-loja/painel/Adicionais.tsx"));
+const PainelPromocoes = lazy(() => import("./pages/minha-loja/painel/Promocoes.tsx"));
+const PainelEntrega = lazy(() => import("./pages/minha-loja/painel/Entrega.tsx"));
+const PainelPedidos = lazy(() => import("./pages/minha-loja/painel/Pedidos.tsx"));
+const PainelAvaliacoes = lazy(() => import("./pages/minha-loja/painel/Avaliacoes.tsx"));
+const PainelMetricas = lazy(() => import("./pages/minha-loja/painel/Metricas.tsx"));
+const PainelInteligencia = lazy(() => import("./pages/minha-loja/painel/Inteligencia.tsx"));
+const PainelPersonalizacao = lazy(() => import("./pages/minha-loja/painel/Personalizacao.tsx"));
+const PainelPlano = lazy(() => import("./pages/minha-loja/painel/PlanoAssinatura.tsx"));
+const PainelPlanosComparar = lazy(() => import("./pages/minha-loja/painel/PlanosComparar.tsx"));
+const PainelConfiguracoes = lazy(() => import("./pages/minha-loja/painel/Configuracoes.tsx"));
+const PainelFinanceiro = lazy(() => import("./pages/minha-loja/painel/Financeiro.tsx"));
+const PainelEstoque = lazy(() => import("./pages/minha-loja/painel/Estoque.tsx"));
+const PainelMidia = lazy(() => import("./pages/minha-loja/painel/Midia.tsx"));
+const PainelEditarProduto = lazy(() => import("./pages/minha-loja/painel/EditarProduto.tsx"));
+const PainelEquipe = lazy(() => import("./pages/minha-loja/painel/Equipe.tsx"));
+const PainelMotoboys = lazy(() => import("./pages/minha-loja/painel/Motoboys.tsx"));
+const PainelSuporte = lazy(() => import("./pages/minha-loja/painel/Suporte.tsx"));
+const PainelSuporteChat = lazy(() => import("./pages/minha-loja/painel/SuporteChat.tsx"));
+const PainelTicketDetalhes = lazy(() => import("./pages/minha-loja/painel/TicketDetalhes.tsx"));
+
 import { CartFloatingButton } from "./components/CartFloatingButton";
 import { SupportChatWidget } from "./components/support/SupportChatWidget";
 import { PendingProposalDialog } from "./components/PendingProposalDialog";
 import { useAuth } from "@/hooks/useAuth";
 
 const queryClient = new QueryClient();
+
+function RouteFallback() {
+  return (
+    <div className="min-h-screen grid place-items-center">
+      <div className="size-6 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-foreground" />
+    </div>
+  );
+}
 
 function GlobalCartButton() {
   const { pathname } = useLocation();
@@ -135,6 +154,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
+          <Suspense fallback={<RouteFallback />}>
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/loja" element={<Loja />} />
@@ -160,10 +180,10 @@ const App = () => (
             <Route path="/privacidade" element={<Privacidade />} />
             {IS_DEV && (
               <>
-                <Route path="/debug/catalogo" element={<Suspense fallback={null}><CatalogDebug /></Suspense>} />
-                <Route path="/debug/storage" element={<Suspense fallback={null}><StorageDebug /></Suspense>} />
-                <Route path="/teste-storage" element={<Suspense fallback={null}><TesteStorage /></Suspense>} />
-                <Route path="/debug/visual-fallback" element={<Suspense fallback={null}><VisualReferenceFallbackTest /></Suspense>} />
+                <Route path="/debug/catalogo" element={<CatalogDebug />} />
+                <Route path="/debug/storage" element={<StorageDebug />} />
+                <Route path="/teste-storage" element={<TesteStorage />} />
+                <Route path="/debug/visual-fallback" element={<VisualReferenceFallbackTest />} />
               </>
             )}
 
@@ -235,6 +255,7 @@ const App = () => (
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
+          </Suspense>
           <GlobalCartButton />
           <GlobalSupportWidget />
           <GlobalPendingProposal />
