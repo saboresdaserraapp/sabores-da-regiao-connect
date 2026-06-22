@@ -48,7 +48,9 @@ import { Textarea } from "@/components/ui/textarea";
 import type { Database } from "@/integrations/supabase/types";
 
 type DriverRow = Database["public"]["Tables"]["delivery_drivers"]["Row"];
-type DriverForm = Record<string, unknown>;
+type DriverInsert = Database["public"]["Tables"]["delivery_drivers"]["Insert"];
+type DriverUpdate = Database["public"]["Tables"]["delivery_drivers"]["Update"];
+type DriverForm = Partial<Omit<DriverInsert, "establishment_id">>;
 
 export default function PainelMotoboys() {
   const { ctx } = useActiveEstablishment();
@@ -80,13 +82,13 @@ export default function PainelMotoboys() {
       if (editingDriver) {
         const { error } = await supabase
           .from("delivery_drivers")
-          .update(formData as DriverForm)
+          .update(formData as DriverUpdate)
           .eq("id", editingDriver.id);
         if (error) throw error;
       } else {
         const { error } = await supabase
           .from("delivery_drivers")
-          .insert([{ ...formData, establishment_id: establishmentId! } as Database["public"]["Tables"]["delivery_drivers"]["Insert"]]);
+          .insert([{ ...formData, establishment_id: establishmentId! } as DriverInsert]);
         if (error) throw error;
       }
     },
@@ -132,14 +134,14 @@ export default function PainelMotoboys() {
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    const data = {
-      name: formData.get("name"),
-      whatsapp_phone: formData.get("whatsapp_phone"),
-      secondary_phone: formData.get("secondary_phone"),
-      driver_type: formData.get("driver_type"),
-      status: formData.get("status"),
-      notes: formData.get("notes"),
-      neighborhood_coverage: formData.get("neighborhood_coverage"),
+    const data: DriverForm = {
+      name: String(formData.get("name") ?? ""),
+      whatsapp_phone: String(formData.get("whatsapp_phone") ?? ""),
+      secondary_phone: String(formData.get("secondary_phone") ?? ""),
+      driver_type: String(formData.get("driver_type") ?? ""),
+      status: String(formData.get("status") ?? ""),
+      notes: String(formData.get("notes") ?? ""),
+      neighborhood_coverage: String(formData.get("neighborhood_coverage") ?? ""),
     };
     saveMutation.mutate(data);
   };
