@@ -324,44 +324,43 @@ const CheckoutPage = () => {
   const itemsCount = cartState.items.reduce((s, i) => s + i.quantity, 0);
 
   const SummaryCard = (
-    <div className="relative overflow-hidden rounded-[2rem] bg-secondary p-6 text-secondary-foreground shadow-elevated sm:p-7">
-      <div className="pointer-events-none absolute -right-16 -top-16 size-56 rounded-full bg-accent/15" />
+    <div className="relative overflow-hidden rounded-[2rem] bg-primary p-6 text-primary-foreground shadow-elevated sm:p-7">
       <div className="relative">
         <div className="flex items-baseline justify-between">
           <h2 className="font-display text-2xl font-semibold">Seu pedido</h2>
-          <span className="text-xs uppercase tracking-widest text-secondary-foreground/60">{itemsCount} {itemsCount === 1 ? "item" : "itens"}</span>
+          <span className="text-xs uppercase tracking-widest text-primary-foreground/70">{itemsCount} {itemsCount === 1 ? "item" : "itens"}</span>
         </div>
 
         <div className="mt-5 max-h-72 space-y-3 overflow-y-auto pr-1">
           {cartState.items.map((i) => (
             <div key={i.uid} className="flex items-start gap-3">
-              <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-accent text-xs font-bold text-accent-foreground">
+              <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-white/15 text-xs font-bold text-primary-foreground">
                 {i.quantity}×
               </span>
               <div className="min-w-0 flex-1">
                 <div className="truncate font-medium leading-tight">{i.product.name}</div>
-                {i.note && <div className="mt-0.5 truncate text-[11px] italic text-secondary-foreground/60">{i.note}</div>}
+                {i.note && <div className="mt-0.5 truncate text-[11px] italic text-primary-foreground/70">{i.note}</div>}
               </div>
               <div className="shrink-0 font-display text-sm font-semibold tabular-nums">{brl(i.unitPrice * i.quantity)}</div>
             </div>
           ))}
         </div>
 
-        <div className="mt-6 space-y-2 border-t border-secondary-foreground/15 pt-5 text-sm">
-          <div className="flex items-center justify-between text-secondary-foreground/75">
+        <div className="mt-6 space-y-2 border-t border-primary-foreground/20 pt-5 text-sm">
+          <div className="flex items-center justify-between text-primary-foreground/85">
             <span>Subtotal</span>
             <span className="tabular-nums">{brl(subtotal)}</span>
           </div>
-          <div className="flex items-center justify-between text-secondary-foreground/75">
+          <div className="flex items-center justify-between text-primary-foreground/85">
             <span>Taxa de entrega</span>
-            <span className="tabular-nums">{taxa != null ? brl(taxa) : <span className="italic text-accent">a confirmar</span>}</span>
+            <span className="tabular-nums">{taxa != null ? brl(taxa) : <span className="italic text-primary-foreground/90">a confirmar</span>}</span>
           </div>
           <div className="flex items-end justify-between pt-3">
             <span className="font-display text-lg">Total</span>
-            <span className="font-display text-3xl font-bold tracking-tight text-accent tabular-nums">{brl(total)}</span>
+            <span className="font-display text-3xl font-bold tracking-tight text-primary-foreground tabular-nums">{brl(total)}</span>
           </div>
           {type === "entrega" && (
-            <p className="pt-1 text-[11px] leading-relaxed text-secondary-foreground/55">
+            <p className="pt-1 text-[11px] leading-relaxed text-primary-foreground/70">
               Valor final sujeito à confirmação do estabelecimento via WhatsApp.
             </p>
           )}
@@ -370,7 +369,7 @@ const CheckoutPage = () => {
         <button
           onClick={onSend}
           disabled={sending || (type === "entrega" && isLoadingHouseRef)}
-          className="mt-6 hidden w-full items-center justify-center gap-2 rounded-2xl bg-primary py-4 font-semibold text-primary-foreground shadow-glow transition-all hover:brightness-110 active:scale-[0.99] disabled:opacity-60 lg:flex"
+          className="mt-6 hidden w-full items-center justify-center gap-2 rounded-2xl bg-[#25D366] py-4 font-semibold text-white shadow-glow transition-all hover:brightness-110 active:scale-[0.99] disabled:opacity-60 lg:flex"
         >
           {sending ? <Loader2 className="size-5 animate-spin" /> : <MessageCircle className="size-5" />}
           {sending ? "Enviando…" : "Confirmar no WhatsApp"}
