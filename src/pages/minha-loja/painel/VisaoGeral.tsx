@@ -6,6 +6,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, ChefHat, LayoutDashboard, Pause, Plus, Receipt, Store, Tag, Truck, Warehouse } from "lucide-react";
+import type { Database } from "@/integrations/supabase/types";
+
+type OrderLite = Pick<Database["public"]["Tables"]["orders"]["Row"], "id" | "total" | "status" | "created_at">;
+type MarkLite = Pick<Database["public"]["Tables"]["order_financial_marks"]["Row"], "order_id" | "paid_status" | "amount_received">;
+type StockLite = Pick<Database["public"]["Tables"]["product_stock"]["Row"], "quantity" | "min_quantity">;
+type ProductLite = Pick<Database["public"]["Tables"]["products"]["Row"], "id" | "image" | "description">;
+type ReviewLite = Pick<Database["public"]["Tables"]["reviews"]["Row"], "id" | "rating" | "author" | "text" | "created_at">;
 
 function Stat({ label, value, hint, tone }: { label: string; value: string; hint?: string; tone?: "warn" | "ok" | "muted" }) {
   const cls = tone === "warn" ? "border-amber-300 bg-amber-50" :
@@ -29,7 +36,7 @@ export default function VisaoGeral() {
     estValue: 0, confValue: 0, lowStock: 0, missingPhoto: 0,
     missingEstabMedia: false,
   });
-  const [reviews, setReviews] = useState<any[]>([]);
+  const [reviews, setReviews] = useState<ReviewLite[]>([]);
 
   useEffect(() => {
     if (!ctx) return;
@@ -44,24 +51,24 @@ export default function VisaoGeral() {
         supabase.from("reviews").select("id,rating,author,text,created_at").eq("establishment_id", id).order("created_at", { ascending: false }).limit(3),
         supabase.from("establishments").select("logo,cover").eq("id", id).maybeSingle(),
       ]);
-      const marksMap: Record<string, any> = {};
-      (marks ?? []).forEach((m: any) => marksMap[m.order_id] = m);
+      const marksMap: Record<string, MarkLite> = {};
+      ((marks ?? []) as MarkLite[]).forEach((m) => { marksMap[m.order_id] = m; });
       let est = 0, conf = 0, awaiting = 0, confirmed = 0;
-      (orders ?? []).forEach((o: any) => {
-        est += Number(o.total);
+      ((orders ?? []) as OrderLite[]).forEach((o) => {
+        est += Number(o.total ?? 0);
         const m = marksMap[o.id];
-        if (m?.paid_status === "recebido") { conf += Number(m.amount_received ?? o.total); confirmed++; }
+        if (m?.paid_status === "recebido") { conf += Number(m.amount_received ?? o.total ?? 0); confirmed++; }
         else if (m?.paid_status !== "cancelado") awaiting++;
       });
       setStats({
         ordersToday: (orders ?? []).length,
         awaiting, confirmed,
         estValue: est, confValue: conf,
-        lowStock: (stock ?? []).filter((s: any) => s.quantity <= s.min_quantity).length,
-        missingPhoto: (prods ?? []).filter((p: any) => !p.image || !p.description).length,
+        lowStock: ((stock ?? []) as StockLite[]).filter((s) => Number(s.quantity ?? 0) <= Number(s.min_quantity ?? 0)).length,
+        missingPhoto: ((prods ?? []) as ProductLite[]).filter((p) => !p.image || !p.description).length,
         missingEstabMedia: !estab?.logo || !estab?.cover,
       });
-      setReviews(rv ?? []);
+      setReviews((rv ?? []) as ReviewLite[]);
     })();
   }, [ctx?.establishmentId]);
 

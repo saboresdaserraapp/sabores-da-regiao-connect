@@ -14,12 +14,12 @@ export default function PainelSuporteChat() {
 
   const handleOpen = async () => {
     try { await open.mutateAsync({ establishment_id: establishmentId ?? null }); }
-    catch (e: any) { toast.error(e?.message || "Não foi possível abrir o chat"); }
+    catch (e: unknown) { toast.error((e as Error)?.message || "Não foi possível abrir o chat"); }
   };
   const handleClose = async () => {
     if (!chat) return;
     try { await close.mutateAsync(chat.id); toast.success("Atendimento encerrado"); }
-    catch (e: any) { toast.error(e?.message || "Falha ao encerrar"); }
+    catch (e: unknown) { toast.error((e as Error)?.message || "Falha ao encerrar"); }
   };
 
   return (
