@@ -32,6 +32,18 @@ import { OrderShippingAddress } from "@/components/orders/details/OrderShippingA
 import { OrderPaymentMethod } from "@/components/orders/details/OrderPaymentMethod";
 import { reorderFromHistory } from "@/lib/reorder";
 
+type OrderItem = {
+  product_id?: string;
+  product_name_snapshot?: string;
+  unit_price_snapshot?: number;
+  quantity?: number;
+  item_note?: string;
+  selected_options_snapshot_json?: unknown;
+  [k: string]: unknown;
+};
+
+type StatusHistoryEntry = { status: string; at?: string };
+
 type OrderRow = {
   id: string;
   tracking_code: string | null;
@@ -39,7 +51,7 @@ type OrderRow = {
   establishment_id: string;
   user_id: string | null;
   created_at: string;
-  items: any[];
+  items: OrderItem[];
   subtotal: number | null;
   delivery_fee: number | null;
   total: number | null;
@@ -55,7 +67,7 @@ type OrderRow = {
   address_id: string | null;
   customer_name: string | null;
   customer_phone: string | null;
-  status_history: any;
+  status_history: StatusHistoryEntry[] | null;
   confirmation_flow_status: string | null;
   establishment?: {
     id: string;
@@ -101,8 +113,9 @@ export default function PedidoCliente({ orderId: orderIdProp }: { orderId?: stri
       setHelpOpen(false);
       toast.success("Ticket criado");
       navigate(`/minha-conta/suporte/tickets/${t.id}`);
-    } catch (e: any) {
-      toast.error(e?.message || "Falha ao abrir ticket");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Falha ao abrir ticket";
+      toast.error(msg);
     }
   };
 
@@ -126,7 +139,7 @@ export default function PedidoCliente({ orderId: orderIdProp }: { orderId?: stri
         } else if (!data) {
           setNotFound(true);
         } else {
-          setOrder(data as any);
+          setOrder(data as unknown as OrderRow);
         }
         setLoading(false);
       });
@@ -158,12 +171,13 @@ export default function PedidoCliente({ orderId: orderIdProp }: { orderId?: stri
         notes: order.notes,
         address_id: order.address_id,
         created_at: order.created_at,
-        establishment: order.establishment as any,
-      } as any);
+        establishment: order.establishment as never,
+      } as never);
       toast.success(`${result.added} itens adicionados ao carrinho`);
       navigate(`/loja/${result.slug}/checkout`);
-    } catch (e: any) {
-      toast.error(e?.message || "Não foi possível repetir o pedido.");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Não foi possível repetir o pedido.";
+      toast.error(msg);
     } finally {
       setReordering(false);
     }
