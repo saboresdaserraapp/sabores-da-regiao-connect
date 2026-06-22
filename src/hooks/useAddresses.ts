@@ -69,22 +69,24 @@ export function useAddressMutations() {
         }
       }
       if (addr.id) {
-        const { error } = await supabase.from("addresses").update(addr).eq("id", addr.id);
+        const { data, error } = await supabase.from("addresses").update(addr).eq("id", addr.id).select("*").maybeSingle();
         if (error) {
           toast.error(error.message);
           return false;
         }
         toast.success("Endereço atualizado");
+        await invalidate();
+        return data as Address;
       } else {
-        const { error } = await supabase.from("addresses").insert({ ...addr, user_id: user.id } as any);
+        const { data, error } = await supabase.from("addresses").insert({ ...addr, user_id: user.id } as any).select("*").maybeSingle();
         if (error) {
           toast.error(error.message);
           return false;
         }
         toast.success("Endereço adicionado");
+        await invalidate();
+        return data as Address;
       }
-      await invalidate();
-      return true;
     },
     async remove(id: string) {
       const { error } = await supabase.from("addresses").delete().eq("id", id);
