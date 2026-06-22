@@ -1,14 +1,17 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
+
+type OrderRow = Database["public"]["Tables"]["orders"]["Row"];
 
 export function useOrderTracking(trackingCode?: string) {
-  const [order, setOrder] = useState<any | null>(null);
+  const [order, setOrder] = useState<OrderRow | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchOrder = async () => {
     if (!trackingCode) return;
     const { data } = await supabase.rpc("get_order_by_tracking" as never, { _code: trackingCode } as never);
-    const row = Array.isArray(data) ? (data as any[])[0] : null;
+    const row = Array.isArray(data) ? ((data as unknown as OrderRow[])[0] ?? null) : null;
     setOrder(row ?? null);
     setLoading(false);
   };
@@ -19,8 +22,9 @@ export function useOrderTracking(trackingCode?: string) {
     if (!trackingCode) return;
     const ch = supabase
       .channel(`order-${trackingCode}`)
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "orders" }, (payload: any) => {
-        if (payload.new?.tracking_code === trackingCode) fetchOrder();
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "orders" }, (payload) => {
+        const next = payload.new as Partial<OrderRow> | null;
+        if (next?.tracking_code === trackingCode) fetchOrder();
       })
       .subscribe();
     const interval = setInterval(fetchOrder, 30000);
