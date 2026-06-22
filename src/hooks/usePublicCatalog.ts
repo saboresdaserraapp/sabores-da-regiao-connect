@@ -1,22 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
-import { createClient } from "@supabase/supabase-js";
+import { publicSupabase as publicCatalogClient } from "@/integrations/supabase/publicClient";
 import type { Establishment, Product, ProductWithEstablishment, CategoryKey, ServiceType } from "@/data/catalogTypes";
 import type { Database } from "@/integrations/supabase/types";
 
 type EstablishmentRow = Database["public"]["Tables"]["establishments"]["Row"];
 type ProductRow = Database["public"]["Tables"]["products"]["Row"];
-
-const publicCatalogClient = createClient<Database>(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-  {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-      detectSessionInUrl: false,
-    },
-  }
-);
 
 function mapEstab(row: EstablishmentRow): Establishment {
   return {
