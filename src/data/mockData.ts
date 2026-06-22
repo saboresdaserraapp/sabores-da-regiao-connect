@@ -1,71 +1,23 @@
-export type ServiceType = "entrega" | "retirada" | "local";
-export type CategoryKey =
-  | "pizzarias" | "lanches" | "restaurantes" | "marmitas" | "acai"
-  | "cafes" | "bares" | "doces" | "sorvetes" | "caseira" | "japonesa" | "petiscos";
-
-export interface ProductOption {
-  id: string;
-  name: string;
-  price: number;
-}
-export interface Product {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  promotional_price?: number;
-  promotion_label?: string;
-  image: string;
-  category: string;
-  featured?: boolean;
-  promo?: boolean;
-  popular?: boolean;
-  options?: ProductOption[];
-  removable?: string[];
-}
-export interface MenuCategory { id: string; name: string; }
-export interface Review {
-  id: string; author: string; rating: number; text: string; date: string;
-  photo?: string; reply?: string;
-}
-export interface Establishment {
-  id: string; slug: string; name: string; tagline?: string; description: string;
-  story?: string;
-  category: CategoryKey; categoryLabel: string;
-  cover: string; logo: string; gallery?: string[];
-  address: string; neighborhood: string; distanceKm: number;
-  openNow: boolean; hours: string; etaMin: number; rating: number; reviewsCount: number;
-  whatsapp: string;
-  services: ServiceType[];
-  payments: string[];
-  deliveryFee?: number | null;
-  badges: ("verificado" | "recomendado" | "turistas" | "promocao")[];
-  menuType: "essencial" | "exclusivo";
-  brandColor?: string;
-  menuCategories: MenuCategory[];
-  products: Product[];
-  reviews: Review[];
-}
-
-export const CATEGORIES: { key: CategoryKey; label: string; emoji: string }[] = [
-  { key: "pizzarias", label: "Pizzarias", emoji: "🍕" },
-  { key: "lanches", label: "Lanches", emoji: "🍔" },
-  { key: "restaurantes", label: "Restaurantes", emoji: "🍽️" },
-  { key: "marmitas", label: "Marmitas", emoji: "🍱" },
-  { key: "acai", label: "Açaí", emoji: "🍇" },
-  { key: "cafes", label: "Cafés", emoji: "☕" },
-  { key: "bares", label: "Bares", emoji: "🍻" },
-  { key: "doces", label: "Doces", emoji: "🧁" },
-  { key: "sorvetes", label: "Sorvetes", emoji: "🍦" },
-  { key: "caseira", label: "Comida caseira", emoji: "🥘" },
-  { key: "japonesa", label: "Japonesa", emoji: "🍣" },
-  { key: "petiscos", label: "Petiscos", emoji: "🍤" },
-];
+// NOTE: Types and CATEGORIES live in `./catalogTypes` and are re-exported here
+// for backwards compatibility. The ESTABLISHMENTS literal below is dev-only —
+// Vite tree-shakes it out of production bundles via `import.meta.env.DEV`.
+export type {
+  ServiceType,
+  CategoryKey,
+  ProductOption,
+  Product,
+  MenuCategory,
+  Review,
+  Establishment,
+  ProductWithEstablishment,
+} from "./catalogTypes";
+export { CATEGORIES } from "./catalogTypes";
+import type { Establishment, ProductWithEstablishment } from "./catalogTypes";
 
 const img = (q: string, w = 800) =>
   `https://images.unsplash.com/${q}?auto=format&fit=crop&w=${w}&q=70`;
 
-export const ESTABLISHMENTS: Establishment[] = [
+const DEV_ESTABLISHMENTS: Establishment[] = import.meta.env.DEV ? [
   {
     id: "1", slug: "forno-da-vila", name: "Forno da Vila",
     tagline: "Pizza de forno a lenha, do jeito da nonna",
@@ -236,14 +188,12 @@ export const ESTABLISHMENTS: Establishment[] = [
     ],
     reviews: [{ id: "zr1", author: "Diego F.", rating: 5, text: "Petisco generoso e cerveja no ponto.", date: "há 1 semana" }],
   },
-];
+] : [];
+
+export const ESTABLISHMENTS: Establishment[] = DEV_ESTABLISHMENTS;
 
 export const getEstablishment = (slug: string) =>
   ESTABLISHMENTS.find(e => e.slug === slug);
-
-export interface ProductWithEstablishment extends Product {
-  establishment: Establishment;
-}
 
 export const getAllProducts = (): ProductWithEstablishment[] =>
   ESTABLISHMENTS.flatMap(e =>

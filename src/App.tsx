@@ -20,7 +20,6 @@ const ResetPassword = lazy(() => import("./pages/ResetPassword.tsx"));
 
 // Checkout & customer area
 const Checkout = lazy(() => import("./pages/Checkout.tsx"));
-const Dashboard = lazy(() => import("./pages/Dashboard.tsx"));
 const MinhaConta = lazy(() => import("./pages/MinhaConta.tsx"));
 const SuporteCliente = lazy(() => import("./pages/SuporteCliente.tsx"));
 const SuporteChatCliente = lazy(() => import("./pages/SuporteChatCliente.tsx"));
@@ -163,7 +162,7 @@ const App = () => (
             <Route path="/loja/:slug" element={<Establishment />} />
             <Route path="/loja/:slug/checkout" element={<Checkout />} />
 
-            <Route path="/painel" element={<Dashboard />} />
+            <Route path="/painel" element={<Navigate to="/minha-loja" replace />} />
             <Route path="/login" element={<Login />} />
             <Route path="/cadastro" element={<Cadastro />} />
             <Route path="/recuperar-senha" element={<RecuperarSenha />} />
