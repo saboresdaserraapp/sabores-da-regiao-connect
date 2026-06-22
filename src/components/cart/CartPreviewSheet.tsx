@@ -73,7 +73,7 @@ export function CartPreviewSheet({ open, onOpenChange }: Props) {
   const handleCheckout = () => {
     if (!slug) return;
     onOpenChange(false);
-    navigate(`/checkout`);
+    navigate(`/loja/${slug}/checkout`);
   };
 
   const handleClear = () => {
