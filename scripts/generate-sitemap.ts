@@ -4,7 +4,7 @@
 import { writeFileSync } from "fs";
 import { resolve } from "path";
 
-const BASE_URL = "https://saboresapp.lovable.app";
+const BASE_URL = (process.env.VITE_PUBLIC_SITE_URL || "https://saboresapp.lovable.app").replace(/\/$/, "");
 
 interface SitemapEntry {
   path: string;
@@ -30,8 +30,9 @@ async function fetchEstablishmentSlugs(): Promise<SitemapEntry[]> {
     return [];
   }
   try {
+    // Only public, approved and active stores belong in the public sitemap.
     const res = await fetch(
-      `${url}/rest/v1/establishments?select=slug,updated_at&approval_status=eq.approved`,
+      `${url}/rest/v1/establishments?select=slug,updated_at&approval_status=eq.approved&is_public=eq.true&status=eq.ativo`,
       { headers: { apikey: key, Authorization: `Bearer ${key}` } },
     );
     if (!res.ok) {
