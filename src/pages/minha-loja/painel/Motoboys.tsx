@@ -134,14 +134,14 @@ export default function PainelMotoboys() {
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    const data = {
-      name: formData.get("name"),
-      whatsapp_phone: formData.get("whatsapp_phone"),
-      secondary_phone: formData.get("secondary_phone"),
-      driver_type: formData.get("driver_type"),
-      status: formData.get("status"),
-      notes: formData.get("notes"),
-      neighborhood_coverage: formData.get("neighborhood_coverage"),
+    const data: DriverForm = {
+      name: String(formData.get("name") ?? ""),
+      whatsapp_phone: String(formData.get("whatsapp_phone") ?? ""),
+      secondary_phone: String(formData.get("secondary_phone") ?? ""),
+      driver_type: String(formData.get("driver_type") ?? ""),
+      status: String(formData.get("status") ?? ""),
+      notes: String(formData.get("notes") ?? ""),
+      neighborhood_coverage: String(formData.get("neighborhood_coverage") ?? ""),
     };
     saveMutation.mutate(data);
   };
