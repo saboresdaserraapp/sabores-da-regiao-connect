@@ -1,10 +1,22 @@
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { createClient } from "@supabase/supabase-js";
 import type { Establishment, Product, ProductWithEstablishment, CategoryKey, ServiceType } from "@/data/catalogTypes";
 import type { Database } from "@/integrations/supabase/types";
 
 type EstablishmentRow = Database["public"]["Tables"]["establishments"]["Row"];
 type ProductRow = Database["public"]["Tables"]["products"]["Row"];
+
+const publicCatalogClient = createClient<Database>(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+  {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+  }
+);
 
 function mapEstab(row: EstablishmentRow): Establishment {
   return {
@@ -58,7 +70,7 @@ export function usePublicEstablishments() {
   return useQuery({
     queryKey: ["public-estabs"],
     queryFn: async (): Promise<Establishment[]> => {
-      const { data, error } = await supabase
+      const { data, error } = await publicCatalogClient
         .from("establishments")
         .select("*")
         .eq("approval_status", "approved")
@@ -77,7 +89,7 @@ export function usePublicProducts() {
   return useQuery({
     queryKey: ["public-products"],
     queryFn: async (): Promise<ProductWithEstablishment[]> => {
-      const { data: estabs, error: e1 } = await supabase
+      const { data: estabs, error: e1 } = await publicCatalogClient
         .from("establishments")
         .select("*")
         .eq("approval_status", "approved")
@@ -86,7 +98,7 @@ export function usePublicProducts() {
       if (e1) throw e1;
       const ids = (estabs ?? []).map((e) => e.id);
       if (!ids.length) return [];
-      const { data: prods, error: e2 } = await supabase
+      const { data: prods, error: e2 } = await publicCatalogClient
         .from("products")
         .select("*")
         .in("establishment_id", ids);
