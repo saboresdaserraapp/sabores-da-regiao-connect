@@ -693,7 +693,7 @@ const CheckoutPage = () => {
           onClick={onSend}
           disabled={sending || (type === "entrega" && isLoadingHouseRef)}
           title={type === "entrega" && isLoadingHouseRef ? "Carregando referências…" : undefined}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary py-4 font-semibold text-primary-foreground shadow-glow transition-all active:scale-[0.99] disabled:opacity-60"
+          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#25D366] py-4 font-semibold text-white shadow-glow transition-all active:scale-[0.99] disabled:opacity-60"
         >
           {sending ? <Loader2 className="size-5 animate-spin" /> : <MessageCircle className="size-5" />}
           {sending
