@@ -180,10 +180,10 @@ const App = () => (
             <Route path="/privacidade" element={<Privacidade />} />
             {IS_DEV && (
               <>
-                <Route path="/debug/catalogo" element={<Suspense fallback={null}><CatalogDebug /></Suspense>} />
-                <Route path="/debug/storage" element={<Suspense fallback={null}><StorageDebug /></Suspense>} />
-                <Route path="/teste-storage" element={<Suspense fallback={null}><TesteStorage /></Suspense>} />
-                <Route path="/debug/visual-fallback" element={<Suspense fallback={null}><VisualReferenceFallbackTest /></Suspense>} />
+                <Route path="/debug/catalogo" element={<CatalogDebug />} />
+                <Route path="/debug/storage" element={<StorageDebug />} />
+                <Route path="/teste-storage" element={<TesteStorage />} />
+                <Route path="/debug/visual-fallback" element={<VisualReferenceFallbackTest />} />
               </>
             )}
 
