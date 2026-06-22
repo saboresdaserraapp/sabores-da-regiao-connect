@@ -35,18 +35,16 @@ interface CartState {
   items: CartItem[];
 }
 
-let state: CartState = load();
-const listeners = new Set<() => void>();
-
 const STORAGE_KEY = "sdr_cart_v2";
 const LEGACY_KEY = "sdr_cart";
+
+let state: CartState = load();
+const listeners = new Set<() => void>();
 
 function load(): CartState {
   if (typeof localStorage === "undefined") return { establishmentId: null, establishmentSlug: null, items: [] };
   try {
     let data = localStorage.getItem(STORAGE_KEY);
-    (window as any).__CART_DEBUG = { stage: 'load_start', data };
-    console.warn("CART_LOAD_RAW " + (data ? data.length : 'null'));
     if (!data) {
       // Migra versão antiga (mesmo formato; só renomeia a chave).
       const legacy = localStorage.getItem(LEGACY_KEY);
@@ -58,15 +56,12 @@ function load(): CartState {
     }
     if (!data) return { establishmentId: null, establishmentSlug: null, items: [] };
     const parsed = JSON.parse(data) as Partial<CartState>;
-    const result = {
+    return {
       establishmentId: parsed.establishmentId ?? null,
       establishmentSlug: parsed.establishmentSlug ?? null,
       items: parsed.items ?? [],
     };
-    (window as any).__CART_DEBUG_RESULT = result;
-    console.warn("CART_LOAD_PARSED items=" + result.items.length);
-    return result;
-  } catch (err) { console.error("[cart.load] ERROR", err); (window as any).__CART_LOAD_ERR = String(err); return { establishmentId: null, establishmentSlug: null, items: [] }; }
+  } catch { return { establishmentId: null, establishmentSlug: null, items: [] }; }
 }
 function persist() {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch { /* noop */ }
