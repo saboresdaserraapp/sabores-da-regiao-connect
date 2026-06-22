@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, MessageCircle, Trash2, Plus, Minus, Truck, ShoppingBag, Utensils, AlertCircle, MapPin, Pencil, Image as ImageIcon, Video, Loader2 } from "lucide-react";
 import { cart, useCart } from "@/store/cart";
@@ -719,7 +719,7 @@ const CheckoutPage = () => {
   );
 };
 
-function SectionCard({ eyebrow, title, children, className }: { eyebrow?: string; title?: string; children: React.ReactNode; className?: string }) {
+function SectionCard({ eyebrow, title, children, className }: { eyebrow?: string; title?: string; children: ReactNode; className?: string }) {
   return (
     <section className={cn("rounded-3xl border border-border/60 bg-card p-5 shadow-card", className)}>
       {(eyebrow || title) && (
