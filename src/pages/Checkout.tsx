@@ -625,20 +625,26 @@ const CheckoutPage = () => {
         )}
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 p-4 backdrop-blur shadow-glow">
-        <button
-          onClick={onSend}
-          disabled={sending || (type === "entrega" && isLoadingHouseRef)}
-          title={type === "entrega" && isLoadingHouseRef ? "Carregando referências…" : undefined}
-          className="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-4 font-semibold text-primary-foreground shadow-glow disabled:opacity-60"
-        >
-          {sending ? <Loader2 className="size-5 animate-spin" /> : <MessageCircle className="size-5" />}
-          {sending
-            ? "Enviando…"
-            : type === "entrega" && isLoadingHouseRef
-            ? "Carregando referências…"
-            : "Enviar pedido para confirmação no WhatsApp"}
-        </button>
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border/60 bg-card/95 backdrop-blur shadow-glow">
+        <div className="container max-w-2xl px-4 py-3 space-y-2">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Total estimado</span>
+            <span className="font-display text-lg font-bold text-primary">{brl(total)}</span>
+          </div>
+          <button
+            onClick={onSend}
+            disabled={sending || (type === "entrega" && isLoadingHouseRef)}
+            title={type === "entrega" && isLoadingHouseRef ? "Carregando referências…" : undefined}
+            className="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3.5 text-sm font-semibold text-primary-foreground shadow-glow transition active:scale-[0.99] disabled:opacity-60"
+          >
+            {sending ? <Loader2 className="size-5 animate-spin" /> : <MessageCircle className="size-5" />}
+            {sending
+              ? "Enviando…"
+              : type === "entrega" && isLoadingHouseRef
+              ? "Carregando referências…"
+              : "Confirmar pelo WhatsApp"}
+          </button>
+        </div>
       </div>
 
       <Dialog open={!!editingAddress} onOpenChange={() => setEditingAddress(null)}>
