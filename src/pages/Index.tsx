@@ -173,7 +173,7 @@ const Index = () => {
         <section className="container py-8">
           <LoadingState variant="page" label="Carregando estabelecimentos..." />
         </section>
-      ) : estabsError ? (
+      ) : estabsError && establishments.length === 0 ? (
         <section className="container py-8">
           <ErrorState
             title="Não foi possível carregar a vitrine"
