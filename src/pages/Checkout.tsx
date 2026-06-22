@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { trackEvent } from "@/lib/track";
 import { supabase } from "@/integrations/supabase/client";
+import { publicSupabase } from "@/integrations/supabase/publicClient";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { useAddresses, useAddressMutations, type Address } from "@/hooks/useAddresses";
@@ -36,7 +37,7 @@ const CheckoutPage = () => {
     queryKey: ["establishment", slug],
     enabled: !!slug,
     queryFn: async () => {
-      const { data } = await supabase.from("establishments").select("*").eq("slug", slug!).maybeSingle();
+      const { data } = await publicSupabase.from("establishments").select("*").eq("slug", slug!).maybeSingle();
       return data;
     },
   });
