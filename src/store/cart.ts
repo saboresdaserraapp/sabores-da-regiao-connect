@@ -35,11 +35,11 @@ interface CartState {
   items: CartItem[];
 }
 
-let state: CartState = load();
-const listeners = new Set<() => void>();
-
 const STORAGE_KEY = "sdr_cart_v2";
 const LEGACY_KEY = "sdr_cart";
+
+let state: CartState = load();
+const listeners = new Set<() => void>();
 
 function load(): CartState {
   if (typeof localStorage === "undefined") return { establishmentId: null, establishmentSlug: null, items: [] };
