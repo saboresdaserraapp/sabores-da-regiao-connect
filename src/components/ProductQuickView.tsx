@@ -3,7 +3,7 @@ import { X, Plus, Minus, Flame } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { supabase } from "@/integrations/supabase/client";
+import { publicSupabase } from "@/integrations/supabase/publicClient";
 import { cart, useCart } from "@/store/cart";
 import { brl } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -56,12 +56,13 @@ export function ProductQuickView({ productId, establishmentId, establishmentSlug
     setProduct(null);
     setProductOptions([]);
     setQuantity(1);
-    supabase
+    publicSupabase
       .from("products")
       .select("*, product_option_groups(*, product_options(*)), product_images(*)")
       .eq("id", productId)
       .maybeSingle()
-      .then(({ data }) => {
+      .then(({ data, error }) => {
+        if (error) console.error("[ProductQuickView] load error", error);
         setProduct(data);
         setLoading(false);
       });
