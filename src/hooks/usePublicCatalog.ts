@@ -1,8 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Establishment, Product, ProductWithEstablishment, CategoryKey, ServiceType } from "@/data/catalogTypes";
+import type { Database } from "@/integrations/supabase/types";
 
-function mapEstab(row: any): Establishment {
+type EstablishmentRow = Database["public"]["Tables"]["establishments"]["Row"];
+type ProductRow = Database["public"]["Tables"]["products"]["Row"];
+
+function mapEstab(row: EstablishmentRow): Establishment {
   return {
     id: row.id,
     slug: row.slug,
@@ -36,7 +40,7 @@ function mapEstab(row: any): Establishment {
   };
 }
 
-function mapProduct(row: any): Product {
+function mapProduct(row: ProductRow): Product {
   return {
     id: row.id,
     name: row.name,
@@ -58,6 +62,8 @@ export function usePublicEstablishments() {
         .from("establishments")
         .select("*")
         .eq("approval_status", "approved")
+        .eq("is_public", true)
+        .eq("status", "ativo")
         .order("rating", { ascending: false });
       if (error) throw error;
       return (data ?? []).map(mapEstab);
@@ -73,7 +79,9 @@ export function usePublicProducts() {
       const { data: estabs, error: e1 } = await supabase
         .from("establishments")
         .select("*")
-        .eq("approval_status", "approved");
+        .eq("approval_status", "approved")
+        .eq("is_public", true)
+        .eq("status", "ativo");
       if (e1) throw e1;
       const ids = (estabs ?? []).map((e) => e.id);
       if (!ids.length) return [];
