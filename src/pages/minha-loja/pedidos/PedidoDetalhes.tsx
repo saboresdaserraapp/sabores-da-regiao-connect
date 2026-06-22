@@ -146,8 +146,8 @@ export default function PedidoDetalhesLoja({
       await confirmWithoutChange(order.id);
       toast.success("Pedido confirmado");
       queryClient.invalidateQueries({ queryKey: ["order-detail-loja", orderId] });
-    } catch (e: any) {
-      toast.error(e.message || "Erro");
+    } catch (e: unknown) {
+      toast.error((e as Error)?.message || "Erro");
     } finally { setBusyAction(false); }
   };
 
@@ -165,8 +165,8 @@ export default function PedidoDetalhesLoja({
       setWaOpen(false);
       setWaNote("");
       queryClient.invalidateQueries({ queryKey: ["order-detail-loja", orderId] });
-    } catch (e: any) {
-      toast.error(e.message || "Erro");
+    } catch (e: unknown) {
+      toast.error((e as Error)?.message || "Erro");
     } finally { setBusyAction(false); }
   };
 

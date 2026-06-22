@@ -1,7 +1,24 @@
 import { brl } from "@/lib/format";
 
+interface OrderItemOption {
+  name: string;
+  price?: number;
+}
+
+interface OrderItem {
+  product_name_snapshot?: string | null;
+  quantity?: number | null;
+  unit_price_snapshot?: number | null;
+  total_price?: number | null;
+  item_note?: string | null;
+  selected_options_snapshot_json?: {
+    options?: OrderItemOption[];
+    removed?: string[];
+  } | null;
+}
+
 interface Props {
-  items: any[];
+  items: OrderItem[];
 }
 
 export function OrderItemsList({ items }: Props) {
@@ -10,7 +27,7 @@ export function OrderItemsList({ items }: Props) {
   }
   return (
     <ul className="divide-y divide-border rounded-xl border border-border">
-      {items.map((i: any, idx: number) => {
+      {items.map((i, idx) => {
         const opts = i?.selected_options_snapshot_json?.options ?? [];
         const removed = i?.selected_options_snapshot_json?.removed ?? [];
         const qty = Number(i.quantity ?? 1);
@@ -25,7 +42,7 @@ export function OrderItemsList({ items }: Props) {
                 </div>
                 {opts.length > 0 && (
                   <div className="mt-1 text-xs text-muted-foreground">
-                    {opts.map((o: any) => o.name).join(", ")}
+                    {opts.map((o) => o.name).join(", ")}
                   </div>
                 )}
                 {removed.length > 0 && (
