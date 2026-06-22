@@ -711,7 +711,23 @@ const CheckoutPage = () => {
               <Field label="Rua" value={editingAddress?.street || ""} onChange={v => setEditingAddress({ ...editingAddress, street: v })} />
               <Field label="Bairro" value={editingAddress?.neighborhood || ""} onChange={v => setEditingAddress({ ...editingAddress, neighborhood: v })} />
            </div>
-            <Button onClick={async () => { const ok = await saveAddress(editingAddress as any); if (ok) setEditingAddress(null); }}>Salvar</Button>
+            <Button onClick={async () => {
+              const saved = await saveAddress(editingAddress as any);
+              if (saved && typeof saved === "object") {
+                setSelectedAddressId(saved.id);
+                setData((d) => ({
+                  ...d,
+                  street: saved.street,
+                  number: saved.number ?? "",
+                  neighborhood: saved.neighborhood ?? "",
+                  city: saved.city ?? "",
+                  complement: saved.complement ?? "",
+                  reference: saved.reference ?? "",
+                  zip: saved.zip ?? "",
+                }));
+                setEditingAddress(null);
+              }
+            }}>Salvar</Button>
         </DialogContent>
       </Dialog>
     </div>
