@@ -3,6 +3,7 @@ import { Link, useParams, useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { ArrowLeft, MapPin, Clock, Phone, Share2, Navigation, Star, ShoppingBag, MessageCircle, Loader2, Info, Plus, X, Minus, Flame, Ban, ChevronRight, ChevronLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { publicSupabase } from "@/integrations/supabase/publicClient";
 import { StatusBadge } from "@/components/StatusBadge";
 import { brl } from "@/lib/format";
 import { cart } from "@/store/cart";
@@ -116,7 +117,7 @@ export default function EstablishmentPage() {
   const { data: est, isLoading: loadingEstab } = useQuery({
     queryKey: ["establishment", slug],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await publicSupabase
         .from("establishments")
         .select("*")
         .eq("slug", slug)
@@ -135,8 +136,8 @@ export default function EstablishmentPage() {
     enabled: !!est?.id,
     queryFn: async () => {
       const [{ data: cats }, { data: products }] = await Promise.all([
-        supabase.from("menu_categories").select("*").eq("establishment_id", est!.id).order("position"),
-        supabase.from("products")
+        publicSupabase.from("menu_categories").select("*").eq("establishment_id", est!.id).order("position"),
+        publicSupabase.from("products")
           .select("*, product_option_groups(*, product_options(*)), product_images(*)")
           .eq("establishment_id", est!.id)
           .order("display_order", { ascending: true })
