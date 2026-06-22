@@ -590,7 +590,7 @@ const CheckoutPage = () => {
           );
         })()}
 
-        <section className="rounded-3xl bg-card p-4 shadow-card">
+        <section className="rounded-3xl border border-border/60 bg-card p-4 shadow-card lg:hidden">
           <Row label="Subtotal" value={brl(subtotal)} />
           <Row label="Taxa" value={taxa ? brl(taxa) : "a confirmar"} />
           <div className="my-2 border-t border-border" />
@@ -677,21 +677,31 @@ const CheckoutPage = () => {
             )}
           </section>
         )}
+          </div>
+
+          <aside className="lg:col-span-5 xl:col-span-4">
+            <div className="lg:sticky lg:top-24">{SummaryCard}</div>
+          </aside>
+        </div>
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 p-4 backdrop-blur shadow-glow">
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 p-3 backdrop-blur shadow-overlay safe-bottom lg:hidden">
+        <div className="mb-2 flex items-center justify-between px-1 text-xs">
+          <span className="text-muted-foreground">Total{type === "entrega" ? " estimado" : ""}</span>
+          <span className="font-display text-lg font-bold tabular-nums">{brl(total)}</span>
+        </div>
         <button
           onClick={onSend}
           disabled={sending || (type === "entrega" && isLoadingHouseRef)}
           title={type === "entrega" && isLoadingHouseRef ? "Carregando referências…" : undefined}
-          className="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-4 font-semibold text-primary-foreground shadow-glow disabled:opacity-60"
+          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary py-4 font-semibold text-primary-foreground shadow-glow transition-all active:scale-[0.99] disabled:opacity-60"
         >
           {sending ? <Loader2 className="size-5 animate-spin" /> : <MessageCircle className="size-5" />}
           {sending
             ? "Enviando…"
             : type === "entrega" && isLoadingHouseRef
             ? "Carregando referências…"
-            : "Enviar pedido para confirmação no WhatsApp"}
+            : "Confirmar no WhatsApp"}
         </button>
       </div>
 
@@ -709,11 +719,30 @@ const CheckoutPage = () => {
   );
 };
 
+function SectionCard({ eyebrow, title, children, className }: { eyebrow?: string; title?: string; children: React.ReactNode; className?: string }) {
+  return (
+    <section className={cn("rounded-3xl border border-border/60 bg-card p-5 shadow-card", className)}>
+      {(eyebrow || title) && (
+        <div className="mb-4">
+          {eyebrow && <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary/80">{eyebrow}</div>}
+          {title && <h2 className="mt-0.5 font-display text-lg font-semibold leading-tight">{title}</h2>}
+        </div>
+      )}
+      {children}
+    </section>
+  );
+}
+
 function Field({ label, value, onChange, placeholder }: any) {
   return (
     <div>
-      <label className="mb-1 block text-[10px] font-bold text-muted-foreground uppercase">{label}</label>
-      <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="w-full rounded-xl border border-border bg-background p-3 text-sm outline-none focus:border-primary" />
+      <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{label}</label>
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full rounded-xl border border-border bg-background/60 px-3.5 py-3 text-sm outline-none transition-all placeholder:text-muted-foreground/50 focus:border-primary focus:bg-background focus:ring-2 focus:ring-primary/20"
+      />
     </div>
   );
 }
