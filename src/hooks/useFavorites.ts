@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useId } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -9,16 +9,17 @@ export type FavoriteKind = "establishment" | "product";
 export function useFavorites() {
   const { user } = useAuth();
   const qc = useQueryClient();
+  const instanceId = useId();
   useEffect(() => {
     if (!user?.id) return;
     const channel = supabase
-      .channel(`favorites-${user.id}`)
+      .channel(`favorites-${user.id}-${instanceId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "favorites", filter: `user_id=eq.${user.id}` }, () => {
         qc.invalidateQueries({ queryKey: ["favorites", user.id] });
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [user?.id, qc]);
+  }, [user?.id, qc, instanceId]);
 
   return useQuery({
     queryKey: ["favorites", user?.id],
