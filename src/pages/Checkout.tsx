@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, MessageCircle, Trash2, Plus, Minus, Truck, ShoppingBag, Utensils, AlertCircle, MapPin, Pencil, Image as ImageIcon, Video, Loader2 } from "lucide-react";
+import { ArrowLeft, MessageCircle, Trash2, Plus, Minus, Truck, ShoppingBag, Utensils, AlertCircle, MapPin, Pencil, Image as ImageIcon, Video, Loader2, CheckCircle2, Copy, UserPlus, ExternalLink } from "lucide-react";
 import { cart, useCart } from "@/store/cart";
 import { brl } from "@/lib/format";
 import { buildWhatsappMessage, whatsappLink, type OrderType, type CheckoutData, type V2DeliveryMessageInfo } from "@/lib/whatsapp";
@@ -16,13 +16,26 @@ import { useHouseReference } from "@/hooks/useHouseReference";
 import { useDeliveryRegions, useDeliverySettings, type DeliveryRegion } from "@/hooks/useDeliverySettings";
 import { resolveDeliveryFeeWithDistance, matchRegionByName } from "@/lib/deliveryFee";
 import { INITIAL_ORDER_STATUS, whatsappSentTimestamps } from "@/lib/orderStatus";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useProfile } from "@/hooks/useProfile";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { consumeReorderPrefill } from "@/lib/reorder";
+
+type ConfirmationSnapshot = {
+  trackingCode: string;
+  items: { name: string; qty: number; total: number }[];
+  subtotal: number;
+  deliveryFee: number | null;
+  total: number;
+  type: OrderType;
+  payment?: string;
+  customerName: string;
+  establishmentSlug: string;
+  establishmentName: string;
+};
 
 const CheckoutPage = () => {
   const { slug } = useParams();
@@ -72,6 +85,12 @@ const CheckoutPage = () => {
   const [changeFor, setChangeFor] = useState("");
   const [prefill] = useState(() => consumeReorderPrefill());
   const [prefillApplied, setPrefillApplied] = useState(false);
+
+  // Confirmation + guest-prompt UX state
+  const [confirmation, setConfirmation] = useState<ConfirmationSnapshot | null>(null);
+  const [trackingCopied, setTrackingCopied] = useState(false);
+  const [showGuestPrompt, setShowGuestPrompt] = useState(false);
+  const [guestAcknowledged, setGuestAcknowledged] = useState(false);
 
   // Apply reorder prefill once — runs after addresses load so address_id can be honored.
   useEffect(() => {
@@ -176,6 +195,12 @@ const CheckoutPage = () => {
       if (!data.street || !data.number || !data.neighborhood) {
         toast.error("Preencha o endereço de entrega"); return;
       }
+    }
+    // Gentle nudge: visitors are allowed to finish the order, but we surface a
+    // friendly prompt with a "Criar conta" CTA before opening WhatsApp.
+    if (!user && !guestAcknowledged) {
+      setShowGuestPrompt(true);
+      return;
     }
     setSending(true);
 
@@ -336,12 +361,49 @@ const CheckoutPage = () => {
       await supabase.from("orders").update({ whatsapp_message: msg }).eq("id", insertedOrder.id);
     }
 
+    // Snapshot the cart BEFORE clearing it so the confirmation screen can
+    // show the order summary alongside the tracking code.
+    const snapshotItems = cartState.items.map((i) => ({
+      name: i.product.name,
+      qty: i.quantity,
+      total: i.unitPrice * i.quantity,
+    }));
+    const snapshot: ConfirmationSnapshot | null = trackingCode
+      ? {
+          trackingCode,
+          items: snapshotItems,
+          subtotal,
+          deliveryFee: taxa,
+          total,
+          type,
+          payment: data.payment,
+          customerName: data.name,
+          establishmentSlug: e.slug,
+          establishmentName: e.name,
+        }
+      : null;
+
     window.open(whatsappLink(e.whatsapp, msg), "_blank");
-    toast.success("Pedido enviado! Acompanhe o status aqui.");
+    toast.success("Pedido enviado! Confira seu código de rastreamento.");
     cart.clear();
-    if (trackingCode) navigate(`/pedido/${trackingCode}`, { replace: true });
-    else navigate(`/loja/${e.slug}`, { replace: true });
+    setSending(false);
+    if (snapshot) {
+      setConfirmation(snapshot);
+    } else {
+      navigate(`/loja/${e.slug}`, { replace: true });
+    }
   };
+
+  // After a successful send we render a dedicated confirmation screen with the
+  // tracking code + order summary, even though the cart is now empty.
+  if (confirmation) {
+    return <ConfirmationScreen confirmation={confirmation} onCopy={(v) => {
+      navigator.clipboard?.writeText(v).then(() => {
+        setTrackingCopied(true);
+        setTimeout(() => setTrackingCopied(false), 2000);
+      }).catch(() => {});
+    }} copied={trackingCopied} navigate={navigate} />;
+  }
 
   if (cartState.items.length === 0) {
     return (
@@ -764,6 +826,46 @@ const CheckoutPage = () => {
             }}>Salvar</Button>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={showGuestPrompt} onOpenChange={setShowGuestPrompt}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <div className="mx-auto mb-2 grid size-12 place-items-center rounded-full bg-primary/10 text-primary">
+              <UserPlus className="size-6" />
+            </div>
+            <DialogTitle className="text-center font-display text-xl">Criar conta para acompanhar?</DialogTitle>
+            <DialogDescription className="text-center">
+              Sem uma conta você ainda recebe o código de rastreamento, mas perde o histórico de pedidos, endereços salvos
+              e notificações sobre o andamento. Criar conta leva menos de 1 minuto.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-2 flex flex-col-reverse gap-2 sm:flex-row sm:justify-between sm:gap-3">
+            <Button
+              variant="ghost"
+              className="sm:w-1/2"
+              onClick={() => {
+                setShowGuestPrompt(false);
+                setGuestAcknowledged(true);
+                // Resume the send flow immediately as visitor.
+                setTimeout(() => onSend(), 0);
+              }}
+            >
+              Continuar como visitante
+            </Button>
+            <Button
+              className="sm:w-1/2"
+              onClick={() => {
+                const redirect = `/checkout/${e.slug}`;
+                setShowGuestPrompt(false);
+                navigate(`/cadastro?redirect=${encodeURIComponent(redirect)}`);
+              }}
+            >
+              <UserPlus className="mr-1.5 size-4" />
+              Criar conta
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
@@ -801,6 +903,119 @@ function Row({ label, value, strong }: any) {
     <div className={cn("flex items-center justify-between py-1 text-sm", strong && "font-bold text-lg")}>
       <span className="text-muted-foreground">{label}</span>
       <span>{value}</span>
+    </div>
+  );
+}
+
+function ConfirmationScreen({
+  confirmation,
+  onCopy,
+  copied,
+  navigate,
+}: {
+  confirmation: ConfirmationSnapshot;
+  onCopy: (v: string) => void;
+  copied: boolean;
+  navigate: ReturnType<typeof useNavigate>;
+}) {
+  const typeLabel =
+    confirmation.type === "entrega" ? "Entrega" : confirmation.type === "retirada" ? "Retirada" : "Consumo no local";
+  return (
+    <div className="min-h-screen bg-gradient-cream pb-16">
+      <div className="container max-w-xl pt-10">
+        <div className="rounded-3xl border border-border/60 bg-card p-6 shadow-card sm:p-8">
+          <div className="mb-5 flex flex-col items-center text-center">
+            <div className="grid size-14 place-items-center rounded-full bg-emerald-500/15 text-emerald-600">
+              <CheckCircle2 className="size-7" />
+            </div>
+            <h1 className="mt-4 font-display text-2xl font-semibold tracking-tight">Pedido enviado!</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Acompanhe o status pelo código abaixo enquanto {confirmation.establishmentName} confirma no WhatsApp.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-dashed border-primary/40 bg-primary/5 p-4">
+            <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary/80">
+              Código de rastreamento
+            </div>
+            <div className="mt-1 flex items-center justify-between gap-3">
+              <div className="font-mono text-2xl font-bold tracking-wider text-foreground">
+                {confirmation.trackingCode}
+              </div>
+              <button
+                onClick={() => onCopy(confirmation.trackingCode)}
+                className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-background px-3 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary/10"
+                aria-label="Copiar código de rastreamento"
+              >
+                <Copy className="size-3.5" />
+                {copied ? "Copiado" : "Copiar"}
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-6">
+            <h2 className="font-display text-base font-semibold tracking-tight">Resumo do pedido</h2>
+            <div className="mt-3 divide-y divide-border/70 rounded-2xl border border-border/60 bg-background/40">
+              {confirmation.items.map((it, idx) => (
+                <div key={idx} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
+                  <div className="min-w-0">
+                    <span className="mr-2 font-semibold text-foreground">{it.qty}×</span>
+                    <span className="truncate text-foreground/90">{it.name}</span>
+                  </div>
+                  <div className="shrink-0 font-display font-semibold tabular-nums">{brl(it.total)}</div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4 space-y-1.5 text-sm">
+              <div className="flex items-center justify-between text-muted-foreground">
+                <span>Subtotal</span>
+                <span className="tabular-nums">{brl(confirmation.subtotal)}</span>
+              </div>
+              <div className="flex items-center justify-between text-muted-foreground">
+                <span>Taxa de entrega</span>
+                <span className="tabular-nums">
+                  {confirmation.deliveryFee != null ? brl(confirmation.deliveryFee) : <em className="not-italic">a confirmar</em>}
+                </span>
+              </div>
+              <div className="flex items-center justify-between pt-2 font-display text-lg font-bold">
+                <span>Total</span>
+                <span className="tabular-nums">{brl(confirmation.total)}</span>
+              </div>
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-3 rounded-2xl bg-muted/50 p-3 text-xs">
+              <div>
+                <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Modalidade</div>
+                <div className="mt-0.5 font-medium text-foreground">{typeLabel}</div>
+              </div>
+              {confirmation.payment && (
+                <div>
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Pagamento</div>
+                  <div className="mt-0.5 font-medium capitalize text-foreground">{confirmation.payment}</div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="mt-6 flex flex-col gap-2.5 sm:flex-row">
+            <Button
+              onClick={() => navigate(`/pedido/${confirmation.trackingCode}`, { replace: true })}
+              className="w-full"
+            >
+              Ver acompanhamento
+              <ExternalLink className="ml-1.5 size-4" />
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => navigate(`/loja/${confirmation.establishmentSlug}`, { replace: true })}
+              className="w-full"
+            >
+              Voltar ao cardápio
+            </Button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
