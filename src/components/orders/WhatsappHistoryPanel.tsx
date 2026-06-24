@@ -1,6 +1,9 @@
-import { useEffect, useState } from "react";
-import { Smartphone, Loader2, ArrowUpRight } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Smartphone, Loader2, ArrowUpRight, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 
 type LogRow = {
   id: string;
@@ -23,6 +26,9 @@ export function WhatsappHistoryPanel({ orderId }: { orderId: string }) {
   const [rows, setRows] = useState<LogRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [codeFilter, setCodeFilter] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
 
   useEffect(() => {
     if (!orderId) return;
@@ -51,22 +57,69 @@ export function WhatsappHistoryPanel({ orderId }: { orderId: string }) {
     return () => { active = false; supabase.removeChannel(ch); };
   }, [orderId]);
 
+  const filtered = useMemo(() => {
+    const code = codeFilter.trim().toLowerCase();
+    const from = fromDate ? new Date(fromDate).getTime() : null;
+    // include the entire end-day
+    const to = toDate ? new Date(toDate).getTime() + 24 * 60 * 60 * 1000 - 1 : null;
+    return rows.filter((r) => {
+      if (code && !(r.tracking_code ?? "").toLowerCase().includes(code)) return false;
+      const ts = new Date(r.sent_at).getTime();
+      if (from != null && ts < from) return false;
+      if (to != null && ts > to) return false;
+      return true;
+    });
+  }, [rows, codeFilter, fromDate, toDate]);
+
+  const hasFilter = codeFilter || fromDate || toDate;
+  const clearFilters = () => { setCodeFilter(""); setFromDate(""); setToDate(""); };
+
   return (
     <section className="rounded-xl border p-5 bg-card">
       <h3 className="font-bold flex items-center gap-2 mb-3">
         <Smartphone className="size-4" /> Histórico de envios pelo WhatsApp
       </h3>
+      <div className="mb-3 grid gap-2 sm:grid-cols-[1fr,auto,auto,auto]">
+        <div>
+          <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            Tracking code
+          </Label>
+          <Input
+            value={codeFilter}
+            onChange={(e) => setCodeFilter(e.target.value)}
+            placeholder="SDS-..."
+            className="h-8 text-xs"
+          />
+        </div>
+        <div>
+          <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">De</Label>
+          <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="h-8 text-xs" />
+        </div>
+        <div>
+          <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Até</Label>
+          <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="h-8 text-xs" />
+        </div>
+        {hasFilter && (
+          <div className="flex items-end">
+            <Button type="button" variant="ghost" size="sm" onClick={clearFilters} className="h-8 px-2 text-xs">
+              <X className="mr-1 size-3" /> Limpar
+            </Button>
+          </div>
+        )}
+      </div>
       {loading ? (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="size-4 animate-spin" /> Carregando…
         </div>
-      ) : rows.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          Nenhum envio registrado para este pedido ainda.
+          {hasFilter
+            ? "Nenhum envio corresponde aos filtros."
+            : "Nenhum envio registrado para este pedido ainda."}
         </p>
       ) : (
         <ul className="divide-y divide-border/60">
-          {rows.map((r) => (
+          {filtered.map((r) => (
             <li key={r.id} className="py-2 text-sm">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
