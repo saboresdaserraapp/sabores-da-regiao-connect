@@ -5,6 +5,7 @@ import { useOrderTracking } from "@/hooks/useOrderTracking";
 import { useAuth } from "@/hooks/useAuth";
 import { SignupInviteDialog } from "@/components/SignupInviteDialog";
 import { trackUiEvent } from "@/lib/uiAnalytics";
+import { supabase } from "@/integrations/supabase/client";
 import { OrderStatusStepper } from "@/components/orders/OrderStatusStepper";
 import { OrderDetailsPanel } from "@/components/orders/OrderDetailsPanel";
 import { CustomerReferencesPanel } from "@/components/orders/CustomerReferencesPanel";
@@ -21,30 +22,62 @@ const PedidoTrackingPublic = () => {
 
   const inviteKey = order ? `sdr_signup_invite_shown:${order.tracking_code}` : null;
 
-  const persistDismiss = () => {
+  const persistDismiss = async (source: "shown" | "cta" | "dismiss") => {
     if (!inviteKey) return;
     try {
       localStorage.setItem(inviteKey, "1");
     } catch {
       /* noop */
     }
+    if (!order?.tracking_code) return;
+    try {
+      await supabase
+        .from("signup_invite_dismissals")
+        .insert({ tracking_code: order.tracking_code, source })
+        .select()
+        .maybeSingle();
+    } catch {
+      // unique violation or offline — safe to ignore, decision already recorded locally
+    }
   };
 
   useEffect(() => {
+    let cancelled = false;
     if (!order || user) return;
     if (order.status !== "delivered") return;
     const key = `sdr_signup_invite_shown:${order.tracking_code}`;
-    try {
-      if (localStorage.getItem(key)) return;
-      localStorage.setItem(key, "1");
-    } catch {
-      /* noop */
-    }
-    setInviteOpen(true);
-    trackUiEvent("signup_invite_shown", {
-      tracking_code: order.tracking_code,
-      establishment_id: order.establishment_id ?? null,
-    });
+    (async () => {
+      try {
+        if (localStorage.getItem(key)) return;
+      } catch {
+        /* noop */
+      }
+      // Check DB persistence across devices/browsers
+      try {
+        const { data } = await supabase
+          .from("signup_invite_dismissals")
+          .select("id")
+          .eq("tracking_code", order.tracking_code)
+          .maybeSingle();
+        if (data?.id) {
+          try { localStorage.setItem(key, "1"); } catch { /* noop */ }
+          return;
+        }
+      } catch {
+        /* if the DB check fails we still fall back to showing once */
+      }
+      if (cancelled) return;
+      try { localStorage.setItem(key, "1"); } catch { /* noop */ }
+      setInviteOpen(true);
+      trackUiEvent("signup_invite_shown", {
+        tracking_code: order.tracking_code,
+        establishment_id: order.establishment_id ?? null,
+      });
+      // Record "shown" so it never reappears on another device either
+      void persistDismiss("shown");
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [order, user]);
 
   if (loading) {
@@ -150,14 +183,14 @@ const PedidoTrackingPublic = () => {
           prefillPhone={order.customer_phone ?? null}
           trackingCode={order.tracking_code}
           onCtaClick={() => {
-            persistDismiss();
+            void persistDismiss("cta");
             trackUiEvent("signup_invite_cta_click", {
               tracking_code: order.tracking_code,
               establishment_id: order.establishment_id ?? null,
             });
           }}
           onDismiss={() => {
-            persistDismiss();
+            void persistDismiss("dismiss");
             trackUiEvent("signup_invite_dismissed", {
               tracking_code: order.tracking_code,
             });
