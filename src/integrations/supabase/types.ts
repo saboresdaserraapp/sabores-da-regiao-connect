@@ -83,6 +83,33 @@ export type Database = {
         }
         Relationships: []
       }
+      admin_convite_audit_logs: {
+        Row: {
+          action: string
+          admin_id: string
+          created_at: string
+          id: string
+          params: Json
+          result: Json
+        }
+        Insert: {
+          action: string
+          admin_id: string
+          created_at?: string
+          id?: string
+          params?: Json
+          result?: Json
+        }
+        Update: {
+          action?: string
+          admin_id?: string
+          created_at?: string
+          id?: string
+          params?: Json
+          result?: Json
+        }
+        Relationships: []
+      }
       announcement_recipients: {
         Row: {
           announcement_id: string
@@ -2324,6 +2351,57 @@ export type Database = {
         }
         Relationships: []
       }
+      signup_invite_export_jobs: {
+        Row: {
+          admin_id: string
+          created_at: string
+          csv_path: string | null
+          done: number
+          download_url: string | null
+          download_url_expires_at: string | null
+          error: string | null
+          filters: Json
+          finished_at: string | null
+          id: string
+          progress_pct: number
+          status: string
+          total: number
+          updated_at: string
+        }
+        Insert: {
+          admin_id: string
+          created_at?: string
+          csv_path?: string | null
+          done?: number
+          download_url?: string | null
+          download_url_expires_at?: string | null
+          error?: string | null
+          filters?: Json
+          finished_at?: string | null
+          id?: string
+          progress_pct?: number
+          status?: string
+          total?: number
+          updated_at?: string
+        }
+        Update: {
+          admin_id?: string
+          created_at?: string
+          csv_path?: string | null
+          done?: number
+          download_url?: string | null
+          download_url_expires_at?: string | null
+          error?: string | null
+          filters?: Json
+          finished_at?: string | null
+          id?: string
+          progress_pct?: number
+          status?: string
+          total?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       site_categories: {
         Row: {
           emoji: string | null
@@ -2918,6 +2996,26 @@ export type Database = {
       reject_order_proposal: {
         Args: { _note?: string; _proposal_id: string }
         Returns: Json
+      }
+      search_signup_invites: {
+        Args: {
+          _campaign?: string
+          _dir?: string
+          _end: string
+          _limit?: number
+          _offset?: number
+          _q?: string
+          _sort?: string
+          _start: string
+        }
+        Returns: {
+          campaign: string
+          dismissed_at: string
+          id: string
+          source: string
+          total_count: number
+          tracking_code: string
+        }[]
       }
       seed_initial_data: { Args: never; Returns: undefined }
       slugify: { Args: { _t: string }; Returns: string }
