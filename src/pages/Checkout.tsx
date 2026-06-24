@@ -91,7 +91,6 @@ const CheckoutPage = () => {
 
   // Confirmation + guest-prompt UX state
   const [confirmation, setConfirmation] = useState<ConfirmationSnapshot | null>(null);
-  const [trackingCopied, setTrackingCopied] = useState(false);
   const [showGuestPrompt, setShowGuestPrompt] = useState(false);
   const [guestAcknowledged, setGuestAcknowledged] = useState(false);
 
