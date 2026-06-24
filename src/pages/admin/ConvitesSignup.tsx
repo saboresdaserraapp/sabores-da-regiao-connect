@@ -41,10 +41,16 @@ import {
   ArrowUpDown,
   X,
 } from "lucide-react";
+import { logAdminConviteEvent } from "@/lib/adminAudit";
+import {
+  cancelExportJob,
+  startExportJob,
+  useExportJob,
+  type ExportJob,
+} from "@/hooks/useExportJob";
 
 const PAGE_SIZE = 200;
-const EXPORT_HARD_CAP = 50_000;
-const EXPORT_BATCH = 500;
+const ACTIVE_JOB_LS_KEY = "sdr_convite_csv_job_id";
 
 type Row = {
   id: string;
@@ -52,6 +58,7 @@ type Row = {
   dismissed_at: string;
   source: string | null;
   campaign: string;
+  total_count?: number;
 };
 
 type SortKey = "dismissed_at" | "tracking_code" | "source" | "campaign";
@@ -87,7 +94,6 @@ function defaultEnd() {
 export default function AdminConvitesSignup() {
   const [params, setParams] = useSearchParams();
 
-  // ---- URL-persisted filters ----------------------------------------------
   const start = params.get("start") || defaultStart();
   const end = params.get("end") || defaultEnd();
   const campaign = params.get("campaign") || "all";
@@ -112,19 +118,23 @@ export default function AdminConvitesSignup() {
     [setParams],
   );
 
-  // Keep a debounced copy of the quick-search string so typing isn't laggy.
+  // Debounced quick search so typing doesn't slam the URL or server.
   const [qLocal, setQLocal] = useState(q);
   useEffect(() => setQLocal(q), [q]);
   useEffect(() => {
     const id = setTimeout(() => {
       if (qLocal !== q) updateParams({ q: qLocal || null });
-    }, 200);
+    }, 250);
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [qLocal]);
 
-  const filters = useMemo(() => ({ start, end, campaign }), [start, end, campaign]);
+  const filters = useMemo(
+    () => ({ start, end, campaign, q, sort, dir }),
+    [start, end, campaign, q, sort, dir],
+  );
 
+  // ---- Server-side search via RPC -----------------------------------------
   const {
     data,
     isLoading,
@@ -138,52 +148,38 @@ export default function AdminConvitesSignup() {
     queryKey: ["admin", "signup-invites", filters],
     initialPageParam: 0,
     queryFn: async ({ pageParam }) => {
-      const from = (pageParam as number) * PAGE_SIZE;
-      const to = from + PAGE_SIZE - 1;
-      let qb = supabase
-        .from("signup_invite_dismissals")
-        .select("id, tracking_code, dismissed_at, source, campaign")
-        .gte("dismissed_at", isoDayStart(filters.start))
-        .lte("dismissed_at", isoDayEnd(filters.end))
-        .order("dismissed_at", { ascending: false })
-        .range(from, to);
-      if (filters.campaign !== "all") qb = qb.eq("campaign", filters.campaign);
-      const { data, error } = await qb;
+      const offset = pageParam as number;
+      const { data, error } = await supabase.rpc("search_signup_invites" as never, {
+        _start: isoDayStart(filters.start),
+        _end: isoDayEnd(filters.end),
+        _campaign: filters.campaign === "all" ? null : filters.campaign,
+        _q: filters.q ? filters.q : null,
+        _sort: filters.sort,
+        _dir: filters.dir,
+        _limit: PAGE_SIZE,
+        _offset: offset,
+      } as never);
       if (error) throw error;
-      return { rows: (data ?? []) as Row[], page: pageParam as number };
+      const rows = (data ?? []) as Row[];
+      const total = rows[0]?.total_count ?? 0;
+      return { rows, offset, total: Number(total) };
     },
-    getNextPageParam: (last) => (last.rows.length < PAGE_SIZE ? undefined : last.page + 1),
+    getNextPageParam: (last) => {
+      const loaded = last.offset + last.rows.length;
+      return loaded >= last.total ? undefined : loaded;
+    },
   });
 
-  const rawRows = useMemo(() => (data?.pages ?? []).flatMap((p) => p.rows), [data]);
+  const rows = useMemo(() => (data?.pages ?? []).flatMap((p) => p.rows), [data]);
+  const serverTotal = data?.pages?.[0]?.total ?? 0;
 
-  const filteredRows = useMemo(() => {
-    const needle = q.trim().toLowerCase();
-    if (!needle) return rawRows;
-    return rawRows.filter((r) =>
-      [r.tracking_code, r.source ?? "", r.campaign]
-        .some((s) => s.toLowerCase().includes(needle)),
-    );
-  }, [rawRows, q]);
-
-  const sortedRows = useMemo(() => {
-    const arr = [...filteredRows];
-    arr.sort((a, b) => {
-      const av = (a[sort] ?? "") as string;
-      const bv = (b[sort] ?? "") as string;
-      if (av === bv) return 0;
-      const cmp = av < bv ? -1 : 1;
-      return dir === "asc" ? cmp : -cmp;
-    });
-    return arr;
-  }, [filteredRows, sort, dir]);
-
+  // Aggregates use the loaded slice; backed by total_count for "unique" hint.
   const totals = useMemo(() => {
     const codes = new Set<string>();
     let shown = 0;
     let cta = 0;
     let dismiss = 0;
-    for (const r of filteredRows) {
+    for (const r of rows) {
       codes.add(r.tracking_code);
       if (r.source === "shown") shown += 1;
       else if (r.source === "cta") cta += 1;
@@ -192,7 +188,7 @@ export default function AdminConvitesSignup() {
     const ctr = shown ? (cta / shown) * 100 : 0;
     const dismissRate = shown ? (dismiss / shown) * 100 : 0;
     return { uniqueCodes: codes.size, shown, cta, dismiss, ctr, dismissRate };
-  }, [filteredRows]);
+  }, [rows]);
 
   function toggleSort(key: SortKey) {
     if (sort === key) {
@@ -202,164 +198,105 @@ export default function AdminConvitesSignup() {
     }
   }
 
-  // ---- Background CSV export with progress bar ----------------------------
-  const [exporting, setExporting] = useState(false);
-  const [exportPct, setExportPct] = useState(0);
-  const [exportDone, setExportDone] = useState(0);
-  const [exportTotal, setExportTotal] = useState(0);
-  const exportToastId = useRef<string | number | null>(null);
-  const cancelRef = useRef(false);
-
-  function renderProgressToast() {
-    const id = exportToastId.current;
-    if (id == null) return;
-    toast.custom(
-      () => (
-        <div className="w-[320px] rounded-lg border border-border/60 bg-card p-3 shadow-lg">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 text-sm font-medium">
-              <Loader2 className="size-4 animate-spin text-primary" />
-              Exportando CSV…
-            </div>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-6 px-2 text-xs"
-              onClick={() => {
-                cancelRef.current = true;
-              }}
-            >
-              Cancelar
-            </Button>
-          </div>
-          <Progress value={exportPct} className="h-2" />
-          <div className="mt-2 flex items-center justify-between text-[11px] text-muted-foreground">
-            <span>
-              {exportDone.toLocaleString("pt-BR")}
-              {exportTotal > 0 ? ` / ${exportTotal.toLocaleString("pt-BR")}` : ""}
-            </span>
-            <span>{exportPct}%</span>
-          </div>
-        </div>
-      ),
-      { id, duration: Infinity },
-    );
-  }
-
-  // Re-render the progress toast whenever its inputs change.
+  // ---- Audit logging ------------------------------------------------------
+  const loggedViewRef = useRef(false);
   useEffect(() => {
-    if (exporting) renderProgressToast();
+    if (loggedViewRef.current) return;
+    loggedViewRef.current = true;
+    void logAdminConviteEvent("view", filters);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [exporting, exportPct, exportDone, exportTotal]);
+  }, []);
 
-  async function exportCsv() {
-    if (exporting) return;
-    cancelRef.current = false;
-    setExporting(true);
-    setExportPct(0);
-    setExportDone(0);
-    setExportTotal(0);
-    exportToastId.current = `csv-export-${Date.now()}`;
-    renderProgressToast();
+  useEffect(() => {
+    // Skip the very first effect tick (covered by the view log).
+    if (!loggedViewRef.current) return;
+    const id = setTimeout(() => {
+      void logAdminConviteEvent("filter", filters);
+    }, 600);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [start, end, campaign, q, sort, dir]);
 
-    try {
-      // 1) Cheap count to drive the progress bar.
-      let countQ = supabase
-        .from("signup_invite_dismissals")
-        .select("id", { count: "exact", head: true })
-        .gte("dismissed_at", isoDayStart(filters.start))
-        .lte("dismissed_at", isoDayEnd(filters.end));
-      if (filters.campaign !== "all") countQ = countQ.eq("campaign", filters.campaign);
-      const { count, error: countErr } = await countQ;
-      if (countErr) throw countErr;
-      const total = Math.min(count ?? 0, EXPORT_HARD_CAP);
-      setExportTotal(total);
+  // ---- Persistent CSV export job ------------------------------------------
+  const initialJobId =
+    params.get("export_job") ||
+    (typeof window !== "undefined" ? window.localStorage.getItem(ACTIVE_JOB_LS_KEY) : null);
+  const [jobId, setJobId] = useState<string | null>(initialJobId);
+  const [starting, setStarting] = useState(false);
+  const { data: job } = useExportJob(jobId);
+  const downloadedRef = useRef<string | null>(null);
 
-      if (total === 0) {
-        toast.dismiss(exportToastId.current);
-        toast.info("Nenhum evento para exportar com os filtros atuais.");
-        return;
-      }
+  // Sync jobId to URL + localStorage.
+  useEffect(() => {
+    if (jobId) {
+      try { window.localStorage.setItem(ACTIVE_JOB_LS_KEY, jobId); } catch { /* noop */ }
+      if (params.get("export_job") !== jobId) updateParams({ export_job: jobId });
+    } else {
+      try { window.localStorage.removeItem(ACTIVE_JOB_LS_KEY); } catch { /* noop */ }
+      if (params.get("export_job")) updateParams({ export_job: null });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobId]);
 
-      // 2) Stream rows in batches, yielding to the UI between requests.
-      const all: Row[] = [];
-      let page = 0;
-      while (all.length < total) {
-        if (cancelRef.current) {
-          toast.dismiss(exportToastId.current);
-          toast.info("Exportação cancelada.");
-          return;
-        }
-        const from = page * EXPORT_BATCH;
-        const to = Math.min(from + EXPORT_BATCH - 1, total - 1);
-        let qb = supabase
-          .from("signup_invite_dismissals")
-          .select("id, tracking_code, dismissed_at, source, campaign")
-          .gte("dismissed_at", isoDayStart(filters.start))
-          .lte("dismissed_at", isoDayEnd(filters.end))
-          .order("dismissed_at", { ascending: false })
-          .range(from, to);
-        if (filters.campaign !== "all") qb = qb.eq("campaign", filters.campaign);
-        const { data, error } = await qb;
-        if (error) throw error;
-        const batch = (data ?? []) as Row[];
-        all.push(...batch);
-        page += 1;
-        const done = all.length;
-        setExportDone(done);
-        setExportPct(Math.min(100, Math.round((done / total) * 100)));
-        // Yield to the event loop so the UI stays responsive.
-        await new Promise((r) => setTimeout(r, 0));
-        if (batch.length < EXPORT_BATCH) break;
-      }
-
-      // 3) Build CSV and trigger download.
-      const header = ["tracking_code", "source", "campaign", "dismissed_at"];
-      const escape = (v: string) => `"${String(v).replace(/"/g, '""')}"`;
-      const body = all
-        .map((r) =>
-          [r.tracking_code, r.source ?? "", r.campaign, r.dismissed_at].map(escape).join(","),
-        )
-        .join("\n");
-      const csv = `${header.join(",")}\n${body}\n`;
-      const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const fname = `convites-cadastro_${filters.start}_a_${filters.end}${filters.campaign !== "all" ? `_${filters.campaign}` : ""}.csv`;
-
-      // Auto-download.
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = fname;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-
-      // Replace progress toast with a "ready" notification including manual link.
-      toast.dismiss(exportToastId.current);
-      toast.success(`CSV pronto — ${all.length.toLocaleString("pt-BR")} eventos.`, {
+  // Render or update the progress toast as the job advances.
+  useEffect(() => {
+    if (!jobId) return;
+    const toastId = `csv-export-${jobId}`;
+    if (!job) {
+      toast.loading("Preparando exportação…", { id: toastId, duration: Infinity });
+      return;
+    }
+    if (job.status === "queued" || job.status === "running") {
+      renderProgressToast(toastId, job, async () => {
+        try { await cancelExportJob(jobId); } catch { /* noop */ }
+      });
+      return;
+    }
+    // Terminal states
+    toast.dismiss(toastId);
+    if (job.status === "done" && job.download_url && downloadedRef.current !== jobId) {
+      downloadedRef.current = jobId;
+      const fname = `convites-cadastro_${filters.start}_a_${filters.end}${
+        filters.campaign !== "all" ? `_${filters.campaign}` : ""
+      }.csv`;
+      triggerDownload(job.download_url, fname);
+      toast.success(`CSV pronto — ${job.done.toLocaleString("pt-BR")} eventos.`, {
         description: fname,
-        duration: 8000,
+        duration: 10_000,
         action: {
           label: "Baixar de novo",
-          onClick: () => {
-            const a2 = document.createElement("a");
-            a2.href = url;
-            a2.download = fname;
-            document.body.appendChild(a2);
-            a2.click();
-            a2.remove();
-          },
+          onClick: () => triggerDownload(job.download_url!, fname),
         },
       });
-      // Revoke after a delay to keep the "Baixar de novo" link usable.
-      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      setJobId(null);
+    } else if (job.status === "canceled") {
+      toast.info("Exportação cancelada.");
+      setJobId(null);
+    } else if (job.status === "error") {
+      toast.error(job.error ?? "Falha na exportação CSV.");
+      setJobId(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [job, jobId]);
+
+  async function exportCsv() {
+    if (starting || jobId) return;
+    setStarting(true);
+    try {
+      const { job_id } = await startExportJob(filters);
+      setJobId(job_id);
+      toast.loading("Exportação iniciada — você pode continuar usando a tela.", {
+        id: `csv-export-${job_id}`,
+        duration: Infinity,
+      });
     } catch (e) {
-      if (exportToastId.current != null) toast.dismiss(exportToastId.current);
-      toast.error("Falha ao exportar CSV. Tente novamente.");
-      console.error(e);
+      console.error("[exportCsv]", e);
+      toast.error("Não conseguimos iniciar a exportação.");
+      void logAdminConviteEvent("export_error", filters, {
+        message: e instanceof Error ? e.message : String(e),
+      });
     } finally {
-      setExporting(false);
-      exportToastId.current = null;
+      setStarting(false);
     }
   }
 
@@ -372,9 +309,15 @@ export default function AdminConvitesSignup() {
             Eventos do popup pós-entrega: exibições, cliques no CTA e dispensas, por código de pedido.
           </p>
         </div>
-        <Button onClick={exportCsv} disabled={exporting || isLoading} variant="outline" className="gap-2">
-          {exporting ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
-          Exportar CSV
+        <Button
+          onClick={exportCsv}
+          disabled={starting || Boolean(jobId) || isLoading}
+          variant="outline"
+          className="gap-2"
+          aria-busy={starting || Boolean(jobId)}
+        >
+          {starting || jobId ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
+          {jobId ? "Exportando…" : "Exportar CSV"}
         </Button>
       </header>
 
@@ -385,23 +328,11 @@ export default function AdminConvitesSignup() {
         <CardContent className="grid gap-3 sm:grid-cols-4">
           <div className="space-y-1">
             <Label htmlFor="start">Desde</Label>
-            <Input
-              id="start"
-              type="date"
-              value={start}
-              max={end}
-              onChange={(e) => updateParams({ start: e.target.value })}
-            />
+            <Input id="start" type="date" value={start} max={end} onChange={(e) => updateParams({ start: e.target.value })} />
           </div>
           <div className="space-y-1">
             <Label htmlFor="end">Até</Label>
-            <Input
-              id="end"
-              type="date"
-              value={end}
-              min={start}
-              onChange={(e) => updateParams({ end: e.target.value })}
-            />
+            <Input id="end" type="date" value={end} min={start} onChange={(e) => updateParams({ end: e.target.value })} />
           </div>
           <div className="space-y-1 sm:col-span-2">
             <Label>Fonte</Label>
@@ -418,7 +349,7 @@ export default function AdminConvitesSignup() {
       </Card>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat icon={Mail} label="Pedidos únicos" value={totals.uniqueCodes} />
+        <Stat icon={Mail} label="Pedidos únicos (página)" value={totals.uniqueCodes} />
         <Stat icon={Eye} label="Exibições" value={totals.shown} />
         <Stat icon={MousePointerClick} label="Cliques no CTA" value={totals.cta} hint={`CTR ${totals.ctr.toFixed(1)}%`} />
         <Stat icon={XCircle} label="Dispensas" value={totals.dismiss} hint={`${totals.dismissRate.toFixed(1)}% das exibições`} />
@@ -428,11 +359,8 @@ export default function AdminConvitesSignup() {
         <CardHeader className="gap-3 pb-3">
           <CardTitle className="flex items-center justify-between text-sm font-semibold">
             <span>
-              Eventos recentes ({sortedRows.length.toLocaleString("pt-BR")}
-              {q && rawRows.length !== sortedRows.length
-                ? ` de ${rawRows.length.toLocaleString("pt-BR")}`
-                : ""}
-              )
+              Eventos ({rows.length.toLocaleString("pt-BR")}
+              {serverTotal > rows.length ? ` de ${serverTotal.toLocaleString("pt-BR")}` : ""})
             </span>
             {isFetching && !isFetchingNextPage && !isLoading && (
               <span className="inline-flex items-center gap-1 text-xs font-normal text-muted-foreground">
@@ -473,7 +401,7 @@ export default function AdminConvitesSignup() {
                 action={<Button size="sm" variant="outline" onClick={() => refetch()}>Tentar novamente</Button>}
               />
             </div>
-          ) : sortedRows.length === 0 ? (
+          ) : rows.length === 0 ? (
             <div className="p-6">
               <EmptyState
                 icon={Inbox}
@@ -494,7 +422,7 @@ export default function AdminConvitesSignup() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sortedRows.map((r) => {
+                {rows.map((r) => {
                   const meta = SOURCE_LABEL[r.source ?? ""] ?? {
                     label: r.source ?? "—",
                     icon: Eye,
@@ -544,13 +472,55 @@ export default function AdminConvitesSignup() {
   );
 }
 
+function renderProgressToast(
+  toastId: string,
+  job: ExportJob,
+  onCancel: () => void | Promise<void>,
+) {
+  toast.custom(
+    () => (
+      <div className="w-[320px] rounded-lg border border-border/60 bg-card p-3 shadow-lg">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <Loader2 className="size-4 animate-spin text-primary" />
+            Exportando CSV…
+          </div>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-6 px-2 text-xs"
+            onClick={() => { void onCancel(); }}
+          >
+            Cancelar
+          </Button>
+        </div>
+        <Progress value={job.progress_pct ?? 0} className="h-2" />
+        <div className="mt-2 flex items-center justify-between text-[11px] text-muted-foreground">
+          <span>
+            {(job.done ?? 0).toLocaleString("pt-BR")}
+            {job.total ? ` / ${job.total.toLocaleString("pt-BR")}` : ""}
+          </span>
+          <span>{job.progress_pct ?? 0}%</span>
+        </div>
+      </div>
+    ),
+    { id: toastId, duration: Infinity },
+  );
+}
+
+function triggerDownload(url: string, filename: string) {
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.target = "_blank";
+  a.rel = "noopener";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
 function SortableHead({
-  label,
-  col,
-  sort,
-  dir,
-  onSort,
-  align,
+  label, col, sort, dir, onSort, align,
 }: {
   label: string;
   col: SortKey;
@@ -579,10 +549,7 @@ function SortableHead({
 }
 
 function Stat({
-  icon: Icon,
-  label,
-  value,
-  hint,
+  icon: Icon, label, value, hint,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
