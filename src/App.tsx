@@ -66,6 +66,7 @@ const AdminPoliticasEntrega = lazy(() => import("./pages/admin/PoliticasEntrega.
 const AdminAprovacaoEstabelecimentos = lazy(() => import("./pages/admin/AprovacaoEstabelecimentos.tsx"));
 const AdminTickets = lazy(() => import("./pages/admin/Tickets.tsx"));
 const AdminSuporte = lazy(() => import("./pages/admin/Suporte.tsx"));
+const AdminConvitesSignup = lazy(() => import("./pages/admin/ConvitesSignup.tsx"));
 
 // Minha Loja — fully lazy
 const MinhaLojaDispatcher = lazy(() => import("./pages/minha-loja/Dispatcher.tsx"));
@@ -218,6 +219,7 @@ const App = () => (
                 <Route path="/admin/suporte" element={<Navigate to="/admin/suporte/chats" replace />} />
                 <Route path="/admin/suporte/chats" element={<AdminSuporte />} />
                 <Route path="/admin/suporte/chats/:chatId" element={<AdminSuporte />} />
+                <Route path="/admin/convites-cadastro" element={<AdminConvitesSignup />} />
               </Route>
             </Route>
 

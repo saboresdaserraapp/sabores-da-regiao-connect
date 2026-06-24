@@ -4,6 +4,7 @@ import {
   LayoutDashboard, Store, MessageSquare, Flag, Megaphone, Settings2, ShieldCheck,
   Users, FileClock, LogOut, Brain, FileText, BarChart3, Lock, Truck, ClipboardCheck,
   LifeBuoy, ShieldAlert,
+  UserPlus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -44,6 +45,7 @@ const NAV_GROUPS: NavGroup[] = [
       { to: "/admin/inteligencia", label: "Inteligência comercial", icon: Brain },
       { to: "/admin/relatorios", label: "Relatórios", icon: FileText },
       { to: "/admin/benchmark", label: "Benchmark", icon: BarChart3 },
+      { to: "/admin/convites-cadastro", label: "Convites de cadastro", icon: UserPlus },
     ],
   },
   {

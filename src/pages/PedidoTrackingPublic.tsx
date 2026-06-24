@@ -33,7 +33,11 @@ const PedidoTrackingPublic = () => {
     try {
       await supabase
         .from("signup_invite_dismissals")
-        .insert({ tracking_code: order.tracking_code, source })
+        .insert({
+          tracking_code: order.tracking_code,
+          source,
+          campaign: "post_delivery_invite",
+        })
         .select()
         .maybeSingle();
     } catch {
