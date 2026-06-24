@@ -24,6 +24,19 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { consumeReorderPrefill } from "@/lib/reorder";
 
+type ConfirmationSnapshot = {
+  trackingCode: string;
+  items: { name: string; qty: number; total: number }[];
+  subtotal: number;
+  deliveryFee: number | null;
+  total: number;
+  type: OrderType;
+  payment?: string;
+  customerName: string;
+  establishmentSlug: string;
+  establishmentName: string;
+};
+
 const CheckoutPage = () => {
   const { slug } = useParams();
   const navigate = useNavigate();
