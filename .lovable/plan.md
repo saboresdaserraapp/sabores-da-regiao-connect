@@ -1,72 +1,63 @@
-# Detalhes do Pedido — reformulação e correção de redirecionamento
+# Plano: Eliminar tela branca e blindar hooks/Cart
 
-## Diagnóstico
+Objetivo: tornar a home e o `CartFloatingButton` resilientes a falhas de hook/HMR/render, com diagnóstico claro quando `useAddresses` falhar, e validar o comportamento via Playwright.
 
-A rota `/pedido/:code` resolve o `tracking_code` em `PedidoTracking.tsx` e renderiza `PedidoCliente`. Hoje:
+## 1. Refatorar `useAddresses` para ordem estável de hooks
+- Mover `useId()` para o topo do hook, antes de qualquer `if/return`, e manter `useEffect` e `useQuery` sempre chamados (sem retornos condicionais).
+- Guard interno: `enabled: !!user?.id` no `useQuery` e early-return dentro do `useEffect` (não fora dos hooks).
+- Reusar a mesma assinatura de canal `addresses-${user.id}-${instanceId}` mas garantir cleanup idempotente (`removeChannel` em try/catch).
+- Tipar retorno como `{ data, isLoading, error }` direto do `useQuery` (sem mudanças de API para os consumers).
 
-- `PedidoTracking` redireciona para `/minha-conta?tab=pedidos` sempre que `resolved` vier `null`. Isso engole erros transitórios (RLS aquecendo, rede, race com `useAuth`) — o pedido existe e o usuário tem acesso, mas o usuário acaba caindo na lista. Esse é o motivo do bug relatado.
-- `PedidoCliente` é praticamente apenas um header + chat. Não mostra itens, endereço, pagamento, total detalhado nem histórico de status — apesar de o pedido ter todos esses dados em `orders` (`items` jsonb, `address_id`, `payment_method`, `status_history`, `final_*`, etc.).
+## 2. Logs e fallback em `useAddresses`
+- Em `queryFn`: `console.error("[useAddresses] query failed", { userId, error })` antes de re-lançar.
+- No `useEffect` do realtime: log de subscribe status (`SUBSCRIBED` / `CHANNEL_ERROR` / `TIMED_OUT`) com prefixo `[useAddresses:rt]`.
+- Expor `error` para consumers e exibir, no `CartFloatingButton`, um toast silencioso (apenas console) quando `addresses` falhar — sem quebrar render.
+- Mensagem de fallback: se `error` ocorrer, hook devolve `data: []` (via `?? []`) para o consumer continuar renderizando.
 
-## O que vamos fazer
+## 3. Refatorar `CartFloatingButton` para ordem estável
+- Garantir que TODOS os hooks (`useCart`, `useAuth`, `useState`, `useQuery`, `useDeliverySettings`, `useDeliveryRegions`, `useAddresses`, `useEffect`) sejam chamados incondicionalmente no topo, antes do `if (!enabled) return null`.
+- Hoje já estão no topo, mas vamos travar isso com um comentário `// keep hook order stable — do not early-return above`.
+- Envolver cálculo de `preview` em `try/catch` defensivo retornando `null` em erro, com `console.warn`.
 
-### 1. Tornar o redirecionamento seguro (`src/pages/PedidoTracking.tsx`)
-- Adicionar estado `resolveError` e capturar `error` do supabase.
-- Só redirecionar para `/minha-conta?tab=pedidos` quando a query terminar **com sucesso** e retornar `null` (pedido apagado / sem acesso).
-- Em caso de erro de rede/RLS, mostrar um `ErrorState` com botão "Tentar novamente" em vez de empurrar o usuário para fora.
-- Manter fallback para `PedidoTrackingPublic` quando não houver usuário logado.
+## 4. Error Boundary
+- Criar `src/components/ErrorBoundary.tsx` (class component) com:
+  - Props: `fallback?: ReactNode`, `name?: string` (para logs), `children`.
+  - `componentDidCatch`: `console.error("[ErrorBoundary:${name}]", error, info)`.
+  - Fallback default: card discreto "Algo deu errado nesta seção. Recarregue a página." com botão "Tentar novamente" que reseta o estado.
+- Envolver:
+  - `<Index />` no `src/App.tsx` (ou dentro do próprio `Index.tsx` na raiz do retorno) com fallback de página inteira.
+  - `<CartFloatingButton />` onde ele é montado (provavelmente `App.tsx`) com fallback `null` (some silenciosamente, sem derrubar a home).
 
-### 2. Página de Detalhes do Pedido (`src/pages/PedidoCliente.tsx` reescrito)
-Layout em container `max-w-3xl`, usando shadcn (`Card`, `Badge`, `Separator`, `Button`).
+## 5. Teste Playwright
+- Novo arquivo: `tests/e2e/home-blank-screen.spec.ts` (criar pasta `tests/e2e` + config mínima `playwright.config.ts` apontando para `http://localhost:8080`).
+- Cenários:
+  1. `goto('/')` → aguarda `domcontentloaded` → asserta `#root` tem `innerHTML.length > 5000` e contém texto "Descubra os sabores".
+  2. Hard reload (`page.reload({ waitUntil: 'networkidle' })`) → repete assertiva.
+  3. Adiciona item ao carrinho via `window.__cartTestHelper` (ou clica no primeiro `ProductCard` "Adicionar") → espera `[aria-label*="Abrir carrinho"]` ficar visível → asserta texto "Ver pedido".
+  4. Captura `page.on('pageerror')` e `console` errors; falha o teste se houver erro não-esperado.
+- Script npm: `"test:e2e": "playwright test"`.
+- NOTA: não rodaremos `playwright install` no projeto (pesa muito). O teste fica disponível para execução manual/CI; documentar no README do teste.
 
+## Detalhes técnicos
+
+### Arquivos a alterar/criar
 ```text
-┌─────────────────────────────────────────────┐
-│ ← Voltar para Meus Pedidos                  │
-│ Detalhes do Pedido                          │
-│ SDS-WTFH7G · 18/06/2026 17:53  [status]     │
-├─────────────────────────────────────────────┤
-│ OrderStatusTracker (stepper horizontal)     │
-├─────────────────────────────────────────────┤
-│ Resumo: subtotal, taxa, desconto, total     │
-├─────────────────────────────────────────────┤
-│ Itens (nome, qtd, opções, unit, subtotal)   │
-├─────────────────────────────────────────────┤
-│ Endereço de entrega                         │
-├─────────────────────────────────────────────┤
-│ Pagamento (método + status)                 │
-├─────────────────────────────────────────────┤
-│ Ações: Pedir de novo · WhatsApp · Ajuda     │
-├─────────────────────────────────────────────┤
-│ Mensagens do pedido (OrderChat — mantido)   │
-└─────────────────────────────────────────────┘
+src/hooks/useAddresses.ts          (refactor + logs)
+src/components/CartFloatingButton.tsx (try/catch defensivo + comentário)
+src/components/ErrorBoundary.tsx   (novo)
+src/App.tsx                        (envolver Index e CartFloatingButton)
+tests/e2e/home-blank-screen.spec.ts (novo)
+playwright.config.ts               (novo, mínimo)
+package.json                       (script test:e2e, devDep @playwright/test)
 ```
 
-Componentes novos em `src/components/orders/details/`:
-- `OrderDetailsHeader.tsx` — título, código, data, badge de status, botão "Voltar".
-- `OrderStatusTracker.tsx` — stepper baseado em `status_history` + `status` atual, usando `statusLabel`.
-- `OrderSummary.tsx` — subtotal, taxa de entrega, desconto, taxa extra, total final (prefere `final_*`, cai para `subtotal`/`delivery_fee`/`total`).
-- `OrderItemsList.tsx` — itera `items` jsonb (nome, qtd, opções, observação, unit, subtotal).
-- `OrderShippingAddress.tsx` — busca por `address_id` (`useAddresses` já existe; usar query direta na tabela `addresses` para um endereço único).
-- `OrderPaymentMethod.tsx` — `payment_method` / `payment_method_intent` + `payment_status` (badge).
+### Compatibilidade
+- API pública de `useAddresses` permanece `{ data, isLoading, error, ... }`. Nenhum consumer precisa mudar.
+- `ErrorBoundary` é puramente aditivo.
 
-### 3. Query única
-`PedidoCliente` passa a buscar todas as colunas necessárias (`items, subtotal, delivery_fee, total, final_*, payment_method, payment_method_intent, payment_status, status_history, address_id, notes`) + join `establishment(name,logo,whatsapp)` + join opcional `address:addresses(*)`. Em erro, `ErrorState` com retry; em not-found definitivo (`data === null`), aí sim `Navigate` para a aba de pedidos.
+### Fora do escopo
+- Não mexer em `useFavorites` (já corrigido na rodada anterior).
+- Não tocar em RLS/migrations.
+- Não alterar lógica de cálculo de frete.
 
-### 4. Reaproveitamento
-- "Pedir de novo" usa `lib/reorder.ts` existente.
-- WhatsApp usa `lib/whatsapp.ts`.
-- Ajuda / Ticket / Chat com a loja: mantidos como já estão.
-
-## Arquivos afetados
-- `src/pages/PedidoTracking.tsx` (correção do redirect)
-- `src/pages/PedidoCliente.tsx` (reescrito para a nova página)
-- `src/components/orders/details/OrderDetailsHeader.tsx` (novo)
-- `src/components/orders/details/OrderStatusTracker.tsx` (novo)
-- `src/components/orders/details/OrderSummary.tsx` (novo)
-- `src/components/orders/details/OrderItemsList.tsx` (novo)
-- `src/components/orders/details/OrderShippingAddress.tsx` (novo)
-- `src/components/orders/details/OrderPaymentMethod.tsx` (novo)
-
-## Fora de escopo
-- Alterar a página da loja (`PedidoDetalhesLoja`) — segue como está.
-- Editar fluxos de Checkout / criação de pedido (o redirecionamento pós-finalização já aponta para `/pedido/:code` via tracking_code; ele passará a funcionar automaticamente quando o item 1 for corrigido).
-- Cupom / desconto reais no resumo.
+Pronto para implementar quando você aprovar.

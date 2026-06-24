@@ -103,6 +103,7 @@ import { CartFloatingButton } from "./components/CartFloatingButton";
 import { SupportChatWidget } from "./components/support/SupportChatWidget";
 import { PendingProposalDialog } from "./components/PendingProposalDialog";
 import { useAuth } from "@/hooks/useAuth";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 
 const queryClient = new QueryClient();
 
@@ -124,7 +125,11 @@ function GlobalCartButton() {
     /^\/e\//.test(pathname) ||
     /^\/categoria(\/|$)/.test(pathname);
   if (!allowed) return null;
-  return <CartFloatingButton />;
+  return (
+    <ErrorBoundary name="CartFloatingButton" fallback={null}>
+      <CartFloatingButton />
+    </ErrorBoundary>
+  );
 }
 
 function GlobalSupportWidget() {
@@ -155,7 +160,7 @@ const App = () => (
         <AuthProvider>
           <Suspense fallback={<RouteFallback />}>
           <Routes>
-            <Route path="/" element={<Index />} />
+            <Route path="/" element={<ErrorBoundary name="HomeIndex"><Index /></ErrorBoundary>} />
             <Route path="/loja" element={<Loja />} />
             <Route path="/e/:slug" element={<EstablishmentRedirect />} />
             <Route path="/e/:slug/checkout" element={<EstablishmentRedirect checkout />} />
