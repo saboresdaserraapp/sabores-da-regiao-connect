@@ -1,88 +1,38 @@
-Quatro frentes, encadeadas por dependência (migrations primeiro, depois código, depois testes).
+## Auditoria rápida
 
-## 1. Banco — auditoria + job persistente de exportação
+| Demanda | Situação atual | Ação |
+|---|---|---|
+| Snapshot do carrinho (itens, subtotal, taxa, total) salvo junto com `tracking_code` | **Já existe.** A tabela `orders` salva `items` (jsonb com `product_name_snapshot`, `quantity`, `unit_price_snapshot`, `selected_options_snapshot_json`, `total_price`), `subtotal`, `delivery_fee`, `total`, `tracking_code` e `status_history`. A RPC `get_order_by_tracking` já devolve tudo isso para a tela de acompanhamento. | **Nenhuma** mudança de schema. Só ajustar a UI (item 4). |
+| Rota `/pedido/{code}` para status + histórico | **Já existe.** `App.tsx` registra `<Route path="/pedido/:code" element={<PedidoTracking />} />` que distribui entre `PedidoTrackingPublic` (visitante), `PedidoCliente` (dono do pedido) e `PedidoDetalhesLoja` (estabelecimento). `PedidoTrackingPublic` já mostra `OrderStatusStepper`, resposta da loja, total, itens e atualiza em tempo real via canal Realtime + polling 30s. | **Nenhuma** mudança. Pode receber pequenos polimentos no item 4. |
+| Botão copiar/compartilhar link em `/checkout` (tela de confirmação) | Parcial: o `ConfirmationScreen` recém-criado tem "Copiar" do **código**, mas não do **link** `/pedido/{code}`, e não usa `navigator.share`. | **Ajustar** — adicionar botão "Copiar link" e botão "Compartilhar" (Web Share API com fallback para copiar). |
+| Botão reenviar WhatsApp na tela de confirmação | **Não existe.** O `ConfirmationScreen` não guarda a mensagem nem o WhatsApp do estabelecimento. | **Adicionar** — incluir `whatsapp` e `whatsappMessage` no snapshot e renderizar botão "Reenviar pelo WhatsApp". |
 
-Migration única adicionando:
+## O que muda — só frontend
 
-- `admin_convite_audit_logs` — registra cada `view` / `filter` / `export_*` em `/admin/convites-cadastro`.
-  Colunas: `admin_id uuid`, `action text` (`view|filter|export_start|export_success|export_cancel|export_error`), `params jsonb`, `result jsonb`, `created_at`.
-  RLS: só admin (via `is_admin(auth.uid())`) pode `SELECT/INSERT`. `GRANT` para `authenticated` + `service_role`. Sem `anon`.
+### `src/pages/Checkout.tsx`
 
-- `signup_invite_export_jobs` — job persistente do CSV.
-  Colunas: `admin_id`, `status` (`queued|running|done|error|canceled`), `filters jsonb` (start, end, campaign, q, sort, dir), `total int`, `done int`, `progress_pct int`, `csv_path text` (caminho no Storage), `download_url text`, `error text`, `finished_at`, `created_at`, `updated_at`.
-  Trigger `updated_at`. RLS: dono (`admin_id = auth.uid()`) ou admin pode ver/atualizar; insert por admin. `GRANT` para `authenticated` + `service_role`.
+1. Estender o tipo `ConfirmationSnapshot`:
+   - `whatsapp: string` (do estabelecimento)
+   - `whatsappMessage: string` (a `msg` já construída via `buildWhatsappMessage`)
+   - `trackingUrl: string` (montada com `${window.location.origin}/pedido/${trackingCode}`)
+2. Preencher esses três campos no objeto `snapshot` antes do `setConfirmation`.
+3. Em `ConfirmationScreen`:
+   - Adicionar dois botões abaixo do bloco do código: **Copiar link** (usa `navigator.clipboard.writeText(trackingUrl)`) e **Compartilhar** (tenta `navigator.share({ title, text, url })` e cai para copiar quando indisponível). Reaproveitar o estado `trackingCopied` e adicionar `linkCopied`.
+   - Adicionar um botão `Reenviar pelo WhatsApp` (verde, ícone `MessageCircle`) acima de "Ver acompanhamento", que chama `window.open(whatsappLink(whatsapp, whatsappMessage), "_blank")`.
+4. Pequeno polimento: incluir o `trackingUrl` em um campo `aria-label`/`title` para acessibilidade do botão de copiar link.
 
-- Bucket privado `signup-invite-exports` (Storage). Policy: apenas admins leem/escrevem objetos.
+### Nada a tocar
+- Migração de banco: **não precisa**, snapshot já persiste em `orders.items` + colunas de totais.
+- Rota `/pedido/:code`: **não precisa**, já existe e já consome o snapshot via RPC `get_order_by_tracking`.
+- `PedidoTrackingPublic`, `PedidoCliente`, `useOrderTracking`: **não precisam** de mudança para atender as 4 demandas.
 
-- Função RPC `search_signup_invites(_start, _end, _campaign, _q, _sort, _dir, _limit, _offset)` → `SETOF` com `tracking_code, source, campaign, dismissed_at`. Faz busca/ordenação server-side por `tracking_code` (futuro: dá pra fazer join com `orders` para email/telefone). `SECURITY DEFINER`, restrita a `is_admin`. Devolve também `total` via segunda função `count_signup_invites(...)`.
+## Detalhes técnicos
 
-## 2. Edge functions — job runner + status
+- `whatsappLink` e `buildWhatsappMessage` já estão importados em `Checkout.tsx`. Vou apenas guardar a `msg` resultante (linha 333) em uma variável já existente e referenciá-la no snapshot.
+- Web Share API: detectar via `if (typeof navigator !== "undefined" && "share" in navigator)`. Fallback para clipboard com toast informativo.
+- Reenviar: como a `msg` é a mesma já enviada e o `tracking_code` é o mesmo, não há gravação adicional no banco — apenas abre `wa.me` de novo.
+- Sem novos componentes ou arquivos. Sem mudanças em RLS, RPC, hooks ou rotas.
 
-- `supabase/functions/signup-invite-export-start/index.ts`
-  - Verifica JWT + `is_admin`.
-  - Insere job `queued` com filtros validados via Zod.
-  - Dispara processamento em background com `EdgeRuntime.waitUntil`: pagina via RPC `search_signup_invites`, monta CSV em memória (até cap), envia ao Storage e atualiza `progress_pct`/`done` a cada lote. No fim assina URL (`createSignedUrl`, 1h) e marca `done`.
-  - Retorna `{ job_id }` imediatamente.
-  - Loga em `admin_convite_audit_logs` (`export_start`).
-
-- `supabase/functions/signup-invite-export-status/index.ts`
-  - GET `?job_id=...` → retorna `status, progress_pct, done, total, download_url, error`.
-  - Admin-only; só dono do job ou admin global.
-
-- `supabase/functions/signup-invite-export-cancel/index.ts`
-  - Marca `canceled`; runner checa flag entre lotes.
-
-## 3. Frontend — `/admin/convites-cadastro`
-
-- Trocar fetch direto da tabela por **RPC `search_signup_invites`** dentro de `useInfiniteQuery`. `queryKey` agora inclui `q`, `sort`, `dir`. Remove sort/filter client-side (mantém só o agregado de `totals`).
-- Busca rápida: input continua com debounce 200ms, mas agora dispara refetch via query key (`q` vai pro servidor).
-- Ordenação: `toggleSort` continua igual; `sort/dir` viram parte do queryKey.
-- CSV: substituir export inline por fluxo de job:
-  - botão → chama `signup-invite-export-start` com filtros atuais → salva `job_id` em `localStorage` (`sdr_csv_export_job`) e `URL` (?export_job=...).
-  - hook `useExportJob(jobId)` faz polling a cada 1.2s do `signup-invite-export-status` (`react-query` com `refetchInterval`).
-  - mostra mesmo toast com `<Progress>` (agora alimentado pelo server) + botão Cancelar.
-  - Quando `status=done`, exibe toast persistente com botão "Baixar CSV" usando `download_url`. Sobrevive ao refresh porque `job_id` está em localStorage; ao montar a página, se houver job ativo, retoma polling.
-- Auditoria client-side: chamar uma função util `logAdminEvent('view'|'filter'|'export_*', params)` que faz `insert` na tabela `admin_convite_audit_logs`. Dispara:
-  - `view` no mount;
-  - `filter` num `useEffect` sobre filtros (debounce 500ms) com payload `{start,end,campaign,q,sort,dir}`;
-  - `export_start/success/cancel/error` (também registrados server-side pelas functions; o client só registra a intenção de UI).
-
-## 4. Testes
-
-- **Unit (Vitest + Testing Library)** — `src/pages/__tests__/Cadastro.test.tsx`
-  - Mock `supabase.auth.signUp` para `reject` (erro de rede). Renderiza `<Cadastro />` envolto em router, preenche form, dispara click rápido 5× no botão "Criar conta". Asserta:
-    - `signUp` chamado **exatamente 1 vez** (ref guard impede o resto).
-    - Botão entra em `aria-busy="true"` e fica `disabled` até o catch.
-    - Toast de "Sem conexão" exibido.
-- **Unit** — `src/pages/admin/__tests__/ConvitesSignup.searchParams.test.tsx`
-  - Renderiza dentro de `MemoryRouter` com URL inicial `?start=2026-06-01&end=2026-06-10&campaign=post_delivery_invite&q=SDS&sort=tracking_code&dir=asc`.
-  - Mocka RPC para retornar []. Asserta:
-    - Inputs de data refletem os valores.
-    - Select de campanha mostra "Pós-entrega".
-    - Input de busca tem valor "SDS".
-    - Cabeçalho `Pedido` tem `aria-sort="ascending"`.
-- **E2E (Playwright via shell)** — `tests/e2e/admin-convites-url-state.spec.ts`
-  - Restaura sessão admin (LOVABLE_BROWSER_SUPABASE_*), abre `/admin/convites-cadastro?...todos os params...`, valida estado inicial. Altera filtro → confirma URL atualiza. Recarrega → confirma estado preservado.
-
-## Detalhes técnicos relevantes
-
-- `useInfiniteQuery` continua, mas com `pageParam = offset` e `getNextPageParam = (last) => last.length < PAGE_SIZE ? undefined : nextOffset`. RPC retorna lista direta.
-- `searchParams` do React Router já é fonte da verdade; debounce de `q` mantém URL "rasa" (replace).
-- Logs de auditoria: tabela leve, sem PII além de `admin_id`; `params` armazena exatamente o que foi enviado.
-- Job runner usa `EdgeRuntime.waitUntil` (Deno) para tarefa em background; checa cancelamento a cada lote e respeita `EXPORT_HARD_CAP=50000`.
-- Storage signed URL com 1h é suficiente; se expirar, o status endpoint reassina sob demanda.
-
-## Arquivos previstos
-
-- `supabase/migrations/<ts>_signup_invite_audit_and_jobs.sql`
-- `supabase/functions/signup-invite-export-start/index.ts`
-- `supabase/functions/signup-invite-export-status/index.ts`
-- `supabase/functions/signup-invite-export-cancel/index.ts`
-- `src/lib/adminAudit.ts` (helper)
-- `src/hooks/useExportJob.ts`
-- `src/pages/admin/ConvitesSignup.tsx` (refactor)
-- `src/pages/__tests__/Cadastro.test.tsx`
-- `src/pages/admin/__tests__/ConvitesSignup.searchParams.test.tsx`
-- `tests/e2e/admin-convites-url-state.spec.ts`
-
-Confirma para eu seguir?
+## Fora de escopo
+- Persistir `whatsapp_message` editada para reenvio: a coluna `orders.whatsapp_message` já é atualizada após o primeiro envio; reusamos a `msg` em memória, evitando uma leitura extra.
+- Encurtador de URL: não é necessário — `wa.me` aceita o link inteiro do tracking.

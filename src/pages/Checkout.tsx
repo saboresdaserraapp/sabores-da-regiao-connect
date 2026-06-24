@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, MessageCircle, Trash2, Plus, Minus, Truck, ShoppingBag, Utensils, AlertCircle, MapPin, Pencil, Image as ImageIcon, Video, Loader2, CheckCircle2, Copy, UserPlus, ExternalLink } from "lucide-react";
+import { ArrowLeft, MessageCircle, Trash2, Plus, Minus, Truck, ShoppingBag, Utensils, AlertCircle, MapPin, Pencil, Image as ImageIcon, Video, Loader2, CheckCircle2, Copy, UserPlus, ExternalLink, Link2, Share2 } from "lucide-react";
 import { cart, useCart } from "@/store/cart";
 import { brl } from "@/lib/format";
 import { buildWhatsappMessage, whatsappLink, type OrderType, type CheckoutData, type V2DeliveryMessageInfo } from "@/lib/whatsapp";
@@ -35,6 +35,9 @@ type ConfirmationSnapshot = {
   customerName: string;
   establishmentSlug: string;
   establishmentName: string;
+  whatsapp: string;
+  whatsappMessage: string;
+  trackingUrl: string;
 };
 
 const CheckoutPage = () => {
@@ -88,7 +91,6 @@ const CheckoutPage = () => {
 
   // Confirmation + guest-prompt UX state
   const [confirmation, setConfirmation] = useState<ConfirmationSnapshot | null>(null);
-  const [trackingCopied, setTrackingCopied] = useState(false);
   const [showGuestPrompt, setShowGuestPrompt] = useState(false);
   const [guestAcknowledged, setGuestAcknowledged] = useState(false);
 
@@ -380,6 +382,9 @@ const CheckoutPage = () => {
           customerName: data.name,
           establishmentSlug: e.slug,
           establishmentName: e.name,
+          whatsapp: e.whatsapp,
+          whatsappMessage: msg,
+          trackingUrl: `${typeof window !== "undefined" ? window.location.origin : ""}/pedido/${trackingCode}`,
         }
       : null;
 
@@ -397,12 +402,7 @@ const CheckoutPage = () => {
   // After a successful send we render a dedicated confirmation screen with the
   // tracking code + order summary, even though the cart is now empty.
   if (confirmation) {
-    return <ConfirmationScreen confirmation={confirmation} onCopy={(v) => {
-      navigator.clipboard?.writeText(v).then(() => {
-        setTrackingCopied(true);
-        setTimeout(() => setTrackingCopied(false), 2000);
-      }).catch(() => {});
-    }} copied={trackingCopied} navigate={navigate} />;
+    return <ConfirmationScreen confirmation={confirmation} navigate={navigate} />;
   }
 
   if (cartState.items.length === 0) {
@@ -909,15 +909,51 @@ function Row({ label, value, strong }: any) {
 
 function ConfirmationScreen({
   confirmation,
-  onCopy,
-  copied,
   navigate,
 }: {
   confirmation: ConfirmationSnapshot;
-  onCopy: (v: string) => void;
-  copied: boolean;
   navigate: ReturnType<typeof useNavigate>;
 }) {
+  const [codeCopied, setCodeCopied] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
+  const copyText = (value: string, kind: "code" | "link") => {
+    if (!navigator?.clipboard) {
+      toast.error("Não foi possível copiar. Copie manualmente.");
+      return;
+    }
+    navigator.clipboard
+      .writeText(value)
+      .then(() => {
+        if (kind === "code") {
+          setCodeCopied(true);
+          setTimeout(() => setCodeCopied(false), 2000);
+        } else {
+          setLinkCopied(true);
+          setTimeout(() => setLinkCopied(false), 2000);
+          toast.success("Link copiado!");
+        }
+      })
+      .catch(() => toast.error("Não foi possível copiar."));
+  };
+  const handleShare = async () => {
+    const shareData = {
+      title: `Pedido ${confirmation.trackingCode}`,
+      text: `Acompanhe meu pedido na ${confirmation.establishmentName} (código ${confirmation.trackingCode}):`,
+      url: confirmation.trackingUrl,
+    };
+    if (typeof navigator !== "undefined" && typeof (navigator as Navigator).share === "function") {
+      try {
+        await (navigator as Navigator).share(shareData);
+        return;
+      } catch {
+        /* user cancelled — fall through to copy */
+      }
+    }
+    copyText(confirmation.trackingUrl, "link");
+  };
+  const handleResendWhatsapp = () => {
+    window.open(whatsappLink(confirmation.whatsapp, confirmation.whatsappMessage), "_blank");
+  };
   const typeLabel =
     confirmation.type === "entrega" ? "Entrega" : confirmation.type === "retirada" ? "Retirada" : "Consumo no local";
   return (
@@ -943,12 +979,33 @@ function ConfirmationScreen({
                 {confirmation.trackingCode}
               </div>
               <button
-                onClick={() => onCopy(confirmation.trackingCode)}
+                onClick={() => copyText(confirmation.trackingCode, "code")}
                 className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-background px-3 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary/10"
                 aria-label="Copiar código de rastreamento"
               >
                 <Copy className="size-3.5" />
-                {copied ? "Copiado" : "Copiar"}
+                {codeCopied ? "Copiado" : "Copiar"}
+              </button>
+            </div>
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+              <button
+                type="button"
+                onClick={() => copyText(confirmation.trackingUrl, "link")}
+                title={confirmation.trackingUrl}
+                aria-label={`Copiar link de acompanhamento ${confirmation.trackingUrl}`}
+                className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-full border border-primary/30 bg-background px-3 py-2 text-xs font-semibold text-primary transition hover:bg-primary/10"
+              >
+                <Link2 className="size-3.5" />
+                {linkCopied ? "Link copiado" : "Copiar link"}
+              </button>
+              <button
+                type="button"
+                onClick={handleShare}
+                className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-full border border-primary/30 bg-background px-3 py-2 text-xs font-semibold text-primary transition hover:bg-primary/10"
+                aria-label="Compartilhar link de acompanhamento"
+              >
+                <Share2 className="size-3.5" />
+                Compartilhar
               </button>
             </div>
           </div>
@@ -999,6 +1056,14 @@ function ConfirmationScreen({
           </div>
 
           <div className="mt-6 flex flex-col gap-2.5 sm:flex-row">
+            <Button
+              type="button"
+              onClick={handleResendWhatsapp}
+              className="w-full bg-emerald-600 text-white hover:bg-emerald-700"
+            >
+              <MessageCircle className="mr-1.5 size-4" />
+              Reenviar pelo WhatsApp
+            </Button>
             <Button
               onClick={() => navigate(`/pedido/${confirmation.trackingCode}`, { replace: true })}
               className="w-full"
