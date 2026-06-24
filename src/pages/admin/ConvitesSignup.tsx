@@ -84,15 +84,18 @@ export default function AdminConvitesSignup() {
   const rows = data ?? [];
   const totals = useMemo(() => {
     const codes = new Set<string>();
-    const sourceCounts = { shown: 0, cta: 0, dismiss: 0 } as Record<string, number>;
+    let shown = 0;
+    let cta = 0;
+    let dismiss = 0;
     for (const r of rows) {
       codes.add(r.tracking_code);
-      if (r.source && r.source in sourceCounts) sourceCounts[r.source] += 1;
+      if (r.source === "shown") shown += 1;
+      else if (r.source === "cta") cta += 1;
+      else if (r.source === "dismiss") dismiss += 1;
     }
-    const shown = sourceCounts.shown;
-    const ctr = shown ? (sourceCounts.cta / shown) * 100 : 0;
-    const dismissRate = shown ? (sourceCounts.dismiss / shown) * 100 : 0;
-    return { uniqueCodes: codes.size, ...sourceCounts, ctr, dismissRate };
+    const ctr = shown ? (cta / shown) * 100 : 0;
+    const dismissRate = shown ? (dismiss / shown) * 100 : 0;
+    return { uniqueCodes: codes.size, shown, cta, dismiss, ctr, dismissRate };
   }, [rows]);
 
   return (
