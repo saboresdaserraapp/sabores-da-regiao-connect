@@ -1,6 +1,9 @@
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, MessageCircle, Clock, Search } from "lucide-react";
 import { useOrderTracking } from "@/hooks/useOrderTracking";
+import { useAuth } from "@/hooks/useAuth";
+import { SignupInviteDialog } from "@/components/SignupInviteDialog";
 import { OrderStatusStepper } from "@/components/orders/OrderStatusStepper";
 import { OrderDetailsPanel } from "@/components/orders/OrderDetailsPanel";
 import { CustomerReferencesPanel } from "@/components/orders/CustomerReferencesPanel";
@@ -12,6 +15,21 @@ import { Button } from "@/components/ui/button";
 const PedidoTrackingPublic = () => {
   const { code } = useParams();
   const { order, loading } = useOrderTracking(code);
+  const { user } = useAuth();
+  const [inviteOpen, setInviteOpen] = useState(false);
+
+  useEffect(() => {
+    if (!order || user) return;
+    if (order.status !== "delivered") return;
+    const key = `sdr_signup_invite_shown:${order.tracking_code}`;
+    try {
+      if (localStorage.getItem(key)) return;
+      localStorage.setItem(key, "1");
+    } catch {
+      /* noop */
+    }
+    setInviteOpen(true);
+  }, [order, user]);
 
   if (loading) {
     return (
@@ -107,6 +125,15 @@ const PedidoTrackingPublic = () => {
           </Link>
         </div>
       </div>
+
+      {!user && (
+        <SignupInviteDialog
+          open={inviteOpen}
+          onOpenChange={setInviteOpen}
+          prefillName={order.customer_name ?? null}
+          prefillPhone={order.customer_phone ?? null}
+        />
+      )}
     </div>
   );
 };
