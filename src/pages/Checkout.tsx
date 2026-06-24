@@ -453,7 +453,7 @@ const CheckoutPage = () => {
           </div>
         </SectionCard>
 
-        {v2 && type === "entrega" && (
+        {v2 && type === "entrega" && !!user && (
            <section className="rounded-3xl bg-card p-4 shadow-card space-y-4">
               <h2 className="font-display text-lg font-semibold">Endereço de entrega</h2>
               <div className="grid gap-2">
@@ -630,7 +630,7 @@ const CheckoutPage = () => {
           </section>
         )}
 
-        {type === "entrega" && (
+        {type === "entrega" && !!user && (
           <section className="rounded-3xl bg-card p-4 shadow-card">
             <h2 className="mb-2 font-display text-sm font-semibold flex items-center gap-2">
               <ImageIcon className="size-4 text-primary" /> Referências da entrega
