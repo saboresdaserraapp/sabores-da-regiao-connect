@@ -160,7 +160,7 @@ export default function AdminConvitesSignup() {
         _offset: offset,
       } as never);
       if (error) throw error;
-      const rows = ((data ?? []) as Row[]) ?? [];
+      const rows = (data ?? []) as Row[];
       const total = rows[0]?.total_count ?? 0;
       return { rows, offset, total: Number(total) };
     },
