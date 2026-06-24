@@ -2300,6 +2300,27 @@ export type Database = {
           },
         ]
       }
+      signup_invite_dismissals: {
+        Row: {
+          dismissed_at: string
+          id: string
+          source: string | null
+          tracking_code: string
+        }
+        Insert: {
+          dismissed_at?: string
+          id?: string
+          source?: string | null
+          tracking_code: string
+        }
+        Update: {
+          dismissed_at?: string
+          id?: string
+          source?: string | null
+          tracking_code?: string
+        }
+        Relationships: []
+      }
       site_categories: {
         Row: {
           emoji: string | null
