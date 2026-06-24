@@ -867,4 +867,117 @@ function Row({ label, value, strong }: any) {
   );
 }
 
+function ConfirmationScreen({
+  confirmation,
+  onCopy,
+  copied,
+  navigate,
+}: {
+  confirmation: ConfirmationSnapshot;
+  onCopy: (v: string) => void;
+  copied: boolean;
+  navigate: ReturnType<typeof useNavigate>;
+}) {
+  const typeLabel =
+    confirmation.type === "entrega" ? "Entrega" : confirmation.type === "retirada" ? "Retirada" : "Consumo no local";
+  return (
+    <div className="min-h-screen bg-gradient-cream pb-16">
+      <div className="container max-w-xl pt-10">
+        <div className="rounded-3xl border border-border/60 bg-card p-6 shadow-card sm:p-8">
+          <div className="mb-5 flex flex-col items-center text-center">
+            <div className="grid size-14 place-items-center rounded-full bg-emerald-500/15 text-emerald-600">
+              <CheckCircle2 className="size-7" />
+            </div>
+            <h1 className="mt-4 font-display text-2xl font-semibold tracking-tight">Pedido enviado!</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Acompanhe o status pelo código abaixo enquanto {confirmation.establishmentName} confirma no WhatsApp.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-dashed border-primary/40 bg-primary/5 p-4">
+            <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary/80">
+              Código de rastreamento
+            </div>
+            <div className="mt-1 flex items-center justify-between gap-3">
+              <div className="font-mono text-2xl font-bold tracking-wider text-foreground">
+                {confirmation.trackingCode}
+              </div>
+              <button
+                onClick={() => onCopy(confirmation.trackingCode)}
+                className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-background px-3 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary/10"
+                aria-label="Copiar código de rastreamento"
+              >
+                <Copy className="size-3.5" />
+                {copied ? "Copiado" : "Copiar"}
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-6">
+            <h2 className="font-display text-base font-semibold tracking-tight">Resumo do pedido</h2>
+            <div className="mt-3 divide-y divide-border/70 rounded-2xl border border-border/60 bg-background/40">
+              {confirmation.items.map((it, idx) => (
+                <div key={idx} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
+                  <div className="min-w-0">
+                    <span className="mr-2 font-semibold text-foreground">{it.qty}×</span>
+                    <span className="truncate text-foreground/90">{it.name}</span>
+                  </div>
+                  <div className="shrink-0 font-display font-semibold tabular-nums">{brl(it.total)}</div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4 space-y-1.5 text-sm">
+              <div className="flex items-center justify-between text-muted-foreground">
+                <span>Subtotal</span>
+                <span className="tabular-nums">{brl(confirmation.subtotal)}</span>
+              </div>
+              <div className="flex items-center justify-between text-muted-foreground">
+                <span>Taxa de entrega</span>
+                <span className="tabular-nums">
+                  {confirmation.deliveryFee != null ? brl(confirmation.deliveryFee) : <em className="not-italic">a confirmar</em>}
+                </span>
+              </div>
+              <div className="flex items-center justify-between pt-2 font-display text-lg font-bold">
+                <span>Total</span>
+                <span className="tabular-nums">{brl(confirmation.total)}</span>
+              </div>
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-3 rounded-2xl bg-muted/50 p-3 text-xs">
+              <div>
+                <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Modalidade</div>
+                <div className="mt-0.5 font-medium text-foreground">{typeLabel}</div>
+              </div>
+              {confirmation.payment && (
+                <div>
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Pagamento</div>
+                  <div className="mt-0.5 font-medium capitalize text-foreground">{confirmation.payment}</div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="mt-6 flex flex-col gap-2.5 sm:flex-row">
+            <Button
+              onClick={() => navigate(`/pedido/${confirmation.trackingCode}`, { replace: true })}
+              className="w-full"
+            >
+              Ver acompanhamento
+              <ExternalLink className="ml-1.5 size-4" />
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => navigate(`/loja/${confirmation.establishmentSlug}`, { replace: true })}
+              className="w-full"
+            >
+              Voltar ao cardápio
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default CheckoutPage;
