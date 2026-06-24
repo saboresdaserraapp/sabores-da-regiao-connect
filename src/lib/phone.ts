@@ -42,3 +42,16 @@ export function toE164Br(input: string | null | undefined): string {
   const d = normalizeBrPhone(input);
   return isValidBrPhone(d) ? `+55${d}` : "";
 }
+
+/**
+ * Progressive mask used while the user types. Always returns a value
+ * the user can keep editing, e.g. "(", "(11", "(11) 9", "(11) 91234-5678".
+ */
+export function formatBrPhoneTyping(input: string | null | undefined): string {
+  const d = normalizeBrPhone(input).slice(0, 11);
+  if (d.length === 0) return "";
+  if (d.length <= 2) return `(${d}`;
+  if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+  if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+}
