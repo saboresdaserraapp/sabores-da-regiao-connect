@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
@@ -40,6 +40,9 @@ export default function Cadastro() {
     phone: prefillPhone ? formatBrPhoneTyping(prefillPhone) : "",
   });
   const [loading, setLoading] = useState(false);
+  // Hard guard against rapid double-submits even if React state hasn't flushed
+  // yet during the network try/catch window.
+  const submittingRef = useRef(false);
 
   const phoneDigits = useMemo(() => normalizeBrPhone(form.phone), [form.phone]);
   const phoneValid = phoneDigits.length === 0 ? null : isValidBrPhone(phoneDigits);
@@ -61,8 +64,10 @@ export default function Cadastro() {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (submittingRef.current || loading) return;
     const v = schema.safeParse(form);
     if (!v.success) return toast.error(v.error.issues[0].message);
+    submittingRef.current = true;
     setLoading(true);
     let signUpResult: Awaited<ReturnType<typeof supabase.auth.signUp>>;
     try {
@@ -81,11 +86,13 @@ export default function Cadastro() {
       });
     } catch (err) {
       setLoading(false);
+      submittingRef.current = false;
       console.error("[cadastro] signUp network error", err);
       toast.error("Sem conexão com o servidor. Verifique sua internet e tente novamente.");
       return;
     }
     setLoading(false);
+    submittingRef.current = false;
     if (signUpResult.error) {
       const msg = signUpResult.error.message || "";
       const friendly = /already registered|already exists/i.test(msg)
@@ -177,8 +184,14 @@ export default function Cadastro() {
           </div>
           <Input type="email" placeholder="E-mail" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
           <Input type="password" placeholder="Senha (6+ caracteres)" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading && <Loader2 className="mr-2 size-4 animate-spin" />} Criar conta
+          <Button type="submit" className="w-full" disabled={loading} aria-busy={loading}>
+            {loading ? (
+              <>
+                <Loader2 className="mr-2 size-4 animate-spin" /> Criando conta…
+              </>
+            ) : (
+              "Criar conta"
+            )}
           </Button>
         </form>
         <div className="my-4 flex items-center gap-3 text-xs text-muted-foreground">
