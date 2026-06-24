@@ -41,7 +41,19 @@ describe("AdminConvitesSignup — restores query params from URL", () => {
   beforeEach(() => {
     rpcMock.mockReset();
     fromMock.mockReset();
-    rpcMock.mockResolvedValue({ data: [], error: null });
+    rpcMock.mockResolvedValue({
+      data: [
+        {
+          id: "row-1",
+          tracking_code: "SDS-ABCDEF",
+          source: "shown",
+          campaign: "post_delivery_invite",
+          dismissed_at: "2026-06-05T12:00:00Z",
+          total_count: 1,
+        },
+      ],
+      error: null,
+    });
     fromMock.mockReturnValue({
       insert: () => Promise.resolve({ data: null, error: null }),
     });
