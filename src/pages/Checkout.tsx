@@ -87,18 +87,6 @@ const CheckoutPage = () => {
   const [prefillApplied, setPrefillApplied] = useState(false);
 
   // Confirmation + guest-prompt UX state
-  type ConfirmationSnapshot = {
-    trackingCode: string;
-    items: { name: string; qty: number; total: number }[];
-    subtotal: number;
-    deliveryFee: number | null;
-    total: number;
-    type: OrderType;
-    payment?: string;
-    customerName: string;
-    establishmentSlug: string;
-    establishmentName: string;
-  };
   const [confirmation, setConfirmation] = useState<ConfirmationSnapshot | null>(null);
   const [trackingCopied, setTrackingCopied] = useState(false);
   const [showGuestPrompt, setShowGuestPrompt] = useState(false);
