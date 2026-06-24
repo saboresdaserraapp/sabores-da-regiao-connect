@@ -393,6 +393,17 @@ const CheckoutPage = () => {
     }
   };
 
+  // After a successful send we render a dedicated confirmation screen with the
+  // tracking code + order summary, even though the cart is now empty.
+  if (confirmation) {
+    return <ConfirmationScreen confirmation={confirmation} onCopy={(v) => {
+      navigator.clipboard?.writeText(v).then(() => {
+        setTrackingCopied(true);
+        setTimeout(() => setTrackingCopied(false), 2000);
+      }).catch(() => {});
+    }} copied={trackingCopied} navigate={navigate} />;
+  }
+
   if (cartState.items.length === 0) {
     return (
       <div className="min-h-screen bg-gradient-cream">
