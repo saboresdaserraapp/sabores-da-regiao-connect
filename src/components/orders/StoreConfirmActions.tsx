@@ -21,10 +21,10 @@ export function StoreConfirmActions({
   const [total, setTotal] = useState<string>(finalTotal != null ? String(finalTotal) : "");
   const [busy, setBusy] = useState<string | null>(null);
 
-  const run = async (key: string, fn: () => Promise<{ data: unknown; error: { message: string } | null }>) => {
+  const run = async (key: string, rpc: string, args: Record<string, unknown>) => {
     setBusy(key);
     try {
-      const { data, error } = await fn();
+      const { data, error } = await supabase.rpc(rpc as never, args as never);
       if (error) throw error;
       const payload = data as { ok?: boolean; duplicated?: boolean } | null;
       if (payload?.duplicated) toast.info("Sem alteração — já estava registrado.");
@@ -48,9 +48,7 @@ export function StoreConfirmActions({
         variant="outline"
         className="w-full justify-start"
         disabled={busy === "avail"}
-        onClick={() => run("avail", () =>
-          supabase.rpc("mark_order_availability" as never, { _order_id: orderId, _note: null } as never),
-        )}
+        onClick={() => run("avail", "mark_order_availability", { _order_id: orderId, _note: null })}
       >
         {busy === "avail" ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Check className="mr-2 size-4" />}
         Confirmar disponibilidade
@@ -66,9 +64,7 @@ export function StoreConfirmActions({
           />
           <Button
             type="button" variant="secondary" disabled={busy === "eta" || !eta}
-            onClick={() => run("eta", () =>
-              supabase.rpc("mark_order_eta" as never, { _order_id: orderId, _minutes: Number(eta), _note: null } as never),
-            )}
+            onClick={() => run("eta", "mark_order_eta", { _order_id: orderId, _minutes: Number(eta), _note: null })}
           >
             {busy === "eta" ? <Loader2 className="size-4 animate-spin" /> : <Clock className="size-4" />}
           </Button>
@@ -84,9 +80,7 @@ export function StoreConfirmActions({
           />
           <Button
             type="button" variant="secondary" disabled={busy === "total" || total === ""}
-            onClick={() => run("total", () =>
-              supabase.rpc("mark_order_final_value" as never, { _order_id: orderId, _total: Number(total), _note: null } as never),
-            )}
+            onClick={() => run("total", "mark_order_final_value", { _order_id: orderId, _total: Number(total), _note: null })}
           >
             {busy === "total" ? <Loader2 className="size-4 animate-spin" /> : <DollarSign className="size-4" />}
           </Button>
