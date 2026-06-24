@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
@@ -8,22 +8,42 @@ import { toast } from "sonner";
 import { Loader2, UtensilsCrossed } from "lucide-react";
 import { z } from "zod";
 
+const phoneRegex = /^\+?\d[\d\s().-]{7,}\d$/;
+const onlyDigits = (s: string) => s.replace(/\D/g, "");
+
 const schema = z.object({
   name: z.string().trim().min(2, "Nome muito curto").max(80),
   email: z.string().trim().email("E-mail inválido").max(255),
   password: z.string().min(6, "Mínimo 6 caracteres").max(72),
+  phone: z
+    .string()
+    .trim()
+    .optional()
+    .refine((v) => !v || (phoneRegex.test(v) && onlyDigits(v).length >= 10), {
+      message: "Telefone inválido (informe DDD + número)",
+    }),
 });
 
 export default function Cadastro() {
   const nav = useNavigate();
   const [params] = useSearchParams();
+  const prefillName = params.get("prefill_name") ?? "";
+  const prefillPhone = params.get("prefill_phone") ?? "";
+  const fromTracking = params.get("from_tracking");
+  const hasPrefill = Boolean(prefillName || prefillPhone);
+
   const [form, setForm] = useState({
-    name: params.get("prefill_name") ?? "",
+    name: prefillName,
     email: "",
     password: "",
-    phone: params.get("prefill_phone") ?? "",
+    phone: prefillPhone,
   });
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!hasPrefill) return;
+    toast.success("Usamos os dados do seu pedido. Confira e defina e-mail e senha.");
+  }, [hasPrefill]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -35,7 +55,12 @@ export default function Cadastro() {
       password: form.password,
       options: {
         emailRedirectTo: window.location.origin + "/minha-conta",
-        data: { display_name: form.name, phone: form.phone || undefined },
+        data: {
+          display_name: form.name.trim(),
+          phone: form.phone ? onlyDigits(form.phone) : undefined,
+          signup_source: fromTracking ? "post_delivery_invite" : "direct",
+          from_tracking: fromTracking ?? undefined,
+        },
       },
     });
     setLoading(false);
@@ -63,13 +88,12 @@ export default function Cadastro() {
         </Link>
         <form onSubmit={submit} className="space-y-3">
           <Input placeholder="Nome" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-          {form.phone && (
-            <Input
-              placeholder="WhatsApp"
-              value={form.phone}
-              onChange={(e) => setForm({ ...form, phone: e.target.value })}
-            />
-          )}
+          <Input
+            type="tel"
+            placeholder="WhatsApp (com DDD)"
+            value={form.phone}
+            onChange={(e) => setForm({ ...form, phone: e.target.value })}
+          />
           <Input type="email" placeholder="E-mail" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
           <Input type="password" placeholder="Senha (6+ caracteres)" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
           <Button type="submit" className="w-full" disabled={loading}>
