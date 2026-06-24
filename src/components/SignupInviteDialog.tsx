@@ -8,18 +8,33 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   prefillName?: string | null;
   prefillPhone?: string | null;
+  trackingCode?: string | null;
+  onCtaClick?: () => void;
+  onDismiss?: () => void;
 }
 
-export function SignupInviteDialog({ open, onOpenChange, prefillName, prefillPhone }: Props) {
+export function SignupInviteDialog({ open, onOpenChange, prefillName, prefillPhone, trackingCode, onCtaClick, onDismiss }: Props) {
   const navigate = useNavigate();
 
   const goSignup = () => {
     const params = new URLSearchParams();
     if (prefillName) params.set("prefill_name", prefillName);
     if (prefillPhone) params.set("prefill_phone", prefillPhone);
+    if (trackingCode) params.set("from_tracking", trackingCode);
     const qs = params.toString();
+    onCtaClick?.();
     onOpenChange(false);
     navigate(`/cadastro${qs ? `?${qs}` : ""}`);
+  };
+
+  const handleOpenChange = (next: boolean) => {
+    if (!next && open) onDismiss?.();
+    onOpenChange(next);
+  };
+
+  const dismiss = () => {
+    onDismiss?.();
+    onOpenChange(false);
   };
 
   const benefits = [
@@ -31,7 +46,7 @@ export function SignupInviteDialog({ open, onOpenChange, prefillName, prefillPho
   ];
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="font-display text-2xl">Que tal facilitar suas próximas compras?</DialogTitle>
@@ -56,7 +71,7 @@ export function SignupInviteDialog({ open, onOpenChange, prefillName, prefillPho
 
         <DialogFooter className="flex-col gap-2 sm:flex-col sm:space-x-0">
           <Button onClick={goSignup} className="w-full">Criar minha conta</Button>
-          <Button variant="ghost" onClick={() => onOpenChange(false)} className="w-full">Agora não</Button>
+          <Button variant="ghost" onClick={dismiss} className="w-full">Agora não</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
