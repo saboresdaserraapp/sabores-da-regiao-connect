@@ -13,6 +13,8 @@ import { OrderChat } from "@/components/OrderChat";
 import { OrderDetailsPanel } from "@/components/orders/OrderDetailsPanel";
 import { OrderReferencesPanel } from "@/components/orders/OrderReferencesPanel";
 import { SendProposalDialog } from "@/components/orders/SendProposalDialog";
+import { WhatsappHistoryPanel } from "@/components/orders/WhatsappHistoryPanel";
+import { StoreConfirmActions } from "@/components/orders/StoreConfirmActions";
 import { confirmWithoutChange, fetchActiveProposal, registerWhatsappAcceptance, OrderProposal } from "@/lib/orderProposals";
 import { toast } from "sonner";
 import { brl } from "@/lib/format";
@@ -232,6 +234,8 @@ export default function PedidoDetalhesLoja({
               <OrderReferencesPanel orderId={order.id} />
             </section>
           )}
+
+          <WhatsappHistoryPanel orderId={order.id} />
         </div>
 
         <div className="space-y-6">
@@ -249,7 +253,15 @@ export default function PedidoDetalhesLoja({
                   </SelectContent>
                 </Select>
               </div>
-              
+
+              <StoreConfirmActions
+                orderId={order.id}
+                estimatedMinutes={order.estimated_minutes ?? null}
+                finalTotal={order.final_total != null ? Number(order.final_total) : null}
+                availabilityConfirmedAt={(order as { availability_confirmed_at?: string | null }).availability_confirmed_at ?? null}
+                onChanged={() => queryClient.invalidateQueries({ queryKey: ["order-detail-loja", orderId] })}
+              />
+
               <div className="pt-2 border-t">
                 <div className="flex justify-between text-sm mb-1">
                   <span>Subtotal:</span>
