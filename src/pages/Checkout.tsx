@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, MessageCircle, Trash2, Plus, Minus, Truck, ShoppingBag, Utensils, AlertCircle, MapPin, Pencil, Image as ImageIcon, Video, Loader2, CheckCircle2, Copy, UserPlus, ExternalLink } from "lucide-react";
+import { ArrowLeft, MessageCircle, Trash2, Plus, Minus, Truck, ShoppingBag, Utensils, AlertCircle, MapPin, Pencil, Image as ImageIcon, Video, Loader2, CheckCircle2, Copy, UserPlus, ExternalLink, Link2, Share2 } from "lucide-react";
 import { cart, useCart } from "@/store/cart";
 import { brl } from "@/lib/format";
 import { buildWhatsappMessage, whatsappLink, type OrderType, type CheckoutData, type V2DeliveryMessageInfo } from "@/lib/whatsapp";
@@ -35,6 +35,9 @@ type ConfirmationSnapshot = {
   customerName: string;
   establishmentSlug: string;
   establishmentName: string;
+  whatsapp: string;
+  whatsappMessage: string;
+  trackingUrl: string;
 };
 
 const CheckoutPage = () => {
