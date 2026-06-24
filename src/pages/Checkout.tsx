@@ -383,6 +383,9 @@ const CheckoutPage = () => {
           customerName: data.name,
           establishmentSlug: e.slug,
           establishmentName: e.name,
+          whatsapp: e.whatsapp,
+          whatsappMessage: msg,
+          trackingUrl: `${typeof window !== "undefined" ? window.location.origin : ""}/pedido/${trackingCode}`,
         }
       : null;
 
