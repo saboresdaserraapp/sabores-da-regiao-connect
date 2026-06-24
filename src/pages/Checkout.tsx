@@ -185,8 +185,23 @@ const CheckoutPage = () => {
 
     try {
       if (establishmentId) {
+        // Generate id/tracking_code client-side so we can:
+        //  1) avoid INSERT ... RETURNING (which requires a matching SELECT policy
+        //     and breaks for guest orders on Postgres 15+ — error 42501),
+        //  2) still know the tracking_code to navigate after sending.
+        const generatedId =
+          typeof crypto !== "undefined" && "randomUUID" in crypto
+            ? crypto.randomUUID()
+            : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        const trackingChars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+        const generatedTracking = `SDS-${Array.from({ length: 6 })
+          .map(() => trackingChars[Math.floor(Math.random() * trackingChars.length)])
+          .join("")}`;
+
         // Create order
         const orderData = {
+          id: generatedId,
+          tracking_code: generatedTracking,
           user_id: user?.id ?? null,
           establishment_id: establishmentId,
           address_id: selectedAddressId || null,
@@ -217,58 +232,77 @@ const CheckoutPage = () => {
           total_estimated: total
         };
 
-        const { data: inserted, error: orderError } = await supabase.from("orders").insert(orderData).select("id,tracking_code").maybeSingle();
-
+        // Insert without RETURNING — guest users have no SELECT policy on the
+        // freshly-created row, which would otherwise raise 42501.
+        const { error: orderError } = await supabase.from("orders").insert(orderData);
         if (orderError) throw orderError;
-        insertedOrder = inserted;
-        trackingCode = inserted?.tracking_code ?? undefined;
+        insertedOrder = { id: generatedId, tracking_code: generatedTracking };
+        trackingCode = generatedTracking;
 
-        if (inserted?.id) {
-          // Notify owner
-          const { data: estabData } = await supabase.from("establishments").select("owner_id").eq("id", establishmentId).single();
+        // Best-effort side-effects — never break the main order creation if RLS
+        // (or any other transient issue) blocks one of these auxiliary writes.
+        try {
+          const { data: estabData } = await supabase
+            .from("establishments")
+            .select("owner_id")
+            .eq("id", establishmentId)
+            .maybeSingle();
           if (estabData?.owner_id) {
             await supabase.from("notifications").insert({
               user_id: estabData.owner_id,
               type: "new_order",
               title: "Novo pedido recebido!",
               message: `Você recebeu um novo pedido de ${data.name}.`,
-              related_order_id: inserted.id,
+              related_order_id: generatedId,
               establishment_id: establishmentId,
-              data: { order_id: inserted.id, establishment_id: establishmentId } as any,
+              data: { order_id: generatedId, establishment_id: establishmentId } as any,
             });
           }
+        } catch (notifyErr) {
+          console.warn("Owner notification failed (non-blocking):", notifyErr);
         }
 
-        if (inserted?.id && type === "entrega") {
+        if (type === "entrega") {
           if (houseRef) {
-            const { data: refLink } = await supabase.from("order_visual_reference_links").insert({
-              order_id: inserted.id,
-              user_id: user?.id ?? null,
-              address_id: selectedAddressId || null,
-              visual_reference_id: houseRef.id,
-              expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
-            }).select("private_token").maybeSingle();
-            
-            if (refLink?.private_token) {
-              visualRefLink = `${window.location.origin}/referencia/${refLink.private_token}`;
+            try {
+              const { data: refLink } = await supabase
+                .from("order_visual_reference_links")
+                .insert({
+                  order_id: generatedId,
+                  user_id: user?.id ?? null,
+                  address_id: selectedAddressId || null,
+                  visual_reference_id: houseRef.id,
+                  expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+                })
+                .select("private_token")
+                .maybeSingle();
+              if (refLink?.private_token) {
+                visualRefLink = `${window.location.origin}/referencia/${refLink.private_token}`;
+              }
+            } catch (refErr) {
+              console.warn("Visual reference link failed (non-blocking):", refErr);
             }
           }
 
           if (deliveryInfo) {
-            await supabase.from("checkout_delivery_info").insert({
-              order_id: inserted.id,
-              user_id: user?.id ?? null,
-              establishment_id: establishmentId,
-              address_id: selectedAddressId || null,
-              selected_region_id: deliveryInfo.region?.id ?? null,
-              selected_region_name: deliveryInfo.region?.name || "Não listada",
-              delivery_fee_estimated: deliveryInfo.fee,
-              delivery_fee_status: deliveryInfo.status,
-              delivery_confidence_level: deliveryInfo.manual ? "medium" : "high",
-              requires_manual_confirmation: deliveryInfo.manual,
-              visual_reference_link: visualRefLink || null,
-              address_snapshot_json: { ...data, selected_address_id: selectedAddressId } as any
-            } as never);
+            try {
+              await supabase.from("checkout_delivery_info").insert({
+                order_id: generatedId,
+                user_id: user?.id ?? null,
+                establishment_id: establishmentId,
+                address_id: selectedAddressId || null,
+                selected_region_id: deliveryInfo.region?.id ?? null,
+                selected_region_name: deliveryInfo.region?.name || "Não listada",
+                delivery_fee_estimated: deliveryInfo.fee,
+                delivery_fee_status: deliveryInfo.status,
+                delivery_confidence_level: deliveryInfo.manual ? "medium" : "high",
+                requires_manual_confirmation: deliveryInfo.manual,
+                visual_reference_link: visualRefLink || null,
+                address_snapshot_json: { ...data, selected_address_id: selectedAddressId } as any,
+              } as never);
+            } catch (dlvErr) {
+              console.warn("Checkout delivery info failed (non-blocking):", dlvErr);
+            }
           }
         }
       }
