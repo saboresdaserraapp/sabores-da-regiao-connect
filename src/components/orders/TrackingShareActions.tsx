@@ -1,9 +1,15 @@
 import { useState } from "react";
-import { Copy, Link2, Share2, MessageCircle } from "lucide-react";
+import { Copy, Link2, Share2, MessageCircle, XCircle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { whatsappLink } from "@/lib/whatsapp";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader,
+  AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Textarea } from "@/components/ui/textarea";
 
 export interface TrackingShareActionsProps {
   trackingCode: string;
@@ -13,6 +19,10 @@ export interface TrackingShareActionsProps {
   whatsappMessage?: string | null;
   /** Hide the resend button when no message is available (eg. on /pedido/:code with no stored message). */
   showResend?: boolean;
+  /** Show the customer "cancel order" CTA. */
+  showCancel?: boolean;
+  /** Notified after the cancellation RPC succeeds. */
+  onCanceled?: () => void;
 }
 
 export function TrackingShareActions({
@@ -22,9 +32,14 @@ export function TrackingShareActions({
   whatsapp,
   whatsappMessage,
   showResend = true,
+  showCancel = false,
+  onCanceled,
 }: TrackingShareActionsProps) {
   const [codeCopied, setCodeCopied] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [canceling, setCanceling] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
 
   const copyText = async (value: string, kind: "code" | "link") => {
     try {
@@ -80,6 +95,27 @@ export function TrackingShareActions({
 
   const canResend = showResend && !!whatsapp && !!whatsappMessage;
 
+  const handleCancel = async () => {
+    setCanceling(true);
+    try {
+      const { data, error } = await supabase.rpc(
+        "customer_cancel_order" as never,
+        { _code: trackingCode, _reason: cancelReason || null } as never,
+      );
+      if (error) throw error;
+      const payload = data as { ok?: boolean } | null;
+      if (!payload?.ok) throw new Error("Falha ao cancelar.");
+      toast.success("Pedido cancelado.");
+      setCancelOpen(false);
+      setCancelReason("");
+      onCanceled?.();
+    } catch (err) {
+      toast.error((err as Error)?.message || "Não foi possível cancelar.");
+    } finally {
+      setCanceling(false);
+    }
+  };
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-3">
@@ -127,6 +163,47 @@ export function TrackingShareActions({
           <MessageCircle className="mr-1.5 size-4" />
           Reenviar pelo WhatsApp
         </Button>
+      )}
+
+      {showCancel && (
+        <AlertDialog open={cancelOpen} onOpenChange={setCancelOpen}>
+          <AlertDialogTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full border-destructive/40 text-destructive hover:bg-destructive/10"
+            >
+              <XCircle className="mr-1.5 size-4" />
+              Cancelar pedido
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Cancelar este pedido?</AlertDialogTitle>
+              <AlertDialogDescription>
+                O estabelecimento será avisado pela linha do tempo. Você só consegue
+                cancelar enquanto o pedido ainda não saiu para entrega.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <Textarea
+              rows={3}
+              placeholder="Motivo (opcional)"
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+            />
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={canceling}>Voltar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(e) => { e.preventDefault(); void handleCancel(); }}
+                disabled={canceling}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {canceling ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : null}
+                Confirmar cancelamento
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       )}
     </div>
   );
