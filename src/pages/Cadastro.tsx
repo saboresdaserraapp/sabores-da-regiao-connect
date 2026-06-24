@@ -64,21 +64,38 @@ export default function Cadastro() {
     const v = schema.safeParse(form);
     if (!v.success) return toast.error(v.error.issues[0].message);
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
-      email: form.email,
-      password: form.password,
-      options: {
-        emailRedirectTo: window.location.origin + "/minha-conta",
-        data: {
-          display_name: form.name.trim(),
-          phone: phoneDigits || undefined,
-          signup_source: fromTracking ? "post_delivery_invite" : "direct",
-          from_tracking: fromTracking ?? undefined,
+    let signUpResult: Awaited<ReturnType<typeof supabase.auth.signUp>>;
+    try {
+      signUpResult = await supabase.auth.signUp({
+        email: form.email,
+        password: form.password,
+        options: {
+          emailRedirectTo: window.location.origin + "/minha-conta",
+          data: {
+            display_name: form.name.trim(),
+            phone: phoneDigits || undefined,
+            signup_source: fromTracking ? "post_delivery_invite" : "direct",
+            from_tracking: fromTracking ?? undefined,
+          },
         },
-      },
-    });
+      });
+    } catch (err) {
+      setLoading(false);
+      console.error("[cadastro] signUp network error", err);
+      toast.error("Sem conexão com o servidor. Verifique sua internet e tente novamente.");
+      return;
+    }
     setLoading(false);
-    if (error) return toast.error(error.message);
+    if (signUpResult.error) {
+      const msg = signUpResult.error.message || "";
+      const friendly = /already registered|already exists/i.test(msg)
+        ? "Este e-mail já está cadastrado. Tente entrar."
+        : /password/i.test(msg)
+        ? "Senha inválida. Use no mínimo 6 caracteres."
+        : msg || "Não conseguimos criar sua conta agora. Tente novamente.";
+      toast.error(friendly);
+      return;
+    }
     // Dedupe analytics: at most one completion per tracking_code/session.
     const sentKey = `sdr_signup_completed_tracked:${fromTracking ?? "direct"}`;
     let alreadyTracked = false;
