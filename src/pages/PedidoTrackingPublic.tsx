@@ -9,6 +9,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { OrderStatusStepper } from "@/components/orders/OrderStatusStepper";
 import { OrderDetailsPanel } from "@/components/orders/OrderDetailsPanel";
 import { CustomerReferencesPanel } from "@/components/orders/CustomerReferencesPanel";
+import { OrderEventsTimeline } from "@/components/orders/OrderEventsTimeline";
+import { TrackingShareActions } from "@/components/orders/TrackingShareActions";
 import { brl } from "@/lib/format";
 import { LoadingState } from "@/components/ui/loading-state";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -131,6 +133,23 @@ const PedidoTrackingPublic = () => {
         <section className="rounded-3xl border border-border/60 bg-card p-5 shadow-card">
           <h2 className="mb-4 font-display text-lg font-semibold tracking-tight">Status do pedido</h2>
           <OrderStatusStepper status={order.status} />
+        </section>
+
+        <section className="rounded-3xl border border-border/60 bg-card p-5 shadow-card">
+          <h3 className="mb-3 font-display text-base font-semibold tracking-tight">Linha do tempo</h3>
+          <OrderEventsTimeline trackingCode={order.tracking_code} currentStatus={order.status} />
+        </section>
+
+        <section className="rounded-3xl border border-border/60 bg-card p-5 shadow-card">
+          <h3 className="mb-3 font-display text-base font-semibold tracking-tight">Compartilhar acompanhamento</h3>
+          <TrackingShareActions
+            trackingCode={order.tracking_code}
+            trackingUrl={`${typeof window !== "undefined" ? window.location.origin : ""}/pedido/${order.tracking_code}`}
+            establishmentName={order.establishment_name ?? undefined}
+            whatsapp={order.establishment_whatsapp ?? undefined}
+            whatsappMessage={order.whatsapp_message ?? undefined}
+            showResend={!!order.establishment_whatsapp && !!order.whatsapp_message}
+          />
         </section>
 
         <section className="rounded-3xl border border-border/60 bg-card p-5 shadow-card">

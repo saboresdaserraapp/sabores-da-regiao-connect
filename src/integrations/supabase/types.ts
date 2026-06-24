@@ -1659,6 +1659,7 @@ export type Database = {
           final_total: number | null
           id: string
           items: Json
+          last_whatsapp_sent_at: string | null
           notes: string | null
           paid_at: string | null
           payment_method: string | null
@@ -1677,6 +1678,7 @@ export type Database = {
           updated_at: string
           user_id: string | null
           whatsapp_message: string | null
+          whatsapp_resent_count: number
           whatsapp_sent_at: string | null
         }
         Insert: {
@@ -1706,6 +1708,7 @@ export type Database = {
           final_total?: number | null
           id?: string
           items?: Json
+          last_whatsapp_sent_at?: string | null
           notes?: string | null
           paid_at?: string | null
           payment_method?: string | null
@@ -1724,6 +1727,7 @@ export type Database = {
           updated_at?: string
           user_id?: string | null
           whatsapp_message?: string | null
+          whatsapp_resent_count?: number
           whatsapp_sent_at?: string | null
         }
         Update: {
@@ -1753,6 +1757,7 @@ export type Database = {
           final_total?: number | null
           id?: string
           items?: Json
+          last_whatsapp_sent_at?: string | null
           notes?: string | null
           paid_at?: string | null
           payment_method?: string | null
@@ -1771,6 +1776,7 @@ export type Database = {
           updated_at?: string
           user_id?: string | null
           whatsapp_message?: string | null
+          whatsapp_resent_count?: number
           whatsapp_sent_at?: string | null
         }
         Relationships: [
@@ -2962,6 +2968,7 @@ export type Database = {
           updated_at: string
         }[]
       }
+      get_order_public_events: { Args: { _code: string }; Returns: Json }
       get_share_link_by_token: { Args: { _token: string }; Returns: Json }
       get_visual_reference_by_token: { Args: { _token: string }; Returns: Json }
       has_feature: {
@@ -2993,6 +3000,7 @@ export type Database = {
         Args: { _name: string; _self_id: string }
         Returns: string
       }
+      register_whatsapp_resend: { Args: { _code: string }; Returns: Json }
       reject_order_proposal: {
         Args: { _note?: string; _proposal_id: string }
         Returns: Json
