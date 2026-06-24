@@ -360,11 +360,37 @@ const CheckoutPage = () => {
       await supabase.from("orders").update({ whatsapp_message: msg }).eq("id", insertedOrder.id);
     }
 
+    // Snapshot the cart BEFORE clearing it so the confirmation screen can
+    // show the order summary alongside the tracking code.
+    const snapshotItems = cartState.items.map((i) => ({
+      name: i.product.name,
+      qty: i.quantity,
+      total: i.unitPrice * i.quantity,
+    }));
+    const snapshot: ConfirmationSnapshot | null = trackingCode
+      ? {
+          trackingCode,
+          items: snapshotItems,
+          subtotal,
+          deliveryFee: taxa,
+          total,
+          type,
+          payment: data.payment,
+          customerName: data.name,
+          establishmentSlug: e.slug,
+          establishmentName: e.name,
+        }
+      : null;
+
     window.open(whatsappLink(e.whatsapp, msg), "_blank");
-    toast.success("Pedido enviado! Acompanhe o status aqui.");
+    toast.success("Pedido enviado! Confira seu código de rastreamento.");
     cart.clear();
-    if (trackingCode) navigate(`/pedido/${trackingCode}`, { replace: true });
-    else navigate(`/loja/${e.slug}`, { replace: true });
+    setSending(false);
+    if (snapshot) {
+      setConfirmation(snapshot);
+    } else {
+      navigate(`/loja/${e.slug}`, { replace: true });
+    }
   };
 
   if (cartState.items.length === 0) {
