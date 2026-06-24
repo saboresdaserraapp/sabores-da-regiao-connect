@@ -219,6 +219,7 @@ const App = () => (
                 <Route path="/admin/suporte" element={<Navigate to="/admin/suporte/chats" replace />} />
                 <Route path="/admin/suporte/chats" element={<AdminSuporte />} />
                 <Route path="/admin/suporte/chats/:chatId" element={<AdminSuporte />} />
+                <Route path="/admin/convites-cadastro" element={<AdminConvitesSignup />} />
               </Route>
             </Route>
 
