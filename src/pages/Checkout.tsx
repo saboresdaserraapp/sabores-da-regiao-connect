@@ -926,9 +926,11 @@ function Row({ label, value, strong }: any) {
 function ConfirmationScreen({
   confirmation,
   navigate,
+  onCanceled,
 }: {
   confirmation: ConfirmationSnapshot;
   navigate: ReturnType<typeof useNavigate>;
+  onCanceled?: () => void;
 }) {
   const typeLabel =
     confirmation.type === "entrega" ? "Entrega" : confirmation.type === "retirada" ? "Retirada" : "Consumo no local";
@@ -957,6 +959,8 @@ function ConfirmationScreen({
                 establishmentName={confirmation.establishmentName}
                 whatsapp={confirmation.whatsapp}
                 whatsappMessage={confirmation.whatsappMessage}
+                showCancel
+                onCanceled={onCanceled}
               />
             </div>
           </div>
