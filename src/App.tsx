@@ -33,6 +33,7 @@ const CatalogDebug = lazy(() => import("./pages/CatalogDebug.tsx"));
 const StorageDebug = lazy(() => import("./pages/StorageDebug.tsx"));
 const TesteStorage = lazy(() => import("./pages/TesteStorage.tsx"));
 const VisualReferenceFallbackTest = lazy(() => import("./pages/VisualReferenceFallbackTest.tsx"));
+const ShareActionsHarness = lazy(() => import("./pages/__dev__/ShareActionsHarness.tsx"));
 const IS_DEV = import.meta.env.DEV;
 
 function EstablishmentRedirect({ checkout = false }: { checkout?: boolean }) {
@@ -189,6 +190,7 @@ const App = () => (
                 <Route path="/debug/storage" element={<StorageDebug />} />
                 <Route path="/teste-storage" element={<TesteStorage />} />
                 <Route path="/debug/visual-fallback" element={<VisualReferenceFallbackTest />} />
+                <Route path="/debug/share-actions" element={<ShareActionsHarness />} />
               </>
             )}
 
