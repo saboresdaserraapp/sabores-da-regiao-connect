@@ -2302,18 +2302,21 @@ export type Database = {
       }
       signup_invite_dismissals: {
         Row: {
+          campaign: string
           dismissed_at: string
           id: string
           source: string | null
           tracking_code: string
         }
         Insert: {
+          campaign?: string
           dismissed_at?: string
           id?: string
           source?: string | null
           tracking_code: string
         }
         Update: {
+          campaign?: string
           dismissed_at?: string
           id?: string
           source?: string | null
