@@ -1,14 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Loader2, UtensilsCrossed } from "lucide-react";
+import { Check, Loader2, UtensilsCrossed } from "lucide-react";
 import { z } from "zod";
-import { formatBrPhone, isValidBrPhone, normalizeBrPhone } from "@/lib/phone";
+import { formatBrPhone, formatBrPhoneTyping, isValidBrPhone, normalizeBrPhone } from "@/lib/phone";
 import { trackUiEvent } from "@/lib/uiAnalytics";
+import { cn } from "@/lib/utils";
 
 const schema = z.object({
   name: z.string().trim().min(2, "Nome muito curto").max(80),
@@ -36,9 +37,22 @@ export default function Cadastro() {
     name: prefillName,
     email: "",
     password: "",
-    phone: prefillPhone,
+    phone: prefillPhone ? formatBrPhoneTyping(prefillPhone) : "",
   });
   const [loading, setLoading] = useState(false);
+
+  const phoneDigits = useMemo(() => normalizeBrPhone(form.phone), [form.phone]);
+  const phoneValid = phoneDigits.length === 0 ? null : isValidBrPhone(phoneDigits);
+  const phoneHint =
+    phoneValid === false
+      ? phoneDigits.length < 10
+        ? "Digite DDD + número (mínimo 10 dígitos)."
+        : phoneDigits.length === 11 && phoneDigits[2] !== "9"
+        ? "Celulares começam com 9 após o DDD."
+        : "Telefone inválido. Confira o DDD e os dígitos."
+      : phoneValid
+      ? "Número válido."
+      : "Opcional. Usaremos para WhatsApp e suporte.";
 
   useEffect(() => {
     if (!hasPrefill) return;
@@ -50,7 +64,6 @@ export default function Cadastro() {
     const v = schema.safeParse(form);
     if (!v.success) return toast.error(v.error.issues[0].message);
     setLoading(true);
-    const phoneDigits = form.phone ? normalizeBrPhone(form.phone) : "";
     const { error } = await supabase.auth.signUp({
       email: form.email,
       password: form.password,
@@ -66,11 +79,26 @@ export default function Cadastro() {
     });
     setLoading(false);
     if (error) return toast.error(error.message);
-    trackUiEvent("signup_invite_signup_completed", {
-      tracking_code: fromTracking,
-      source: fromTracking ? "post_delivery_invite" : "direct",
-      has_phone: Boolean(phoneDigits),
-    });
+    // Dedupe analytics: at most one completion per tracking_code/session.
+    const sentKey = `sdr_signup_completed_tracked:${fromTracking ?? "direct"}`;
+    let alreadyTracked = false;
+    try {
+      alreadyTracked = sessionStorage.getItem(sentKey) === "1";
+    } catch {
+      /* noop */
+    }
+    if (!alreadyTracked) {
+      trackUiEvent("signup_invite_signup_completed", {
+        tracking_code: fromTracking,
+        source: fromTracking ? "post_delivery_invite" : "direct",
+        has_phone: Boolean(phoneDigits),
+      });
+      try {
+        sessionStorage.setItem(sentKey, "1");
+      } catch {
+        /* noop */
+      }
+    }
     toast.success("Conta criada! Verifique seu e-mail para confirmar.");
     nav("/login");
   }
@@ -94,19 +122,42 @@ export default function Cadastro() {
         </Link>
         <form onSubmit={submit} className="space-y-3">
           <Input placeholder="Nome" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-          <Input
-            type="tel"
-            inputMode="tel"
-            placeholder="WhatsApp (com DDD)"
-            value={form.phone}
-            onChange={(e) => setForm({ ...form, phone: e.target.value })}
-            onBlur={(e) => {
-              const formatted = formatBrPhone(e.target.value);
-              if (formatted && formatted !== form.phone) {
-                setForm((f) => ({ ...f, phone: formatted }));
-              }
-            }}
-          />
+          <div className="space-y-1">
+            <div className="relative">
+              <Input
+                type="tel"
+                inputMode="tel"
+                placeholder="WhatsApp — (11) 91234-5678"
+                value={form.phone}
+                aria-invalid={phoneValid === false}
+                aria-describedby="phone-hint"
+                onChange={(e) => setForm((f) => ({ ...f, phone: formatBrPhoneTyping(e.target.value) }))}
+                onBlur={(e) => {
+                  const formatted = formatBrPhone(e.target.value);
+                  if (formatted && formatted !== form.phone) {
+                    setForm((f) => ({ ...f, phone: formatted }));
+                  }
+                }}
+                className={cn(
+                  phoneValid === false && "border-destructive focus-visible:ring-destructive",
+                  phoneValid === true && "border-success focus-visible:ring-success pr-9",
+                )}
+              />
+              {phoneValid === true && (
+                <Check className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-success" aria-hidden />
+              )}
+            </div>
+            <p
+              id="phone-hint"
+              className={cn(
+                "text-xs",
+                phoneValid === false ? "text-destructive" : phoneValid ? "text-success" : "text-muted-foreground",
+              )}
+              role={phoneValid === false ? "alert" : undefined}
+            >
+              {phoneHint}
+            </p>
+          </div>
           <Input type="email" placeholder="E-mail" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
           <Input type="password" placeholder="Senha (6+ caracteres)" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
           <Button type="submit" className="w-full" disabled={loading}>
