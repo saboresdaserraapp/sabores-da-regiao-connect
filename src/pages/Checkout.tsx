@@ -826,6 +826,46 @@ const CheckoutPage = () => {
             }}>Salvar</Button>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={showGuestPrompt} onOpenChange={setShowGuestPrompt}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <div className="mx-auto mb-2 grid size-12 place-items-center rounded-full bg-primary/10 text-primary">
+              <UserPlus className="size-6" />
+            </div>
+            <DialogTitle className="text-center font-display text-xl">Criar conta para acompanhar?</DialogTitle>
+            <DialogDescription className="text-center">
+              Sem uma conta você ainda recebe o código de rastreamento, mas perde o histórico de pedidos, endereços salvos
+              e notificações sobre o andamento. Criar conta leva menos de 1 minuto.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-2 flex flex-col-reverse gap-2 sm:flex-row sm:justify-between sm:gap-3">
+            <Button
+              variant="ghost"
+              className="sm:w-1/2"
+              onClick={() => {
+                setShowGuestPrompt(false);
+                setGuestAcknowledged(true);
+                // Resume the send flow immediately as visitor.
+                setTimeout(() => onSend(), 0);
+              }}
+            >
+              Continuar como visitante
+            </Button>
+            <Button
+              className="sm:w-1/2"
+              onClick={() => {
+                const redirect = `/checkout/${e.slug}`;
+                setShowGuestPrompt(false);
+                navigate(`/cadastro?redirect=${encodeURIComponent(redirect)}`);
+              }}
+            >
+              <UserPlus className="mr-1.5 size-4" />
+              Criar conta
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
