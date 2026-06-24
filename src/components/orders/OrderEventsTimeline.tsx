@@ -39,6 +39,7 @@ type TimelineEvent = {
   at: string;
   status?: string;
   message?: string;
+  reason?: string;
 };
 
 function fmtTime(iso?: string) {
@@ -77,7 +78,7 @@ export function OrderEventsTimeline({
         );
         if (cancelled) return;
         const payload = (data as {
-          status_history?: Array<{ status: string; at: string }>;
+          status_history?: Array<{ status: string; at: string; reason?: string; by?: string }>;
           system_messages?: Array<{ at: string; message: string }>;
           estimated_minutes?: number | null;
           final_total?: number | string | null;
@@ -85,7 +86,7 @@ export function OrderEventsTimeline({
         }) || {};
         const merged: TimelineEvent[] = [
           ...(payload.status_history ?? []).map((h) => ({
-            kind: "status" as const, at: h.at, status: h.status,
+            kind: "status" as const, at: h.at, status: h.status, reason: h.reason,
           })),
           ...(payload.system_messages ?? []).map((m) => ({
             kind: "message" as const, at: m.at, message: m.message,
@@ -177,6 +178,11 @@ export function OrderEventsTimeline({
                 {ev.kind === "status" && STATUS_GUIDANCE[ev.status ?? ""] && (
                   <div className="mt-0.5 text-xs text-muted-foreground">
                     {STATUS_GUIDANCE[ev.status ?? ""]}
+                  </div>
+                )}
+                {ev.kind === "status" && ev.reason && ev.reason.trim().length > 0 && (
+                  <div className="mt-1 rounded-lg border border-destructive/30 bg-destructive/5 px-2 py-1 text-xs text-destructive">
+                    Motivo: {ev.reason}
                   </div>
                 )}
                 <div className="mt-0.5 text-[11px] text-muted-foreground">{fmtTime(ev.at)}</div>

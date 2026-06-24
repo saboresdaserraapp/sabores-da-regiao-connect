@@ -21,14 +21,22 @@ export function StoreConfirmActions({
   const [total, setTotal] = useState<string>(finalTotal != null ? String(finalTotal) : "");
   const [busy, setBusy] = useState<string | null>(null);
 
+  const LABELS: Record<string, { ok: string; dup: string }> = {
+    avail: { ok: "Disponibilidade confirmada.", dup: "Disponibilidade já estava confirmada." },
+    eta:   { ok: "Prazo informado ao cliente.",  dup: "Prazo já estava registrado com esse valor." },
+    total: { ok: "Valor final enviado ao cliente.", dup: "Valor final já estava registrado." },
+  };
+
   const run = async (key: string, rpc: string, args: Record<string, unknown>) => {
+    if (busy) return; // evita cliques duplicados em qualquer botão
     setBusy(key);
     try {
       const { data, error } = await supabase.rpc(rpc as never, args as never);
       if (error) throw error;
       const payload = data as { ok?: boolean; duplicated?: boolean } | null;
-      if (payload?.duplicated) toast.info("Sem alteração — já estava registrado.");
-      else toast.success("Registrado na linha do tempo.");
+      const label = LABELS[key] ?? { ok: "Registrado na linha do tempo.", dup: "Sem alteração — já estava registrado." };
+      if (payload?.duplicated) toast.info(label.dup);
+      else toast.success(label.ok);
       onChanged?.();
     } catch (err) {
       toast.error((err as Error)?.message || "Erro");
@@ -47,7 +55,7 @@ export function StoreConfirmActions({
         type="button"
         variant="outline"
         className="w-full justify-start"
-        disabled={busy === "avail"}
+        disabled={!!busy}
         onClick={() => run("avail", "mark_order_availability", { _order_id: orderId, _note: null })}
       >
         {busy === "avail" ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Check className="mr-2 size-4" />}
@@ -63,7 +71,7 @@ export function StoreConfirmActions({
             onChange={(e) => setEta(e.target.value)} placeholder="Ex.: 45"
           />
           <Button
-            type="button" variant="secondary" disabled={busy === "eta" || !eta}
+            type="button" variant="secondary" disabled={!!busy || !eta}
             onClick={() => run("eta", "mark_order_eta", { _order_id: orderId, _minutes: Number(eta), _note: null })}
           >
             {busy === "eta" ? <Loader2 className="size-4 animate-spin" /> : <Clock className="size-4" />}
@@ -79,7 +87,7 @@ export function StoreConfirmActions({
             onChange={(e) => setTotal(e.target.value)} placeholder="Ex.: 89,90"
           />
           <Button
-            type="button" variant="secondary" disabled={busy === "total" || total === ""}
+            type="button" variant="secondary" disabled={!!busy || total === ""}
             onClick={() => run("total", "mark_order_final_value", { _order_id: orderId, _total: Number(total), _note: null })}
           >
             {busy === "total" ? <Loader2 className="size-4 animate-spin" /> : <DollarSign className="size-4" />}

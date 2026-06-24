@@ -47,4 +47,35 @@ test.describe("TrackingShareActions on confirmation screen", () => {
     expect(opened[0]).toContain("wa.me/5511999990001");
     expect(opened[0]).toContain(encodeURIComponent("SDS-TST001"));
   });
+
+  test("cancelar pedido confirma e não dispara registro extra de WhatsApp", async ({ page }) => {
+    const waCalls: string[] = [];
+    let cancelCalls = 0;
+
+    await page.route("**/rest/v1/rpc/customer_cancel_order", async (route) => {
+      cancelCalls += 1;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ ok: true }),
+      });
+    });
+    await page.route("**/rest/v1/rpc/register_whatsapp_resend", async (route) => {
+      waCalls.push("register_whatsapp_resend");
+      await route.fulfill({ status: 200, contentType: "application/json", body: "{}" });
+    });
+    await page.route("**/rest/v1/rpc/log_whatsapp_send", async (route) => {
+      waCalls.push("log_whatsapp_send");
+      await route.fulfill({ status: 200, contentType: "application/json", body: "{}" });
+    });
+
+    await page.goto("/debug/share-actions");
+    await page.getByRole("button", { name: /cancelar pedido/i }).click();
+    await page.getByPlaceholder(/motivo/i).fill("Mudei de ideia");
+    await page.getByRole("button", { name: /confirmar cancelamento/i }).click();
+
+    await expect(page.getByTestId("canceled-flag")).toBeVisible();
+    expect(cancelCalls).toBe(1);
+    expect(waCalls).toEqual([]);
+  });
 });
