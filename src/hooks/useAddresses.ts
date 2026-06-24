@@ -29,26 +29,61 @@ export function useAddresses() {
   const { user } = useAuth();
   const qc = useQueryClient();
   const instanceId = useId();
-  useEffect(() => {
-    if (!user?.id) return;
-    const channel = supabase
-      .channel(`addresses-${user.id}-${instanceId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "addresses", filter: `user_id=eq.${user.id}` }, () => {
-        qc.invalidateQueries({ queryKey: ["addresses", user.id] });
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [user?.id, qc, instanceId]);
+  const userId = user?.id;
 
-  return useQuery({
-    queryKey: ["addresses", user?.id],
-    enabled: !!user,
+  useEffect(() => {
+    if (!userId) return;
+    const channelName = `addresses-${userId}-${instanceId}`;
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "addresses", filter: `user_id=eq.${userId}` },
+        () => {
+          qc.invalidateQueries({ queryKey: ["addresses", userId] });
+        },
+      )
+      .subscribe((status) => {
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+          // eslint-disable-next-line no-console
+          console.warn("[useAddresses:rt]", { channel: channelName, status });
+        }
+      });
+    return () => {
+      try {
+        supabase.removeChannel(channel);
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn("[useAddresses:rt] removeChannel failed", err);
+      }
+    };
+  }, [userId, qc, instanceId]);
+
+  const query = useQuery({
+    queryKey: ["addresses", userId],
+    enabled: !!userId,
     queryFn: async () => {
-      const { data, error } = await supabase.from("addresses").select("*").eq("user_id", user!.id).order("is_default", { ascending: false });
-      if (error) throw error;
-      return (data ?? []) as Address[];
+      try {
+        const { data, error } = await supabase
+          .from("addresses")
+          .select("*")
+          .eq("user_id", userId!)
+          .order("is_default", { ascending: false });
+        if (error) {
+          // eslint-disable-next-line no-console
+          console.error("[useAddresses] query failed", { userId, error });
+          throw error;
+        }
+        return (data ?? []) as Address[];
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error("[useAddresses] unexpected error", { userId, err });
+        throw err;
+      }
     },
   });
+
+  return { ...query, data: query.data ?? ([] as Address[]) };
 }
 
 export function useAddressMutations() {
