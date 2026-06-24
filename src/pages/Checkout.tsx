@@ -195,6 +195,12 @@ const CheckoutPage = () => {
         toast.error("Preencha o endereço de entrega"); return;
       }
     }
+    // Gentle nudge: visitors are allowed to finish the order, but we surface a
+    // friendly prompt with a "Criar conta" CTA before opening WhatsApp.
+    if (!user && !guestAcknowledged) {
+      setShowGuestPrompt(true);
+      return;
+    }
     setSending(true);
 
     let trackingCode: string | undefined;
