@@ -2929,6 +2929,7 @@ export type Database = {
             }
             Returns: string
           }
+      debug_whoami: { Args: never; Returns: Json }
       ensure_official_admin: { Args: never; Returns: undefined }
       gen_tracking_code: { Args: never; Returns: string }
       get_establishment_plan_info: {
