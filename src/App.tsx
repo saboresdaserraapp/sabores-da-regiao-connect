@@ -66,6 +66,7 @@ const AdminPoliticasEntrega = lazy(() => import("./pages/admin/PoliticasEntrega.
 const AdminAprovacaoEstabelecimentos = lazy(() => import("./pages/admin/AprovacaoEstabelecimentos.tsx"));
 const AdminTickets = lazy(() => import("./pages/admin/Tickets.tsx"));
 const AdminSuporte = lazy(() => import("./pages/admin/Suporte.tsx"));
+const AdminConvitesSignup = lazy(() => import("./pages/admin/ConvitesSignup.tsx"));
 
 // Minha Loja — fully lazy
 const MinhaLojaDispatcher = lazy(() => import("./pages/minha-loja/Dispatcher.tsx"));
