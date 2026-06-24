@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { Clock, MessageCircle, Check, ChefHat, Package, Bike, PartyPopper, XCircle, Info } from "lucide-react";
+import { Clock, MessageCircle, Check, ChefHat, Package, Bike, PartyPopper, XCircle, Info, DollarSign } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { statusLabel } from "@/lib/orderStatusLabels";
+import { brl } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const STATUS_GUIDANCE: Record<string, string> = {
@@ -60,6 +61,9 @@ export function OrderEventsTimeline({
 }) {
   const [events, setEvents] = useState<TimelineEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [eta, setEta] = useState<number | null>(null);
+  const [finalTotal, setFinalTotal] = useState<number | null>(null);
+  const [availabilityAt, setAvailabilityAt] = useState<string | null>(null);
 
   useEffect(() => {
     if (!trackingCode) return;
@@ -72,7 +76,13 @@ export function OrderEventsTimeline({
           { _code: trackingCode } as never,
         );
         if (cancelled) return;
-        const payload = (data as { status_history?: Array<{ status: string; at: string }>; system_messages?: Array<{ at: string; message: string }> }) || {};
+        const payload = (data as {
+          status_history?: Array<{ status: string; at: string }>;
+          system_messages?: Array<{ at: string; message: string }>;
+          estimated_minutes?: number | null;
+          final_total?: number | string | null;
+          availability_confirmed_at?: string | null;
+        }) || {};
         const merged: TimelineEvent[] = [
           ...(payload.status_history ?? []).map((h) => ({
             kind: "status" as const, at: h.at, status: h.status,
@@ -82,6 +92,9 @@ export function OrderEventsTimeline({
           })),
         ].sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
         setEvents(merged);
+        setEta(payload.estimated_minutes ?? null);
+        setFinalTotal(payload.final_total != null ? Number(payload.final_total) : null);
+        setAvailabilityAt(payload.availability_confirmed_at ?? null);
       } catch {
         if (!cancelled) setEvents([]);
       } finally {
@@ -91,7 +104,11 @@ export function OrderEventsTimeline({
     return () => { cancelled = true; };
   }, [trackingCode, currentStatus]);
 
-  const currentGuidance = STATUS_GUIDANCE[currentStatus] ?? null;
+  const isConfirmed = currentStatus !== "waiting_business_confirmation";
+  // Até a confirmação final, mantenha sempre a mensagem-guia padrão.
+  const currentGuidance = isConfirmed
+    ? STATUS_GUIDANCE[currentStatus] ?? null
+    : STATUS_GUIDANCE.waiting_business_confirmation;
 
   return (
     <div className="space-y-4">
@@ -99,6 +116,38 @@ export function OrderEventsTimeline({
         <div className="flex items-start gap-2 rounded-2xl border border-primary/20 bg-primary/5 p-3 text-sm text-primary-foreground/90">
           <Info className="mt-0.5 size-4 shrink-0 text-primary" />
           <p className="text-foreground/90">{currentGuidance}</p>
+        </div>
+      )}
+
+      {(availabilityAt || eta != null || finalTotal != null) && (
+        <div className="grid gap-2 sm:grid-cols-3">
+          <div className={cn(
+            "rounded-2xl border p-3 text-xs",
+            availabilityAt ? "border-success/30 bg-success/10 text-success" : "border-border bg-muted/40 text-muted-foreground",
+          )}>
+            <div className="mb-0.5 flex items-center gap-1.5 font-semibold">
+              <Check className="size-3.5" /> Disponibilidade
+            </div>
+            <div>{availabilityAt ? "Confirmada pela loja" : "Aguardando"}</div>
+          </div>
+          <div className={cn(
+            "rounded-2xl border p-3 text-xs",
+            eta != null ? "border-primary/30 bg-primary/10 text-primary" : "border-border bg-muted/40 text-muted-foreground",
+          )}>
+            <div className="mb-0.5 flex items-center gap-1.5 font-semibold">
+              <Clock className="size-3.5" /> Prazo estimado
+            </div>
+            <div>{eta != null ? `~${eta} min` : "Aguardando"}</div>
+          </div>
+          <div className={cn(
+            "rounded-2xl border p-3 text-xs",
+            finalTotal != null ? "border-success/30 bg-success/10 text-success" : "border-border bg-muted/40 text-muted-foreground",
+          )}>
+            <div className="mb-0.5 flex items-center gap-1.5 font-semibold">
+              <DollarSign className="size-3.5" /> Valor final
+            </div>
+            <div>{finalTotal != null ? brl(finalTotal) : "Aguardando"}</div>
+          </div>
         </div>
       )}
 

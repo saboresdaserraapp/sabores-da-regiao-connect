@@ -1637,6 +1637,7 @@ export type Database = {
           assigned_driver_id: string | null
           assigned_driver_name: string | null
           assigned_driver_phone: string | null
+          availability_confirmed_at: string | null
           business_confirmation_note: string | null
           confirmation_flow_status: string | null
           confirmed_at: string | null
@@ -1686,6 +1687,7 @@ export type Database = {
           assigned_driver_id?: string | null
           assigned_driver_name?: string | null
           assigned_driver_phone?: string | null
+          availability_confirmed_at?: string | null
           business_confirmation_note?: string | null
           confirmation_flow_status?: string | null
           confirmed_at?: string | null
@@ -1735,6 +1737,7 @@ export type Database = {
           assigned_driver_id?: string | null
           assigned_driver_name?: string | null
           assigned_driver_phone?: string | null
+          availability_confirmed_at?: string | null
           business_confirmation_note?: string | null
           confirmation_flow_status?: string | null
           confirmed_at?: string | null
@@ -2899,11 +2902,60 @@ export type Database = {
           },
         ]
       }
+      whatsapp_send_logs: {
+        Row: {
+          establishment_id: string
+          id: string
+          kind: string
+          order_id: string
+          sent_at: string
+          sent_by: string | null
+          tracking_code: string | null
+          whatsapp_message: string | null
+        }
+        Insert: {
+          establishment_id: string
+          id?: string
+          kind?: string
+          order_id: string
+          sent_at?: string
+          sent_by?: string | null
+          tracking_code?: string | null
+          whatsapp_message?: string | null
+        }
+        Update: {
+          establishment_id?: string
+          id?: string
+          kind?: string
+          order_id?: string
+          sent_at?: string
+          sent_by?: string | null
+          tracking_code?: string | null
+          whatsapp_message?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_send_logs_establishment_id_fkey"
+            columns: ["establishment_id"]
+            isOneToOne: false
+            referencedRelation: "establishments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_send_logs_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      _assert_estab_member: { Args: { _order_id: string }; Returns: string }
       accept_order_proposal: { Args: { _proposal_id: string }; Returns: Json }
       admin_find_user_by_email: { Args: { _email: string }; Returns: string }
       can_manage: { Args: { _user_id: string }; Returns: boolean }
@@ -2935,6 +2987,10 @@ export type Database = {
             }
             Returns: string
           }
+      customer_cancel_order: {
+        Args: { _code: string; _reason?: string }
+        Returns: Json
+      }
       ensure_official_admin: { Args: never; Returns: undefined }
       gen_tracking_code: { Args: never; Returns: string }
       get_establishment_plan_info: {
@@ -2996,9 +3052,25 @@ export type Database = {
         }
         Returns: undefined
       }
+      log_whatsapp_send: {
+        Args: { _code: string; _kind?: string; _message: string }
+        Returns: Json
+      }
       make_unique_establishment_slug: {
         Args: { _name: string; _self_id: string }
         Returns: string
+      }
+      mark_order_availability: {
+        Args: { _note?: string; _order_id: string }
+        Returns: Json
+      }
+      mark_order_eta: {
+        Args: { _minutes: number; _note?: string; _order_id: string }
+        Returns: Json
+      }
+      mark_order_final_value: {
+        Args: { _note?: string; _order_id: string; _total: number }
+        Returns: Json
       }
       register_whatsapp_resend: { Args: { _code: string }; Returns: Json }
       reject_order_proposal: {

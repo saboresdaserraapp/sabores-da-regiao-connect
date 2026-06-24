@@ -362,6 +362,13 @@ const CheckoutPage = () => {
     
     if (insertedOrder?.id) {
       await supabase.from("orders").update({ whatsapp_message: msg }).eq("id", insertedOrder.id);
+      // Log the very first WhatsApp send (idempotent server-side).
+      try {
+        await supabase.rpc(
+          "log_whatsapp_send" as never,
+          { _code: trackingCode, _message: msg, _kind: "initial" } as never,
+        );
+      } catch { /* non-blocking */ }
     }
 
     // Snapshot the cart BEFORE clearing it so the confirmation screen can
@@ -403,7 +410,15 @@ const CheckoutPage = () => {
   // After a successful send we render a dedicated confirmation screen with the
   // tracking code + order summary, even though the cart is now empty.
   if (confirmation) {
-    return <ConfirmationScreen confirmation={confirmation} navigate={navigate} />;
+    return (
+      <ConfirmationScreen
+        confirmation={confirmation}
+        navigate={navigate}
+        onCanceled={() =>
+          navigate(`/pedido/${confirmation.trackingCode}`, { replace: true })
+        }
+      />
+    );
   }
 
   if (cartState.items.length === 0) {
@@ -911,9 +926,11 @@ function Row({ label, value, strong }: any) {
 function ConfirmationScreen({
   confirmation,
   navigate,
+  onCanceled,
 }: {
   confirmation: ConfirmationSnapshot;
   navigate: ReturnType<typeof useNavigate>;
+  onCanceled?: () => void;
 }) {
   const typeLabel =
     confirmation.type === "entrega" ? "Entrega" : confirmation.type === "retirada" ? "Retirada" : "Consumo no local";
@@ -942,6 +959,8 @@ function ConfirmationScreen({
                 establishmentName={confirmation.establishmentName}
                 whatsapp={confirmation.whatsapp}
                 whatsappMessage={confirmation.whatsappMessage}
+                showCancel
+                onCanceled={onCanceled}
               />
             </div>
           </div>
