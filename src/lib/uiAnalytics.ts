@@ -6,7 +6,8 @@
 export type UiEventName =
   | "signup_invite_shown"
   | "signup_invite_cta_click"
-  | "signup_invite_dismissed";
+  | "signup_invite_dismissed"
+  | "signup_invite_signup_completed";
 
 export function trackUiEvent(name: UiEventName, payload: Record<string, unknown> = {}) {
   try {

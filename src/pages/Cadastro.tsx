@@ -7,9 +7,8 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Loader2, UtensilsCrossed } from "lucide-react";
 import { z } from "zod";
-
-const phoneRegex = /^\+?\d[\d\s().-]{7,}\d$/;
-const onlyDigits = (s: string) => s.replace(/\D/g, "");
+import { formatBrPhone, isValidBrPhone, normalizeBrPhone } from "@/lib/phone";
+import { trackUiEvent } from "@/lib/uiAnalytics";
 
 const schema = z.object({
   name: z.string().trim().min(2, "Nome muito curto").max(80),
@@ -19,7 +18,7 @@ const schema = z.object({
     .string()
     .trim()
     .optional()
-    .refine((v) => !v || (phoneRegex.test(v) && onlyDigits(v).length >= 10), {
+    .refine((v) => !v || isValidBrPhone(v), {
       message: "Telefone inválido (informe DDD + número)",
     }),
 });
@@ -28,7 +27,8 @@ export default function Cadastro() {
   const nav = useNavigate();
   const [params] = useSearchParams();
   const prefillName = params.get("prefill_name") ?? "";
-  const prefillPhone = params.get("prefill_phone") ?? "";
+  const prefillPhoneRaw = params.get("prefill_phone") ?? "";
+  const prefillPhone = prefillPhoneRaw ? formatBrPhone(prefillPhoneRaw) : "";
   const fromTracking = params.get("from_tracking");
   const hasPrefill = Boolean(prefillName || prefillPhone);
 
@@ -50,6 +50,7 @@ export default function Cadastro() {
     const v = schema.safeParse(form);
     if (!v.success) return toast.error(v.error.issues[0].message);
     setLoading(true);
+    const phoneDigits = form.phone ? normalizeBrPhone(form.phone) : "";
     const { error } = await supabase.auth.signUp({
       email: form.email,
       password: form.password,
@@ -57,7 +58,7 @@ export default function Cadastro() {
         emailRedirectTo: window.location.origin + "/minha-conta",
         data: {
           display_name: form.name.trim(),
-          phone: form.phone ? onlyDigits(form.phone) : undefined,
+          phone: phoneDigits || undefined,
           signup_source: fromTracking ? "post_delivery_invite" : "direct",
           from_tracking: fromTracking ?? undefined,
         },
@@ -65,6 +66,11 @@ export default function Cadastro() {
     });
     setLoading(false);
     if (error) return toast.error(error.message);
+    trackUiEvent("signup_invite_signup_completed", {
+      tracking_code: fromTracking,
+      source: fromTracking ? "post_delivery_invite" : "direct",
+      has_phone: Boolean(phoneDigits),
+    });
     toast.success("Conta criada! Verifique seu e-mail para confirmar.");
     nav("/login");
   }
@@ -90,9 +96,16 @@ export default function Cadastro() {
           <Input placeholder="Nome" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <Input
             type="tel"
+            inputMode="tel"
             placeholder="WhatsApp (com DDD)"
             value={form.phone}
             onChange={(e) => setForm({ ...form, phone: e.target.value })}
+            onBlur={(e) => {
+              const formatted = formatBrPhone(e.target.value);
+              if (formatted && formatted !== form.phone) {
+                setForm((f) => ({ ...f, phone: formatted }));
+              }
+            }}
           />
           <Input type="email" placeholder="E-mail" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
           <Input type="password" placeholder="Senha (6+ caracteres)" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
