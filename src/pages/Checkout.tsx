@@ -73,6 +73,24 @@ const CheckoutPage = () => {
   const [prefill] = useState(() => consumeReorderPrefill());
   const [prefillApplied, setPrefillApplied] = useState(false);
 
+  // Confirmation + guest-prompt UX state
+  type ConfirmationSnapshot = {
+    trackingCode: string;
+    items: { name: string; qty: number; total: number }[];
+    subtotal: number;
+    deliveryFee: number | null;
+    total: number;
+    type: OrderType;
+    payment?: string;
+    customerName: string;
+    establishmentSlug: string;
+    establishmentName: string;
+  };
+  const [confirmation, setConfirmation] = useState<ConfirmationSnapshot | null>(null);
+  const [trackingCopied, setTrackingCopied] = useState(false);
+  const [showGuestPrompt, setShowGuestPrompt] = useState(false);
+  const [guestAcknowledged, setGuestAcknowledged] = useState(false);
+
   // Apply reorder prefill once — runs after addresses load so address_id can be honored.
   useEffect(() => {
     if (!prefill || prefillApplied) return;
