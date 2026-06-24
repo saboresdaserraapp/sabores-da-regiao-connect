@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { CartPreviewSheet } from "./cart/CartPreviewSheet";
 
 export function CartFloatingButton() {
+  // keep hook order stable — do not early-return above any hook call below
   const state = useCart();
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
@@ -30,7 +31,13 @@ export function CartFloatingButton() {
   });
   const { data: settings } = useDeliverySettings(enabled ? establishmentId ?? undefined : undefined);
   const { data: regions } = useDeliveryRegions(enabled ? establishmentId ?? undefined : undefined, false);
-  const { data: addresses } = useAddresses();
+  const { data: addresses, error: addressesError } = useAddresses();
+  useEffect(() => {
+    if (addressesError) {
+      // eslint-disable-next-line no-console
+      console.warn("[CartFloatingButton] addresses query failed", addressesError);
+    }
+  }, [addressesError]);
 
   // Auto-cura: carrinhos antigos sem slug recebem o slug a partir do id.
   useEffect(() => {
@@ -46,18 +53,25 @@ export function CartFloatingButton() {
   const subtotal = cart.subtotal();
 
   const defaultAddr = user ? (addresses?.find((a) => a.is_default) ?? addresses?.[0]) : null;
-  const preview = defaultAddr && establishment
-    ? resolveDeliveryFeeWithDistance({
-        settings,
-        regions,
-        fixedFee: establishment.delivery_fee != null ? Number(establishment.delivery_fee) : null,
-        subtotal,
-        neighborhood: defaultAddr.neighborhood,
-        popularLocationName: (defaultAddr as any).popular_location_name,
-        origin: { latitude: (establishment as any).latitude, longitude: (establishment as any).longitude },
-        destination: { latitude: (defaultAddr as any).latitude, longitude: (defaultAddr as any).longitude },
-      })
-    : null;
+  let preview: ReturnType<typeof resolveDeliveryFeeWithDistance> | null = null;
+  try {
+    preview = defaultAddr && establishment
+      ? resolveDeliveryFeeWithDistance({
+          settings,
+          regions,
+          fixedFee: establishment.delivery_fee != null ? Number(establishment.delivery_fee) : null,
+          subtotal,
+          neighborhood: defaultAddr.neighborhood,
+          popularLocationName: (defaultAddr as any).popular_location_name,
+          origin: { latitude: (establishment as any).latitude, longitude: (establishment as any).longitude },
+          destination: { latitude: (defaultAddr as any).latitude, longitude: (defaultAddr as any).longitude },
+        })
+      : null;
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn("[CartFloatingButton] failed to compute delivery preview", err);
+    preview = null;
+  }
 
   let feeLabel: { text: string; tone: "ok" | "muted" | "warn" } | null = null;
   if (preview) {
