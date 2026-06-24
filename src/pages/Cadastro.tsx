@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,13 @@ const schema = z.object({
 
 export default function Cadastro() {
   const nav = useNavigate();
-  const [form, setForm] = useState({ name: "", email: "", password: "" });
+  const [params] = useSearchParams();
+  const [form, setForm] = useState({
+    name: params.get("prefill_name") ?? "",
+    email: "",
+    password: "",
+    phone: params.get("prefill_phone") ?? "",
+  });
   const [loading, setLoading] = useState(false);
 
   async function submit(e: React.FormEvent) {
@@ -29,7 +35,7 @@ export default function Cadastro() {
       password: form.password,
       options: {
         emailRedirectTo: window.location.origin + "/minha-conta",
-        data: { display_name: form.name },
+        data: { display_name: form.name, phone: form.phone || undefined },
       },
     });
     setLoading(false);
@@ -57,6 +63,13 @@ export default function Cadastro() {
         </Link>
         <form onSubmit={submit} className="space-y-3">
           <Input placeholder="Nome" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          {form.phone && (
+            <Input
+              placeholder="WhatsApp"
+              value={form.phone}
+              onChange={(e) => setForm({ ...form, phone: e.target.value })}
+            />
+          )}
           <Input type="email" placeholder="E-mail" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
           <Input type="password" placeholder="Senha (6+ caracteres)" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
           <Button type="submit" className="w-full" disabled={loading}>
