@@ -105,7 +105,7 @@ const PainelSuporteChat = lazy(() => import("./pages/minha-loja/painel/SuporteCh
 const PainelTicketDetalhes = lazy(() => import("./pages/minha-loja/painel/TicketDetalhes.tsx"));
 
 import { CartFloatingButton } from "./components/CartFloatingButton";
-import { SupportChatWidget } from "./components/support/SupportChatWidget";
+import { GlobalFloatingChat } from "./components/GlobalFloatingChat";
 import { PendingProposalDialog } from "./components/PendingProposalDialog";
 import { useAuth } from "@/hooks/useAuth";
 import { ErrorBoundary } from "./components/ErrorBoundary";
@@ -138,13 +138,11 @@ function GlobalCartButton() {
 }
 
 function GlobalSupportWidget() {
-  const { user } = useAuth();
   const { pathname } = useLocation();
-  if (!user) return null;
   if (/^\/admin(\/|$)/.test(pathname)) return null;
   if (/^\/minha-loja(\/|$)/.test(pathname)) return null;
   if (/^\/checkout(\/|$)/.test(pathname)) return null;
-  return <SupportChatWidget />;
+  return <GlobalFloatingChat />;
 }
 
 function GlobalPendingProposal() {
