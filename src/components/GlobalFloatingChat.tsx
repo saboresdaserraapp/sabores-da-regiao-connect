@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useMyOpenChat, useOpenChat, useCloseChat } from "@/hooks/useSupportChat";
 import { useMyChatOrders, type ChatOrderRow } from "@/hooks/useMyChatOrders";
 import { useGuestChatOrders, useGuestOrderMessages } from "@/hooks/useGuestChatOrders";
+import { markGuestSeen } from "@/lib/guestSeenMessages";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 
@@ -131,8 +132,9 @@ export function GlobalFloatingChat() {
       const next = orders.find((o) => o.unread_from_business > 0) ?? orders[0];
       setActiveOrderId(next.id);
       setActiveTracking(next.tracking_code);
+      if (!user && next.tracking_code) markGuestSeen(next.tracking_code);
     }
-  }, [open, orders, activeOrderId]);
+  }, [open, orders, activeOrderId, user]);
 
   // Auto-open balloon when a new establishment message arrives (subtle UX).
   const previousUnread = useState({ v: totalUnreadOrders })[0];
