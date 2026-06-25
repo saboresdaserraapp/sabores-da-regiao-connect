@@ -17,6 +17,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 import { addRecentOrderCode } from "@/lib/recentOrderCodes";
 import { markGuestSeen } from "@/lib/guestSeenMessages";
+import { GuestProposalDialog } from "@/components/orders/GuestProposalDialog";
 
 const PedidoTrackingPublic = () => {
   const { code } = useParams();
@@ -230,6 +231,13 @@ const PedidoTrackingPublic = () => {
               tracking_code: order.tracking_code,
             });
           }}
+        />
+      )}
+
+      {!user && order.tracking_code && (
+        <GuestProposalDialog
+          trackingCode={order.tracking_code}
+          establishmentName={order.establishment_name}
         />
       )}
     </div>
