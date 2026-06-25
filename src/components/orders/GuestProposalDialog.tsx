@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Check, X } from "lucide-react";
+import { Loader2, Check, X, AlertTriangle, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { brl } from "@/lib/format";
 
@@ -38,10 +38,17 @@ export function GuestProposalDialog({
   const [rejectMode, setRejectMode] = useState(false);
   const [note, setNote] = useState("");
 
-  const { data: proposal, refetch } = useQuery({
+  const [acceptError, setAcceptError] = useState<string | null>(null);
+
+  const { data: proposal, refetch, isFetching, error: queryError } = useQuery({
     enabled: !!trackingCode,
     queryKey: ["guest-active-proposal", trackingCode],
-    refetchInterval: 15_000,
+    // Polling curto + refetch on focus garantem que o pop-up apareça mesmo
+    // se o visitante carregar a página antes da proposta estar pronta.
+    refetchInterval: 8_000,
+    refetchOnWindowFocus: true,
+    refetchOnMount: "always",
+    retry: 2,
     queryFn: async (): Promise<GuestProposal | null> => {
       const { data, error } = await supabase.rpc(
         "get_active_proposal_by_tracking" as never,
@@ -62,10 +69,39 @@ export function GuestProposalDialog({
     else setOpen(false);
   }, [proposal?.id, proposal?.status]);
 
+  // Sempre que o pop-up abrir, zera o erro de aceite anterior.
+  useEffect(() => { if (open) setAcceptError(null); }, [open]);
+
+  // Erro persistente ao consultar a proposta (visível em quanto o pedido
+  // está aguardando a confirmação — não derruba a página silenciosamente).
+  if (queryError && !proposal) {
+    return (
+      <div
+        role="alert"
+        data-testid="guest-proposal-load-error"
+        className="fixed bottom-4 left-1/2 z-30 -translate-x-1/2 max-w-[min(420px,calc(100vw-1.5rem))] rounded-xl border border-destructive/40 bg-card p-3 text-sm shadow-lg"
+      >
+        <div className="flex items-start gap-2">
+          <AlertTriangle className="size-4 mt-0.5 text-destructive shrink-0" />
+          <div className="flex-1">
+            <p className="font-medium">Não conseguimos verificar se a loja já enviou a taxa.</p>
+            <p className="text-xs text-muted-foreground">
+              Verifique sua conexão e tente novamente.
+            </p>
+          </div>
+          <Button size="sm" variant="ghost" onClick={() => void refetch()} disabled={isFetching}>
+            {isFetching ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   if (!proposal) return null;
 
   const onAccept = async () => {
     setBusy(true);
+    setAcceptError(null);
     try {
       const { error } = await supabase.rpc(
         "accept_order_proposal_by_tracking" as never,
@@ -76,7 +112,9 @@ export function GuestProposalDialog({
       setOpen(false);
       await refetch();
     } catch (e) {
-      toast.error((e as Error)?.message || "Não foi possível aceitar");
+      const msg = (e as Error)?.message || "Não foi possível aceitar a proposta. Tente novamente.";
+      setAcceptError(msg);
+      toast.error(msg);
     } finally {
       setBusy(false);
     }
@@ -84,6 +122,7 @@ export function GuestProposalDialog({
 
   const onReject = async () => {
     setBusy(true);
+    setAcceptError(null);
     try {
       const { error } = await supabase.rpc(
         "reject_order_proposal_by_tracking" as never,
@@ -153,6 +192,27 @@ export function GuestProposalDialog({
               </div>
             ) : null}
           </div>
+
+          {acceptError ? (
+            <div
+              role="alert"
+              data-testid="guest-proposal-error"
+              className="mb-3 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm"
+            >
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="size-4 mt-0.5 text-destructive shrink-0" />
+                <div className="flex-1">
+                  <p className="font-medium text-destructive">{acceptError}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Tente novamente. Se persistir, fale com a loja pelo chat.
+                  </p>
+                </div>
+                <Button size="sm" variant="ghost" onClick={() => void refetch()} disabled={busy}>
+                  <RefreshCw className="size-4" />
+                </Button>
+              </div>
+            </div>
+          ) : null}
 
           {rejectMode ? (
             <div className="space-y-2">

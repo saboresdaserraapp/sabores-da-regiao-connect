@@ -131,10 +131,39 @@ Deno.serve(async (req) => {
       case "delete_order": {
         const p = (body.payload ?? {}) as Record<string, any>;
         if (!p.order_id) return json(400, { error: "order_id required" });
+        await supabase.from("order_confirmation_proposals").delete().eq("order_id", p.order_id);
         await supabase.from("order_messages").delete().eq("order_id", p.order_id);
         const { error } = await supabase.from("orders").delete().eq("id", p.order_id);
         if (error) return json(400, { error: error.message });
         return json(200, { ok: true });
+      }
+
+      case "create_proposal": {
+        const p = (body.payload ?? {}) as Record<string, any>;
+        if (!p.order_id || !p.establishment_id) {
+          return json(400, { error: "order_id and establishment_id required" });
+        }
+        const subtotal = Number(p.proposed_subtotal ?? 10);
+        const delivery = Number(p.proposed_delivery_fee ?? 8);
+        const total = Number(p.proposed_total ?? subtotal + delivery);
+        const { data, error } = await supabase
+          .from("order_confirmation_proposals")
+          .insert({
+            order_id: p.order_id,
+            establishment_id: p.establishment_id,
+            proposed_subtotal: subtotal,
+            proposed_delivery_fee: delivery,
+            proposed_total: total,
+            estimated_preparation_time_min: p.prep_min ?? 30,
+            estimated_delivery_time_min: p.delivery_min ?? 25,
+            business_note: p.note ?? "Proposta E2E",
+            status: p.status ?? "sent",
+            sent_at: new Date().toISOString(),
+          })
+          .select("id")
+          .single();
+        if (error) return json(400, { error: error.message });
+        return json(200, { id: data.id });
       }
 
       default:
