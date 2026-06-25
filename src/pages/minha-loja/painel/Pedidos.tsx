@@ -6,7 +6,7 @@ import { PainelSection } from "./_shared";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MessageCircle, ImageIcon, ChevronDown, ChevronUp, Smartphone, AlertTriangle, CheckCircle2, LayoutGrid, List, MessageSquare, ExternalLink, Search, X, RefreshCw } from "lucide-react";
+import { MessageCircle, ImageIcon, ChevronDown, ChevronUp, Smartphone, AlertTriangle, CheckCircle2, LayoutGrid, List, MessageSquare, ExternalLink, Search, X, RefreshCw, ArrowDown, ArrowUp, ChevronLeft, ChevronRight, AlertCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { OrderReferencesPanel } from "@/components/orders/OrderReferencesPanel";
@@ -84,6 +84,11 @@ export default function Pedidos() {
   const [refreshing, setRefreshing] = useState(false);
   const [expandedRef, setExpandedRef] = useState<string | null>(null);
   const [onlyUnread, setOnlyUnread] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [sortDir, setSortDir] = useState<"desc" | "asc">("desc");
+  const [totalCount, setTotalCount] = useState<number>(0);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const { data: unreadMap } = useOrderUnreadCountsForBusiness(ctx?.establishmentId);
   const unread = (id: string) => unreadMap?.[id] ?? 0;
   // Set persistente entre renders para deduplicar toasts disparados pelo
@@ -93,14 +98,35 @@ export default function Pedidos() {
   async function refresh() {
     if (!ctx) return;
     setRefreshing(true);
-    const { data } = await supabase.from("orders")
-      .select("id,tracking_code,customer_name,customer_phone,total,subtotal,delivery_fee,status,created_at,payment_method,notes,items,address_id,assigned_driver_name,driver_reference_sent_at,payment_status,payment_paid_at,final_delivery_fee,final_total,confirmation_flow_status,current_confirmation_proposal_id")
-      .eq("establishment_id", ctx.establishmentId)
-      .order("created_at", { ascending: false }).limit(100);
-    setOrders((data ?? []) as any);
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+    let q = supabase.from("orders")
+      .select(
+        "id,tracking_code,customer_name,customer_phone,total,subtotal,delivery_fee,status,created_at,payment_method,notes,items,address_id,assigned_driver_name,driver_reference_sent_at,payment_status,payment_paid_at,final_delivery_fee,final_total,confirmation_flow_status,current_confirmation_proposal_id",
+        { count: "exact" }
+      )
+      .eq("establishment_id", ctx.establishmentId);
+    if (filter !== "all" && filter !== "awaiting_acceptance") {
+      q = q.eq("status", filter as any);
+    } else if (filter === "awaiting_acceptance") {
+      q = q.eq("confirmation_flow_status", "proposal_sent_to_customer");
+    }
+    q = q.order("created_at", { ascending: sortDir === "asc" }).range(from, to);
+    const { data, error, count } = await q;
+    if (error) {
+      setLoadError(error.message);
+      setOrders([]);
+      setTotalCount(0);
+    } else {
+      setLoadError(null);
+      setOrders((data ?? []) as any);
+      setTotalCount(count ?? 0);
+    }
     setRefreshing(false);
   }
-  useEffect(() => { refresh(); /* eslint-disable-next-line */ }, [ctx?.establishmentId]);
+  useEffect(() => { refresh(); /* eslint-disable-next-line */ }, [ctx?.establishmentId, page, pageSize, sortDir, filter]);
+  // Reset to page 1 whenever filter or page size changes.
+  useEffect(() => { setPage(1); /* eslint-disable-next-line */ }, [filter, pageSize, sortDir, ctx?.establishmentId]);
 
   // Polling fallback (20s) + atualizar ao focar a janela.
   useEffect(() => {
@@ -550,6 +576,17 @@ export default function Pedidos() {
           </Button>
           <Button
             size="sm"
+            variant="outline"
+            className="h-8 text-xs"
+            onClick={() => setSortDir((d) => (d === "desc" ? "asc" : "desc"))}
+            aria-label="Alternar ordenação por data"
+            data-testid="orders-sort"
+          >
+            {sortDir === "desc" ? <ArrowDown className="size-3.5 mr-1" /> : <ArrowUp className="size-3.5 mr-1" />}
+            {sortDir === "desc" ? "Mais novos" : "Mais antigos"}
+          </Button>
+          <Button
+            size="sm"
             variant={onlyUnread ? "default" : "outline"}
             className="h-8 text-xs"
             onClick={() => setOnlyUnread(v => !v)}
@@ -567,6 +604,31 @@ export default function Pedidos() {
         </div>
       }
     >
+      {loadError && (
+        <div
+          className="mb-4 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm"
+          data-testid="orders-load-error"
+        >
+          <div className="flex items-center gap-2 font-semibold text-destructive">
+            <AlertCircle className="size-4" /> Não foi possível carregar os pedidos.
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {/permission|rls|policy/i.test(loadError)
+              ? "Sem permissão para visualizar os pedidos desta loja. Verifique se você ainda é dono ou colaborador autorizado."
+              : loadError}
+          </p>
+          <Button
+            size="sm"
+            variant="outline"
+            className="mt-3"
+            onClick={() => refresh()}
+            disabled={refreshing}
+            data-testid="orders-reload"
+          >
+            <RefreshCw className={`size-3.5 mr-1 ${refreshing ? "animate-spin" : ""}`} /> Tentar novamente
+          </Button>
+        </div>
+      )}
       <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 text-pretty mb-4 shadow-sm">
         ⚠️ Pedido enviado ao WhatsApp <strong>não é venda confirmada</strong>. Use os status abaixo para registrar o andamento real.
       </div>
@@ -662,6 +724,53 @@ export default function Pedidos() {
           </div>
         </TabsContent>
       </Tabs>
+
+      <div
+        className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t pt-3 text-xs text-muted-foreground"
+        data-testid="orders-pagination"
+      >
+        <div>
+          {totalCount === 0
+            ? "0 pedidos"
+            : `Mostrando ${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, totalCount)} de ${totalCount} pedidos`}
+        </div>
+        <div className="flex items-center gap-2">
+          <span>Itens por página:</span>
+          <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
+            <SelectTrigger className="h-8 w-[80px] text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {[10, 25, 50, 100].map((n) => (
+                <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 px-2"
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page <= 1 || refreshing}
+            aria-label="Página anterior"
+            data-testid="orders-prev-page"
+          >
+            <ChevronLeft className="size-3.5" />
+          </Button>
+          <span className="tabular-nums">
+            Página {page} / {Math.max(1, Math.ceil(totalCount / pageSize))}
+          </span>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 px-2"
+            onClick={() => setPage((p) => p + 1)}
+            disabled={page * pageSize >= totalCount || refreshing}
+            aria-label="Próxima página"
+            data-testid="orders-next-page"
+          >
+            <ChevronRight className="size-3.5" />
+          </Button>
+        </div>
+      </div>
     </PainelSection>
   );
 }
