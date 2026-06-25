@@ -39,9 +39,9 @@ export function useMyChatOrders() {
         .order("created_at", { ascending: false })
         .limit(10);
       if (error) throw error;
-      const list = (orders ?? []) as Array<{
+      const list = (orders ?? []) as unknown as Array<{
         id: string; tracking_code: string | null; status: string; establishment_id: string;
-        created_at: string; establishment: { name: string | null; logo: string | null } | null;
+        created_at: string; establishment: { name: string | null; logo: string | null } | { name: string | null; logo: string | null }[] | null;
       }>;
       if (list.length === 0) return [];
 
@@ -61,17 +61,20 @@ export function useMyChatOrders() {
       }
 
       return list
-        .map((o) => ({
+        .map((o) => {
+          const est = Array.isArray(o.establishment) ? o.establishment[0] : o.establishment;
+          return {
           id: o.id,
           tracking_code: o.tracking_code,
           status: o.status,
           establishment_id: o.establishment_id,
-          establishment_name: o.establishment?.name ?? null,
-          establishment_logo: o.establishment?.logo ?? null,
+          establishment_name: est?.name ?? null,
+          establishment_logo: est?.logo ?? null,
           last_message_at: lastAt[o.id] ?? null,
           unread_from_business: unread[o.id] ?? 0,
           created_at: o.created_at,
-        }))
+          };
+        })
         .sort((a, b) => {
           // Active orders first, then unread, then most recent activity.
           const aActive = ACTIVE_STATUSES.includes(a.status) ? 1 : 0;
