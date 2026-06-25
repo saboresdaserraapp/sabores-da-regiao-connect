@@ -145,6 +145,7 @@ export function NotificationCenter() {
           related_establishment_id: n?.related_establishment_id,
           data: n?.data,
         });
+        toast.error("Pedido não disponível para esta notificação.");
       }
     }
   };

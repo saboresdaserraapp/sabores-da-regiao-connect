@@ -330,7 +330,7 @@ export default function Pedidos() {
       </Select>
 
       <Button asChild size="sm" className="mt-1.5 h-8 w-full text-xs">
-        <Link to={o.tracking_code ? `/pedido/${o.tracking_code}` : `/minha-loja/${ctx!.establishmentId}/pedidos/${o.id}`}>
+        <Link to={`/minha-loja/${ctx!.establishmentId}/pedidos/${o.id}`}>
           <ExternalLink className="size-3.5 mr-1" /> Abrir detalhes do pedido
         </Link>
       </Button>
@@ -456,7 +456,7 @@ export default function Pedidos() {
           </Button>
         )}
         <Button asChild size="sm" className="ml-auto">
-          <Link to={o.tracking_code ? `/pedido/${o.tracking_code}` : `/minha-loja/${ctx!.establishmentId}/pedidos/${o.id}`}>
+          <Link to={`/minha-loja/${ctx!.establishmentId}/pedidos/${o.id}`}>
             <ExternalLink className="size-3.5 mr-1" /> Abrir detalhes
           </Link>
         </Button>
