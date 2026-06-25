@@ -386,7 +386,12 @@ export default function PedidoDetalhesLoja({
                 </label>
                 <Select
                   value={order.status}
-                  onValueChange={(v) => { if (v !== order.status) updateStatus.mutate(v); }}
+                  onValueChange={(v) => {
+                    // Lock duplo: ignora cliques repetidos enquanto há request em voo
+                    if (statusLockRef.current || updateStatus.isPending) return;
+                    if (v === order.status) return;
+                    updateStatus.mutate(v);
+                  }}
                   disabled={updateStatus.isPending}
                 >
                   <SelectTrigger>
@@ -405,6 +410,41 @@ export default function PedidoDetalhesLoja({
                 availabilityConfirmedAt={(order as { availability_confirmed_at?: string | null }).availability_confirmed_at ?? null}
                 onChanged={() => queryClient.invalidateQueries({ queryKey: ["order-detail-loja", orderId] })}
               />
+
+              {timings.length > 0 && (
+                <div className="rounded-xl border border-dashed bg-muted/30 p-3 space-y-2" data-testid="action-timings">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      <Activity className="size-3" /> Latência das ações
+                    </div>
+                    <button
+                      type="button"
+                      onClick={clearTimings}
+                      className="text-[10px] text-muted-foreground hover:text-foreground underline"
+                    >
+                      limpar
+                    </button>
+                  </div>
+                  <ul className="space-y-1 text-xs font-mono">
+                    {timings.map((t, i) => (
+                      <li key={`${t.at}-${i}`} className="flex items-center justify-between gap-2">
+                        <span className="truncate text-muted-foreground">{t.label}</span>
+                        <span
+                          className={
+                            t.ok
+                              ? t.durationMs > 1000
+                                ? "text-amber-600 font-semibold"
+                                : "text-emerald-700"
+                              : "text-destructive font-semibold"
+                          }
+                        >
+                          {t.durationMs} ms{!t.ok && " · falhou"}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               <div className="pt-2 border-t">
                 <div className="flex justify-between text-sm mb-1">
