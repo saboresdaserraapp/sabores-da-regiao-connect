@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getRecentOrderCodes, subscribeRecentOrderCodes } from "@/lib/recentOrderCodes";
+import { getGuestSeenMap, subscribeGuestSeen } from "@/lib/guestSeenMessages";
 import type { ChatOrderRow } from "@/hooks/useMyChatOrders";
 
 /**
@@ -13,17 +14,27 @@ import type { ChatOrderRow } from "@/hooks/useMyChatOrders";
  */
 export function useGuestChatOrders(enabled: boolean) {
   const [codes, setCodes] = useState<string[]>(() => getRecentOrderCodes());
+  const [seenVersion, setSeenVersion] = useState(0);
+  const qc = useQueryClient();
 
   useEffect(() => {
     setCodes(getRecentOrderCodes());
     return subscribeRecentOrderCodes(() => setCodes(getRecentOrderCodes()));
   }, []);
 
+  useEffect(() => {
+    return subscribeGuestSeen(() => {
+      setSeenVersion((v) => v + 1);
+      qc.invalidateQueries({ queryKey: ["guest-chat-orders"] });
+    });
+  }, [qc]);
+
   return useQuery({
     enabled: enabled && codes.length > 0,
-    queryKey: ["guest-chat-orders", codes.join(",")],
+    queryKey: ["guest-chat-orders", codes.join(","), seenVersion],
     refetchInterval: enabled ? 15_000 : false,
     queryFn: async (): Promise<ChatOrderRow[]> => {
+      const seen = getGuestSeenMap();
       const rows = await Promise.all(
         codes.map(async (code) => {
           const { data: orderRows } = await supabase.rpc(
@@ -38,7 +49,12 @@ export function useGuestChatOrders(enabled: boolean) {
           );
           const msgList = (msgs ?? []) as Array<{ sender_type: string; created_at: string; read_at: string | null }>;
           const lastAt = msgList[msgList.length - 1]?.created_at ?? null;
-          const unread = msgList.filter((m) => m.sender_type === "business" && !m.read_at).length;
+          const seenAt = seen[code] ? new Date(seen[code]).getTime() : 0;
+          const unread = msgList.filter((m) => {
+            if (m.sender_type !== "business") return false;
+            if (m.read_at) return false;
+            return new Date(m.created_at).getTime() > seenAt;
+          }).length;
           return {
             id: String(order.id),
             tracking_code: (order.tracking_code as string) ?? code,
