@@ -83,17 +83,17 @@ export default function PedidoDetalhesLoja({
       const { error } = await supabase.from("orders").update({ status: newStatus as any }).eq("id", orderId!);
       if (error) throw error;
 
-      // Save history
-      await supabase.from("order_status_history").insert({
+      // Secondary writes — fire-and-forget para não travar o UI.
+      // O histórico e notificações chegam logo em seguida via realtime / refetch.
+      void supabase.from("order_status_history").insert({
         order_id: orderId!,
         from_status: oldStatus,
         to_status: newStatus,
         note: "Alterado pelo painel da loja",
       } as any);
 
-      // Notification for customer
       if (order?.user_id) {
-        await supabase.from("notifications").insert({
+        void supabase.from("notifications").insert({
           user_id: order.user_id,
           type: "order_status_update",
           title: "Atualização no seu pedido",
@@ -102,9 +102,24 @@ export default function PedidoDetalhesLoja({
         });
       }
     },
+    onMutate: async (newStatus: string) => {
+      // UI otimista: atualiza o cache imediatamente para o Select refletir a escolha.
+      const key = ["order-detail-loja", establishmentId, orderId];
+      await queryClient.cancelQueries({ queryKey: key });
+      const prev = queryClient.getQueryData<any>(key);
+      if (prev) queryClient.setQueryData(key, { ...prev, status: newStatus });
+      return { prev };
+    },
+    onError: (err, _v, ctx) => {
+      const key = ["order-detail-loja", establishmentId, orderId];
+      if (ctx?.prev) queryClient.setQueryData(key, ctx.prev);
+      toast.error((err as Error)?.message || "Erro ao atualizar status");
+    },
     onSuccess: () => {
       toast.success("Status atualizado");
-      queryClient.invalidateQueries({ queryKey: ["order-detail-loja", orderId] });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["order-detail-loja", establishmentId, orderId] });
     },
   });
 
@@ -332,8 +347,15 @@ export default function PedidoDetalhesLoja({
             <h3 className="font-bold mb-4">Ações do Pedido</h3>
             <div className="space-y-4">
               <div>
-                <label className="text-xs font-bold uppercase mb-1 block">Alterar Status</label>
-                <Select value={order.status} onValueChange={(v) => updateStatus.mutate(v)}>
+                <label className="text-xs font-bold uppercase mb-1 block flex items-center gap-2">
+                  Alterar Status
+                  {updateStatus.isPending && <Loader2 className="size-3 animate-spin text-muted-foreground" />}
+                </label>
+                <Select
+                  value={order.status}
+                  onValueChange={(v) => { if (v !== order.status) updateStatus.mutate(v); }}
+                  disabled={updateStatus.isPending}
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
