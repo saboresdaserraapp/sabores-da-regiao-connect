@@ -528,6 +528,16 @@ export default function Pedidos() {
         <div className="flex items-center gap-2">
           <Button
             size="sm"
+            variant="outline"
+            className="h-8 text-xs"
+            onClick={() => refresh()}
+            disabled={refreshing}
+            aria-label="Atualizar lista de pedidos"
+          >
+            <RefreshCw className={`size-3.5 mr-1 ${refreshing ? "animate-spin" : ""}`} /> Atualizar
+          </Button>
+          <Button
+            size="sm"
             variant={onlyUnread ? "default" : "outline"}
             className="h-8 text-xs"
             onClick={() => setOnlyUnread(v => !v)}
@@ -538,6 +548,7 @@ export default function Pedidos() {
             <SelectTrigger className="w-[220px] h-8 text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos os status</SelectItem>
+              <SelectItem value="awaiting_acceptance">Aguardando aceite do cliente</SelectItem>
               {STATUS_OPTIONS.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
             </SelectContent>
           </Select>
@@ -553,6 +564,51 @@ export default function Pedidos() {
           <span><strong>{stagnantCount}</strong> pedido(s) aguardando confirmação há mais de {STAGNANT_MIN} min.</span>
         </div>
       )}
+
+      <div className="mb-3 space-y-2" data-testid="orders-toolbar">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar por código, nome ou telefone do cliente"
+            className="h-9 pl-8 pr-8 text-sm"
+            aria-label="Buscar pedidos"
+            data-testid="orders-search"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:bg-muted"
+              aria-label="Limpar busca"
+            >
+              <X className="size-3.5" />
+            </button>
+          )}
+        </div>
+        <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Filtros rápidos de pedidos">
+          {QUICK_FILTERS.map((qf) => (
+            <button
+              key={qf.key}
+              type="button"
+              role="tab"
+              aria-selected={filter === qf.key}
+              onClick={() => setFilter(qf.key)}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                filter === qf.key
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border bg-background text-foreground hover:bg-muted"
+              }`}
+            >
+              {qf.label}
+              <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${
+                filter === qf.key ? "bg-primary-foreground/15" : "bg-muted text-muted-foreground"
+              }`}>{qf.count}</span>
+            </button>
+          ))}
+        </div>
+      </div>
 
       <Tabs defaultValue="list" className="w-full">
         <TabsList className="mb-3">
