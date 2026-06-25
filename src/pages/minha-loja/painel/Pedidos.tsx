@@ -6,7 +6,7 @@ import { PainelSection } from "./_shared";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MessageCircle, ImageIcon, ChevronDown, ChevronUp, Smartphone, AlertTriangle, CheckCircle2, LayoutGrid, List, MessageSquare, ExternalLink, Search, X, RefreshCw } from "lucide-react";
+import { MessageCircle, ImageIcon, ChevronDown, ChevronUp, Smartphone, AlertTriangle, CheckCircle2, LayoutGrid, List, MessageSquare, ExternalLink, Search, X, RefreshCw, ArrowDown, ArrowUp, ChevronLeft, ChevronRight, AlertCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { OrderReferencesPanel } from "@/components/orders/OrderReferencesPanel";
@@ -84,6 +84,11 @@ export default function Pedidos() {
   const [refreshing, setRefreshing] = useState(false);
   const [expandedRef, setExpandedRef] = useState<string | null>(null);
   const [onlyUnread, setOnlyUnread] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [sortDir, setSortDir] = useState<"desc" | "asc">("desc");
+  const [totalCount, setTotalCount] = useState<number>(0);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const { data: unreadMap } = useOrderUnreadCountsForBusiness(ctx?.establishmentId);
   const unread = (id: string) => unreadMap?.[id] ?? 0;
   // Set persistente entre renders para deduplicar toasts disparados pelo
@@ -93,14 +98,35 @@ export default function Pedidos() {
   async function refresh() {
     if (!ctx) return;
     setRefreshing(true);
-    const { data } = await supabase.from("orders")
-      .select("id,tracking_code,customer_name,customer_phone,total,subtotal,delivery_fee,status,created_at,payment_method,notes,items,address_id,assigned_driver_name,driver_reference_sent_at,payment_status,payment_paid_at,final_delivery_fee,final_total,confirmation_flow_status,current_confirmation_proposal_id")
-      .eq("establishment_id", ctx.establishmentId)
-      .order("created_at", { ascending: false }).limit(100);
-    setOrders((data ?? []) as any);
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+    let q = supabase.from("orders")
+      .select(
+        "id,tracking_code,customer_name,customer_phone,total,subtotal,delivery_fee,status,created_at,payment_method,notes,items,address_id,assigned_driver_name,driver_reference_sent_at,payment_status,payment_paid_at,final_delivery_fee,final_total,confirmation_flow_status,current_confirmation_proposal_id",
+        { count: "exact" }
+      )
+      .eq("establishment_id", ctx.establishmentId);
+    if (filter !== "all" && filter !== "awaiting_acceptance") {
+      q = q.eq("status", filter as any);
+    } else if (filter === "awaiting_acceptance") {
+      q = q.eq("confirmation_flow_status", "proposal_sent_to_customer");
+    }
+    q = q.order("created_at", { ascending: sortDir === "asc" }).range(from, to);
+    const { data, error, count } = await q;
+    if (error) {
+      setLoadError(error.message);
+      setOrders([]);
+      setTotalCount(0);
+    } else {
+      setLoadError(null);
+      setOrders((data ?? []) as any);
+      setTotalCount(count ?? 0);
+    }
     setRefreshing(false);
   }
-  useEffect(() => { refresh(); /* eslint-disable-next-line */ }, [ctx?.establishmentId]);
+  useEffect(() => { refresh(); /* eslint-disable-next-line */ }, [ctx?.establishmentId, page, pageSize, sortDir, filter]);
+  // Reset to page 1 whenever filter or page size changes.
+  useEffect(() => { setPage(1); /* eslint-disable-next-line */ }, [filter, pageSize, sortDir, ctx?.establishmentId]);
 
   // Polling fallback (20s) + atualizar ao focar a janela.
   useEffect(() => {
