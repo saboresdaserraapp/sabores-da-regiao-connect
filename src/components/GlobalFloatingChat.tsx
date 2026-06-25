@@ -242,7 +242,11 @@ export function GlobalFloatingChat() {
                       <OrderListItem
                         key={o.id}
                         o={o}
-                        onOpen={() => { setActiveOrderId(o.id); setActiveTracking(o.tracking_code); }}
+                        onOpen={() => {
+                          setActiveOrderId(o.id);
+                          setActiveTracking(o.tracking_code);
+                          if (!user && o.tracking_code) markGuestSeen(o.tracking_code);
+                        }}
                       />
                     ))
                   )}
