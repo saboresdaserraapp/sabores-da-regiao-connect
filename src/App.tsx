@@ -25,6 +25,8 @@ const SuporteCliente = lazy(() => import("./pages/SuporteCliente.tsx"));
 const SuporteChatCliente = lazy(() => import("./pages/SuporteChatCliente.tsx"));
 const TicketDetalhesCliente = lazy(() => import("./pages/TicketDetalhesCliente.tsx"));
 const PedidoTracking = lazy(() => import("./pages/PedidoTracking.tsx"));
+const CustomerOrderRoute = lazy(() => import("./components/orders/CustomerOrderRoute.tsx"));
+const StoreOrderRoute = lazy(() => import("./components/orders/StoreOrderRoute.tsx"));
 const VisualReference = lazy(() => import("./pages/VisualReference.tsx"));
 const DeliveryReference = lazy(() => import("./pages/DeliveryReference.tsx"));
 const Privacidade = lazy(() => import("./pages/Privacidade.tsx"));
@@ -179,7 +181,7 @@ const App = () => (
             <Route path="/minha-conta/suporte/chat" element={<SuporteChatCliente />} />
             <Route path="/minha-conta/suporte/tickets" element={<SuporteCliente />} />
             <Route path="/minha-conta/suporte/tickets/:ticketId" element={<TicketDetalhesCliente />} />
-            <Route path="/minha-conta/pedidos/:orderId" element={<RedirectByOrderId />} />
+            <Route path="/minha-conta/pedidos/:orderId" element={<CustomerOrderRoute />} />
             <Route path="/pedido/:code" element={<PedidoTracking />} />
             <Route path="/referencia/:token" element={<VisualReference />} />
             <Route path="/referencias-entrega/:token" element={<DeliveryReference />} />
@@ -241,7 +243,7 @@ const App = () => (
               <Route path="promocoes" element={<PainelPromocoes />} />
               <Route path="entrega" element={<PainelEntrega />} />
               <Route path="pedidos" element={<PainelPedidos />} />
-              <Route path="pedidos/:orderId" element={<RedirectByOrderId />} />
+              <Route path="pedidos/:orderId" element={<StoreOrderRoute />} />
               <Route path="avaliacoes" element={<PainelAvaliacoes />} />
               <Route path="metricas" element={<PainelMetricas />} />
               <Route path="inteligencia" element={<PainelInteligencia />} />

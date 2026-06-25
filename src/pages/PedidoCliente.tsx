@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate, Navigate } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { OrderChat } from "@/components/OrderChat";
 import { Header } from "@/components/Header";
@@ -183,10 +183,6 @@ export default function PedidoCliente({ orderId: orderIdProp }: { orderId?: stri
     }
   };
 
-  if (notFound) {
-    return <Navigate to="/minha-conta?tab=pedidos" replace />;
-  }
-
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -197,6 +193,12 @@ export default function PedidoCliente({ orderId: orderIdProp }: { orderId?: stri
           <ErrorState
             title="Não conseguimos carregar este pedido"
             description={error}
+            onRetry={() => setRetryTick((t) => t + 1)}
+          />
+        ) : notFound ? (
+          <ErrorState
+            title="Pedido não encontrado"
+            description="Confira se o link está correto ou volte para a lista dos seus pedidos."
             onRetry={() => setRetryTick((t) => t + 1)}
           />
         ) : order ? (

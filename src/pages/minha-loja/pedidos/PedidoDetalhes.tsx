@@ -45,7 +45,7 @@ export default function PedidoDetalhesLoja({
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  const { data: order, isLoading } = useQuery({
+  const { data: order, isLoading, error, refetch } = useQuery({
     queryKey: ["order-detail-loja", orderId],
     enabled: !!orderId,
     queryFn: async () => {
@@ -53,7 +53,7 @@ export default function PedidoDetalhesLoja({
         .from("orders")
         .select("*, establishments(*)")
         .eq("id", orderId!)
-        .single();
+        .maybeSingle();
       if (error) throw error;
       return data;
     },
@@ -137,8 +137,39 @@ export default function PedidoDetalhesLoja({
     queryClient.invalidateQueries({ queryKey: ["order-detail-loja", orderId] });
   };
 
-  if (isLoading) return <div className="p-20 flex justify-center"><Loader2 className="animate-spin" /></div>;
-  if (!order) return <div className="p-20 text-center">Pedido não encontrado.</div>;
+  if (isLoading) {
+    return (
+      <PainelSection title="Carregando pedido...">
+        <div className="p-12 flex justify-center"><Loader2 className="animate-spin" /></div>
+      </PainelSection>
+    );
+  }
+  if (error) {
+    return (
+      <PainelSection title="Pedido">
+        <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-6 text-sm">
+          <p className="font-semibold text-destructive">Não foi possível carregar este pedido.</p>
+          <p className="mt-1 text-muted-foreground">{(error as Error).message}</p>
+          <div className="mt-3 flex gap-2">
+            <Button size="sm" onClick={() => refetch()}>Tentar novamente</Button>
+            <Button size="sm" variant="outline" onClick={() => navigate(-1)}>Voltar</Button>
+          </div>
+        </div>
+      </PainelSection>
+    );
+  }
+  if (!order) {
+    return (
+      <PainelSection title="Pedido não encontrado">
+        <div className="rounded-xl border p-6 text-sm">
+          <p>Este pedido não existe mais ou não pertence a esta loja.</p>
+          <Button className="mt-3" size="sm" variant="outline" onClick={() => navigate(-1)}>
+            <ArrowLeft className="mr-2 size-4" /> Voltar para pedidos
+          </Button>
+        </div>
+      </PainelSection>
+    );
+  }
 
   const isWaiting = order.status === "waiting_business_confirmation";
 

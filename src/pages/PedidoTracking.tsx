@@ -14,7 +14,7 @@ type Resolved = { id: string; user_id: string | null; establishment_id: string }
 export default function PedidoTracking() {
   const { code } = useParams<{ code: string }>();
   const { user, loading: authLoading } = useAuth();
-  const { data: myEsts } = useMyEstablishmentIds();
+  const { data: myEsts, isLoading: estsLoading } = useMyEstablishmentIds();
   const [resolved, setResolved] = useState<Resolved | null>(null);
   const [resolving, setResolving] = useState(true);
   const [resolveError, setResolveError] = useState<string | null>(null);
@@ -55,12 +55,16 @@ export default function PedidoTracking() {
     };
   }, [code, user?.id, authLoading, retryTick]);
 
-  if (authLoading || (user && resolving)) {
+  if (authLoading || (user && resolving) || (user && estsLoading)) {
     return <LoadingState variant="page" label="Carregando pedido..." />;
   }
 
   if (user && resolved) {
     const isOwner = (myEsts ?? []).includes(resolved.establishment_id);
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.debug("[order-route]", { code, userId: user.id, resolved, isOwner });
+    }
     if (isOwner) {
       return (
         <PedidoDetalhesLoja

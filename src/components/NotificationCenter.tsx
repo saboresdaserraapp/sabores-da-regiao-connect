@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useMyEstablishmentIds } from "@/hooks/useMyEstablishmentIds";
+import { toast } from "sonner";
 
 const ORDER_TYPES = new Set([
   "new_order",
@@ -145,6 +146,7 @@ export function NotificationCenter() {
           related_establishment_id: n?.related_establishment_id,
           data: n?.data,
         });
+        toast.error("Pedido não disponível para esta notificação.");
       }
     }
   };
