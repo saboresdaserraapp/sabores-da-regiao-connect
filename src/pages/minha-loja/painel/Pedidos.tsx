@@ -6,7 +6,8 @@ import { PainelSection } from "./_shared";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MessageCircle, ImageIcon, ChevronDown, ChevronUp, Smartphone, AlertTriangle, CheckCircle2, LayoutGrid, List, MessageSquare, ExternalLink } from "lucide-react";
+import { MessageCircle, ImageIcon, ChevronDown, ChevronUp, Smartphone, AlertTriangle, CheckCircle2, LayoutGrid, List, MessageSquare, ExternalLink, Search, X, RefreshCw } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { OrderReferencesPanel } from "@/components/orders/OrderReferencesPanel";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -78,6 +79,8 @@ export default function Pedidos() {
   const { ctx } = useActiveEstablishment();
   const [orders, setOrders] = useState<Order[]>([]);
   const [filter, setFilter] = useState<string>("all");
+  const [search, setSearch] = useState<string>("");
+  const [refreshing, setRefreshing] = useState(false);
   const [expandedRef, setExpandedRef] = useState<string | null>(null);
   const [onlyUnread, setOnlyUnread] = useState(false);
   const { data: unreadMap } = useOrderUnreadCountsForBusiness(ctx?.establishmentId);
@@ -85,13 +88,33 @@ export default function Pedidos() {
 
   async function refresh() {
     if (!ctx) return;
+    setRefreshing(true);
     const { data } = await supabase.from("orders")
       .select("id,tracking_code,customer_name,customer_phone,total,subtotal,delivery_fee,status,created_at,payment_method,notes,items,address_id,assigned_driver_name,driver_reference_sent_at,payment_status,payment_paid_at,final_delivery_fee,final_total,confirmation_flow_status,current_confirmation_proposal_id")
       .eq("establishment_id", ctx.establishmentId)
       .order("created_at", { ascending: false }).limit(100);
     setOrders((data ?? []) as any);
+    setRefreshing(false);
   }
   useEffect(() => { refresh(); /* eslint-disable-next-line */ }, [ctx?.establishmentId]);
+
+  // Polling fallback (20s) + atualizar ao focar a janela.
+  useEffect(() => {
+    if (!ctx?.establishmentId) return;
+    const onFocus = () => { refresh(); };
+    const onVisible = () => { if (document.visibilityState === "visible") refresh(); };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisible);
+    const id = window.setInterval(() => {
+      if (document.visibilityState === "visible") refresh();
+    }, 20000);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.clearInterval(id);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ctx?.establishmentId]);
 
   // Realtime: novos pedidos, mensagens e propostas para esta loja
   useEffect(() => {
