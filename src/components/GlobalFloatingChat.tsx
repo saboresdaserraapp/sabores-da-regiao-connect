@@ -58,6 +58,30 @@ function OrderListItem({
 
 function GuestOrderChatView({ trackingCode }: { trackingCode: string }) {
   const { data: messages, isLoading } = useGuestOrderMessages(trackingCode, true);
+  const [text, setText] = useState("");
+  const [sending, setSending] = useState(false);
+  const qc = useQueryClient();
+
+  const send = async () => {
+    const msg = text.trim();
+    if (!msg) return;
+    setSending(true);
+    try {
+      const { error } = await supabase.rpc(
+        "send_order_message_by_tracking" as never,
+        { _code: trackingCode, _message: msg } as never,
+      );
+      if (error) throw error;
+      setText("");
+      qc.invalidateQueries({ queryKey: ["guest-order-messages", trackingCode] });
+      qc.invalidateQueries({ queryKey: ["guest-chat-orders"] });
+    } catch (e) {
+      toast.error((e as Error)?.message || "Não foi possível enviar a mensagem.");
+    } finally {
+      setSending(false);
+    }
+  };
+
   if (isLoading) return <div className="flex-1 grid place-items-center"><Loader2 className="size-5 animate-spin" /></div>;
   return (
     <div className="flex-1 min-h-0 flex flex-col">
@@ -96,9 +120,34 @@ function GuestOrderChatView({ trackingCode }: { trackingCode: string }) {
           })
         )}
       </div>
-      <div className="border-t bg-muted/30 px-3 py-3 text-xs text-muted-foreground text-center safe-bottom">
-        Faça login para responder ao estabelecimento por aqui.{" "}
-        <Link to="/auth" className="text-primary font-medium underline">Entrar</Link>
+      <div className="border-t bg-card px-2 py-2 safe-bottom">
+        <div className="flex items-end gap-2">
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Escreva uma mensagem para a loja…"
+            rows={1}
+            className="flex-1 resize-none rounded-lg border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void send(); }
+            }}
+            disabled={sending}
+            data-testid="guest-chat-input"
+          />
+          <Button
+            type="button"
+            size="icon"
+            onClick={send}
+            disabled={sending || !text.trim()}
+            data-testid="guest-chat-send"
+            aria-label="Enviar"
+          >
+            {sending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+          </Button>
+        </div>
+        <p className="mt-1.5 text-[10px] text-muted-foreground text-center">
+          <Link to="/auth" className="text-primary underline">Entrar</Link> para receber respostas em tempo real e notificações.
+        </p>
       </div>
     </div>
   );
