@@ -39,10 +39,18 @@ export function useMyChatOrders() {
         .order("created_at", { ascending: false })
         .limit(10);
       if (error) throw error;
-      const list = (orders ?? []) as unknown as Array<{
-        id: string; tracking_code: string | null; status: string; establishment_id: string;
-        created_at: string; establishment: { name: string | null; logo: string | null } | { name: string | null; logo: string | null }[] | null;
-      }>;
+      type EstablishmentRel = { name: string | null; logo: string | null };
+      type OrderRow = {
+        id: string;
+        tracking_code: string | null;
+        status: string;
+        establishment_id: string;
+        created_at: string;
+        // Supabase may type the embedded relation as a single object or an array
+        // depending on FK detection; normalize downstream.
+        establishment: EstablishmentRel | EstablishmentRel[] | null;
+      };
+      const list = (orders ?? []) as unknown as OrderRow[];
       if (list.length === 0) return [];
 
       const ids = list.map((o) => o.id);
