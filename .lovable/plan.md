@@ -1,92 +1,48 @@
-## Diagnóstico da página vazia
 
-Hoje a rota oficial é `/pedido/:code` (tracking code) e ela já tem 3 modos:
-- `PedidoDetalhesLoja` se o usuário logado é dono do `establishment_id`;
-- `PedidoCliente` se `orders.user_id = auth.uid()`;
-- `PedidoTrackingPublic` (visão pública) para qualquer outro caso, **inclusive quando o usuário não está logado**.
+## Diagnóstico
 
-A tela "Pedido não encontrado" do print vem de `PedidoTrackingPublic` em uma destas situações:
-1. Usuário acessa link de pedido **sem sessão** → cai no público; se a RPC pública `get_order_by_tracking` não devolver linha (RLS / código inexistente / pedido apagado), mostra o card vazio.
-2. Notificação ou botão usou um valor que **não** é `tracking_code` (ex.: `notification.id`, `order.id`, código curto antigo).
-3. `RedirectByOrderId` recebeu um `orderId` inválido (notification.id) → `tracking_code` vem `null` → manda para `/minha-conta?tab=pedidos`, mas se o link original já era `/pedido/<id-uuid>` ele cai direto no público sem match.
-4. O usuário está em `/auth` (rota inexistente) — não é a página de pedido, é redirect quebrado do login.
+Confirmado direto no banco:
 
-A causa raiz para o caso "loja clica em Acompanhar/Detalhes e vê tela vazia" é a linha de `Pedidos.tsx`:
-```
-<Link to={o.tracking_code ? `/pedido/${o.tracking_code}` : `/minha-loja/.../pedidos/${o.id}`}>
-```
-Quando `tracking_code` existe, manda para `/pedido/:code`. Se o usuário logado **não** é detectado como dono (ex.: contexto de loja ainda carregando `myEsts`, ou pedido antigo sem `user_id` populado), cai no público "Pedido não encontrado".
+1. **Recursão infinita em `establishments`** — há um ciclo entre duas policies:
+   - `establishments` → policy *"Owners read own establishment"* faz `EXISTS (SELECT 1 FROM establishment_owners WHERE eo.establishment_id = establishments.id)`.
+   - `establishment_owners` → policy *"users read own memberships"* faz `EXISTS (SELECT 1 FROM establishments e WHERE e.id = establishment_owners.establishment_id AND e.owner_id = auth.uid())`.
+   - Cada SELECT em uma tabela aciona a policy da outra → Postgres aborta com `infinite recursion detected in policy for relation "establishments"`. É exatamente o erro do checkout logado.
 
-## O que muda (mínimo, sem refazer app)
+2. **Tracking de pedido como visitante** — o RPC `get_order_by_tracking(_code)` está como `STABLE` **sem `SECURITY DEFINER`**. Logo, roda com o papel `anon`, e as policies de `orders` não permitem SELECT anônimo. O JOIN devolve 0 linhas → o front renderiza "Pedido não encontrado", mesmo o pedido `SDS-GKCYLQ` existindo no banco (verificado).
 
-### Fase 0 — Logs temporários + bugfix do roteador
-- Em `PedidoTracking.tsx`: enquanto `useMyEstablishmentIds` ainda está carregando, **não** renderizar `PedidoTrackingPublic`; manter `LoadingState`. Só cair no público depois que `myEsts !== undefined` e `resolved.user_id !== user.id` e o usuário não for dono.
-- Adicionar `console.debug("[order-route]", { code, userId, resolved, isOwner })` controlado por `import.meta.env.DEV`.
-- Em `RedirectByOrderId`: se a query devolver erro/`null`, mostrar `ErrorState` "Pedido não encontrado" com botão "Voltar para pedidos" em vez de redirect silencioso.
+3. **Admin "Estabelecimentos" vazio** — existem 5 estabelecimentos no banco, mas a tela mostra 0. A query em `src/pages/admin/Estabelecimentos.tsx` ignora `error` e devolve `data ?? []`. Quando o usuário admin está logado, a mesma recursão do item 1 quebra a query → vira lista vazia. Ou seja: **não é uma terceira causa, é consequência do item 1**. Depois de corrigir a recursão, a tela admin volta a listar.
 
-### Fase 1 — Rotas oficiais reais (sem quebrar `/pedido/:code`)
-Manter `/pedido/:code` como **rota pública compartilhável** (links de WhatsApp já enviados).
-Promover as rotas contextuais a páginas reais:
-- `/minha-conta/pedidos/:orderId` → novo wrapper `CustomerOrderRoute` que valida `auth.uid()` e renderiza `PedidoCliente` direto (sem redirect para `/pedido/:code`).
-- `/minha-loja/:establishmentId/pedidos/:orderId` → novo wrapper `StoreOrderRoute` que valida pertencimento via `useMyEstablishmentIds` e renderiza `PedidoDetalhesLoja` direto.
-- `RedirectByOrderId` passa a redirecionar **para a rota contextual correta**, não mais para `/pedido/:code`:
-  - dentro de `/minha-loja/...` → `/minha-loja/:estId/pedidos/:orderId` (sem redirect, já é a própria rota).
-  - dentro de `/minha-conta/...` → `/minha-conta/pedidos/:orderId` (idem).
-- `/pedido/:code` continua existindo e segue resolvendo dono/cliente/público (compatibilidade).
+Resposta direta à sua pergunta: o app **não está deixando de mostrar os pedidos porque as lojas não estão cadastradas** — as lojas estão cadastradas (5 no banco) e o pedido foi salvo corretamente. Os dois sintomas vêm de RLS quebrado.
 
-### Fase 2 — Funções de busca
-Reaproveitar o que já existe:
-- Cliente: `useOrderTracking` (já busca por `orders.id`/tracking). Adicionar variante `useCustomerOrder(orderId)` que filtra por `user_id = auth.uid()`.
-- Loja: `PedidoDetalhesLoja` já recebe `orderId` + `establishmentId` e carrega itens, mensagens, propostas, status_history, referências. Garantir que ele exponha estados: carregando, sem permissão, não encontrado, erro, parcial — substituindo qualquer `return null`.
+## Plano de correção (uma migration + um pequeno hardening de UI)
 
-### Fase 3 — Cliques do painel da loja
-Em `src/pages/minha-loja/painel/Pedidos.tsx`:
-- Trocar os 2 `<Link>` para sempre apontar para `/minha-loja/${establishmentId}/pedidos/${o.id}` (nunca mais `/pedido/${tracking_code}` no contexto da loja). O link público `/pedido/:code` continua disponível por botão "Copiar link do cliente" / WhatsApp.
+### 1) Migration SQL — quebrar o ciclo de RLS
 
-### Fase 4 — Página do lojista (consolidação)
-`PedidoDetalhesLoja` já tem a base. Verificar/garantir as seções pedidas (cabeçalho, cliente, itens, entrega+referências, taxa+proposta com `SendProposalDialog`/`OrderFreteActions`, status, chat, pagamento, motoboy se existir, histórico via `OrderEventsTimeline`). Sem reescrever — apenas preencher lacunas e amarrar componentes existentes (`StoreConfirmActions`, `WhatsappHistoryPanel`, `OrderReferencesPanel`, `OrderChat`).
-Bloqueio operacional: ao tentar marcar `confirmed_by_business` sem `final_total` ou sem aceite, mostrar toast com a mensagem exigida.
+- Criar/atualizar função `public.is_establishment_member(_uid, _est_id)` como `SECURITY DEFINER STABLE SET search_path=public`, retornando `boolean`, lendo `establishment_owners` e `establishments.owner_id` sem disparar RLS.
+- Em `establishments`, recriar a policy de leitura dos donos usando essa função em vez do `EXISTS` direto:
+  - `USING (owner_id = auth.uid() OR public.is_establishment_member(auth.uid(), id))`.
+- Em `establishment_owners`, recriar a policy `users read own memberships` para **não** consultar `establishments` no `USING`. Mantém apenas `user_id = auth.uid() OR can_manage(auth.uid())`. A condição de "owner do estabelecimento também enxerga a equipe" passa a usar `public.is_establishment_member(auth.uid(), establishment_id)` (security-definer, sem recursão).
+- Idem para `owners manage team memberships` — trocar o `EXISTS` por `is_establishment_member(...)`.
 
-### Fase 5 — Página do cliente
-`PedidoCliente` já existe; só garantir as seções (resumo, itens, valores, proposta pendente via `ProposalAcceptCard`, chat via `OrderChat`, endereço/referências, timeline via `OrderEventsTimeline`). Nada de edição operacional.
+### 2) Migration SQL — tracking público funcionar para visitante
 
-### Fase 6 — Pop-up "Falar com a loja"
-Auditar onde o pop-up grava mensagem; garantir insert em `order_messages` com `order_id`, `sender_type='customer'`, e que o painel da loja já lê dessa mesma tabela em `PedidoDetalhesLoja` (usa `useOrderMessages`). Se houver caminho paralelo (ex.: ticket), redirecionar para `order_messages`.
+- `ALTER FUNCTION public.get_order_by_tracking(text) SECURITY DEFINER;` e garantir `GRANT EXECUTE ON FUNCTION public.get_order_by_tracking(text) TO anon, authenticated;`.
+- A função já filtra por `tracking_code`, então só quem tem o código consegue ler — seguro para uso anônimo. Sem isto, todo guest cai em "Pedido não encontrado".
 
-### Fase 7 — Notificações
-`NotificationCenter` já roteia para `/minha-conta/pedidos/:orderId` e `/minha-loja/:estId/pedidos/:orderId`. Com as rotas reais (Fase 1) o clique passa a abrir a página correta sem pular pelo `/pedido/:code`. Adicionar fallback: se `related_order_id` ausente → toast "Pedido não disponível" e não navegar.
+### 3) UI — Admin Estabelecimentos parar de mascarar erro
 
-### Fase 8 — Tempo real na lista
-Em `painel/Pedidos.tsx`: adicionar Realtime channel para `orders`, `order_messages`, `order_confirmation_proposals` filtrando por `establishment_id`. Fallback: refetch ao focar a janela + polling 20s. Toasts: novo pedido, nova mensagem, cliente aceitou/recusou frete. Evitar duplicar (usar `qc.setQueryData` por id).
+- Em `src/pages/admin/Estabelecimentos.tsx` desestruturar `{ data, error }` e: logar `error`, exibir `ErrorState` quando houver falha em vez de "0 resultados". Evita esconder regressões futuras de RLS.
 
-### Fase 9 — Card da lista
-Enriquecer o card com selos (nova mensagem, aguardando aceite, referência visual) reusando dados já carregados. Filtros e busca adicionais sem reescrever a tela.
+### 4) Validação
 
-### Fase 10 — Estados de erro
-Padronizar em `PedidoCliente`, `PedidoDetalhesLoja` e wrappers: `LoadingState`, `ErrorState` (com retry), "Sem permissão", "Não encontrado", "Dados parciais". Banir `return null` nessas páginas.
-
-### Fase 11 — Testes
-- Unit: wrappers `CustomerOrderRoute` / `StoreOrderRoute` (cenários: carregando, sem auth, sem permissão, ok).
-- Atualizar `tests/e2e/checkout-confirmation-actions.spec.ts` cobrindo navegação por notificação para `/minha-conta/pedidos/:orderId` e ausência de tela em branco.
-
-## Resumo de arquivos
-
-**Novos**
-- `src/components/orders/CustomerOrderRoute.tsx` (wrapper de auth + render `PedidoCliente`)
-- `src/components/orders/StoreOrderRoute.tsx` (wrapper de pertencimento + render `PedidoDetalhesLoja`)
-- `src/hooks/useCustomerOrder.ts` (busca por `orders.id` + `user_id = auth.uid()`)
-- `src/components/orders/__tests__/OrderRoutes.test.tsx`
-
-**Editados**
-- `src/App.tsx` — substituir `RedirectByOrderId` nas rotas `/minha-conta/pedidos/:orderId` e `/minha-loja/:est/pedidos/:orderId` pelos novos wrappers; manter `/pedido/:code`.
-- `src/components/RedirectByOrderId.tsx` — virar fallback genérico com `ErrorState`.
-- `src/pages/PedidoTracking.tsx` — não cair no público enquanto `myEsts` está `undefined`; logs DEV.
-- `src/pages/minha-loja/painel/Pedidos.tsx` — links sempre contextuais; Realtime + toasts; filtros/selos.
-- `src/pages/PedidoCliente.tsx` — estados de erro padronizados; remover `return null`.
-- `src/pages/minha-loja/pedidos/PedidoDetalhes.tsx` — estados padronizados; amarrar `StoreConfirmActions`, `WhatsappHistoryPanel`, `OrderReferencesPanel`, `OrderChat`, `OrderEventsTimeline` (se faltarem); bloqueio de status sem aceite.
-- `src/components/NotificationCenter.tsx` — fallback quando `related_order_id` ausente.
+- `psql` antes/depois: `select * from establishments` como `authenticated` (via Supabase) não deve mais retornar recursão.
+- Visitar `https://saboresapp.lovable.app/pedido/SDS-GKCYLQ` deslogado → deve renderizar o pedido.
+- Refazer um checkout logado → não deve mais aparecer "infinite recursion".
+- Admin → Estabelecimentos deve listar os 5 registros.
 
 ## Fora de escopo
-- Refazer carrinho, checkout, catálogo, painel admin, motoboys (só exibição), referências visuais (só exibição).
-- Encurtar URL pública; criar tabelas novas; mudar RLS global.
-- Apagar `/pedido/:code` (continua como link público compartilhável).
+
+- Cadastrar manualmente as lojas/produtos no painel admin (elas já existem no banco).
+- Mudanças nos testes E2E recém-criados.
+
+Confirme que posso aplicar a migration e o ajuste de UI.

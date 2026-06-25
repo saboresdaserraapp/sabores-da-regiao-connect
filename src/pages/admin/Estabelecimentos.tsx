@@ -22,13 +22,14 @@ export default function AdminEstabelecimentos() {
   const [category, setCategory] = useState<string>("all");
   const [createOpen, setCreateOpen] = useState(false);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ["admin-estabs"],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("establishments")
         .select("id,slug,name,category,category_label,city,neighborhood,status,plan_id,rating,reviews_count,last_menu_update_at,menu_type,plans(name)")
         .order("created_at", { ascending: false });
+      if (error) throw error;
       return data ?? [];
     },
   });
@@ -97,6 +98,10 @@ export default function AdminEstabelecimentos() {
         <div className="overflow-x-auto rounded-2xl border border-border bg-card">
           {isLoading ? (
             <div className="flex items-center justify-center py-12"><Loader2 className="size-5 animate-spin text-muted-foreground" /></div>
+          ) : error ? (
+            <div className="px-4 py-10 text-center text-sm text-destructive" data-testid="admin-estabs-error">
+              Erro ao carregar estabelecimentos: {(error as Error).message}
+            </div>
           ) : (
             <Table>
               <TableHeader>
