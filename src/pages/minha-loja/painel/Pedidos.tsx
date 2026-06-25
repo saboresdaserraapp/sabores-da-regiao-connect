@@ -244,9 +244,39 @@ export default function Pedidos() {
   }
 
   if (!ctx) return null;
-  let filtered = filter === "all" ? orders : orders.filter(o => o.status === filter);
+  let filtered = orders;
+  if (filter === "awaiting_acceptance") {
+    filtered = filtered.filter(o => o.confirmation_flow_status === "proposal_sent_to_customer");
+  } else if (filter !== "all") {
+    filtered = filtered.filter(o => o.status === filter);
+  }
   if (onlyUnread) filtered = filtered.filter(o => unread(o.id) > 0);
+  const q = search.trim().toLowerCase();
+  if (q) {
+    filtered = filtered.filter(o => {
+      const code = (o.tracking_code ?? "").toLowerCase();
+      const name = (o.customer_name ?? "").toLowerCase();
+      const phone = (o.customer_phone ?? "").replace(/\D/g, "");
+      const qDigits = q.replace(/\D/g, "");
+      return (
+        code.includes(q) ||
+        name.includes(q) ||
+        (qDigits.length > 0 && phone.includes(qDigits))
+      );
+    });
+  }
   const stagnantCount = orders.filter(isStagnant).length;
+
+  const QUICK_FILTERS: { key: string; label: string; count: number }[] = [
+    { key: "all",                            label: "Todos",                  count: orders.length },
+    { key: "waiting_business_confirmation",  label: "Novos",                  count: orders.filter(o => o.status === "waiting_business_confirmation").length },
+    { key: "awaiting_acceptance",            label: "Aguardando aceite",      count: orders.filter(o => o.confirmation_flow_status === "proposal_sent_to_customer").length },
+    { key: "confirmed_by_business",          label: "Confirmados",            count: orders.filter(o => o.status === "confirmed_by_business").length },
+    { key: "preparing",                      label: "Em preparo",             count: orders.filter(o => o.status === "preparing").length },
+    { key: "out_for_delivery",               label: "Saiu para entrega",      count: orders.filter(o => o.status === "out_for_delivery").length },
+    { key: "delivered",                      label: "Entregues",              count: orders.filter(o => o.status === "delivered").length },
+    { key: "canceled_by_business",           label: "Cancelados",             count: orders.filter(o => o.status === "canceled_by_business").length },
+  ];
 
   const renderKanbanCard = (o: Order) => (
     <div
