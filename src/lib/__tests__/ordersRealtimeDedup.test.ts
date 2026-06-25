@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { mergeOrders, shouldEmitOnce } from "../ordersRealtimeDedup";
+import { mergeOrders, paginateOrders, shouldEmitOnce } from "../ordersRealtimeDedup";
 
 const o = (id: string, created_at: string, extra: Record<string, unknown> = {}) =>
   ({ id, created_at, ...extra }) as { id: string; created_at: string } & Record<string, unknown>;
@@ -42,5 +42,36 @@ describe("shouldEmitOnce", () => {
     expect(shouldEmitOnce(seen, null)).toBe(false);
     expect(shouldEmitOnce(seen, "")).toBe(false);
     expect(seen.size).toBe(0);
+  });
+});
+
+describe("paginateOrders", () => {
+  const base = [
+    o("a", "2026-01-01T10:00:00Z", { status: "new" }),
+    o("b", "2026-01-02T10:00:00Z", { status: "confirmed" }),
+    o("c", "2026-01-03T10:00:00Z", { status: "new" }),
+    o("d", "2026-01-04T10:00:00Z", { status: "delivered" }),
+  ];
+
+  it("não duplica ids ao alternar filtros (predicate)", () => {
+    const withDup = [...base, base[0], base[2]];
+    const res = paginateOrders(withDup, { predicate: (x: any) => x.status === "new" });
+    expect(res.items.map((x) => x.id)).toEqual(["c", "a"]);
+    expect(res.total).toBe(2);
+  });
+
+  it("paginação mantém id único entre páginas", () => {
+    const dup = [...base, ...base];
+    const p1 = paginateOrders(dup, { page: 1, pageSize: 2 });
+    const p2 = paginateOrders(dup, { page: 2, pageSize: 2 });
+    const ids = [...p1.items, ...p2.items].map((x) => x.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(ids).toEqual(["d", "c", "b", "a"]);
+  });
+
+  it("pageSize maior que total não estoura", () => {
+    const res = paginateOrders(base, { page: 1, pageSize: 50 });
+    expect(res.items).toHaveLength(4);
+    expect(res.total).toBe(4);
   });
 });
