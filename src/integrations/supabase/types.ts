@@ -3043,6 +3043,10 @@ export type Database = {
         Returns: undefined
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_establishment_member: {
+        Args: { _estab_id: string; _user_id: string }
+        Returns: boolean
+      }
       log_action: {
         Args: {
           _action: string
