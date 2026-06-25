@@ -193,6 +193,27 @@ export function GuestProposalDialog({
             ) : null}
           </div>
 
+          {acceptError ? (
+            <div
+              role="alert"
+              data-testid="guest-proposal-error"
+              className="mb-3 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm"
+            >
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="size-4 mt-0.5 text-destructive shrink-0" />
+                <div className="flex-1">
+                  <p className="font-medium text-destructive">{acceptError}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Tente novamente. Se persistir, fale com a loja pelo chat.
+                  </p>
+                </div>
+                <Button size="sm" variant="ghost" onClick={() => void refetch()} disabled={busy}>
+                  <RefreshCw className="size-4" />
+                </Button>
+              </div>
+            </div>
+          ) : null}
+
           {rejectMode ? (
             <div className="space-y-2">
               <Textarea
