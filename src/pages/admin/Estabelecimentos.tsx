@@ -22,7 +22,7 @@ export default function AdminEstabelecimentos() {
   const [category, setCategory] = useState<string>("all");
   const [createOpen, setCreateOpen] = useState(false);
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ["admin-estabs"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -99,8 +99,24 @@ export default function AdminEstabelecimentos() {
           {isLoading ? (
             <div className="flex items-center justify-center py-12"><Loader2 className="size-5 animate-spin text-muted-foreground" /></div>
           ) : error ? (
-            <div className="px-4 py-10 text-center text-sm text-destructive" data-testid="admin-estabs-error">
-              Erro ao carregar estabelecimentos: {(error as Error).message}
+            <div
+              className="flex flex-col items-center gap-3 px-4 py-10 text-center text-sm text-destructive"
+              data-testid="admin-estabs-error"
+            >
+              <p className="font-medium">Não foi possível carregar os estabelecimentos.</p>
+              <p className="max-w-md text-xs text-muted-foreground">
+                {/permission|rls|recursion/i.test((error as Error).message)
+                  ? "Seu acesso foi negado pelas regras de segurança do banco. Verifique se sua conta tem permissão de admin e tente novamente."
+                  : (error as Error).message}
+              </p>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => refetch()}
+                disabled={isFetching}
+              >
+                {isFetching ? <Loader2 className="size-4 animate-spin" /> : "Tentar novamente"}
+              </Button>
             </div>
           ) : (
             <Table>
