@@ -16,6 +16,7 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 import { addRecentOrderCode } from "@/lib/recentOrderCodes";
+import { markGuestSeen } from "@/lib/guestSeenMessages";
 
 const PedidoTrackingPublic = () => {
   const { code } = useParams();
@@ -26,7 +27,11 @@ const PedidoTrackingPublic = () => {
   // Remember tracking codes so the global floating chat can surface
   // messages from the establishment even for guest visitors.
   useEffect(() => {
-    if (code) addRecentOrderCode(code);
+    if (code) {
+      addRecentOrderCode(code);
+      // Visitar a página é considerado "leitura" — zera a badge do chat flutuante.
+      markGuestSeen(code);
+    }
   }, [code]);
 
   const inviteKey = order ? `sdr_signup_invite_shown:${order.tracking_code}` : null;
