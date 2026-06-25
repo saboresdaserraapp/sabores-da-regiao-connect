@@ -30,11 +30,14 @@ test.describe("store order detail — sem infinite recursion", () => {
       await page.goto(`/minha-loja/${env.establishmentId}/pedidos/${created.id}`);
 
       // A página renderiza conteúdo real (não a tela de erro genérica).
-      await expect(page.getByText(/pedido|cliente|itens|status/i).first()).toBeVisible({
+      await expect(page.getByRole("heading", { name: /dados do cliente/i })).toBeVisible({
         timeout: 15_000,
       });
+      await expect(page.getByRole("heading", { name: /itens do pedido/i })).toBeVisible();
       await expect(page.getByTestId("admin-estabs-error")).toHaveCount(0);
+      await expect(page.getByText(/não foi possível carregar este pedido/i)).toHaveCount(0);
       await expect(page.getByText(/infinite recursion/i)).toHaveCount(0);
+      await expect(page.getByText(/schema cache|relationship between 'orders' and 'establishments'/i)).toHaveCount(0);
       await expect(page.getByText(/algo deu errado/i)).toHaveCount(0);
 
       const recursionInConsole = errors.some((e) => /infinite recursion/i.test(e));

@@ -46,16 +46,32 @@ export default function PedidoDetalhesLoja({
   const queryClient = useQueryClient();
 
   const { data: order, isLoading, error, refetch } = useQuery({
-    queryKey: ["order-detail-loja", orderId],
+    queryKey: ["order-detail-loja", establishmentId, orderId],
     enabled: !!orderId,
     queryFn: async () => {
-      const { data, error } = await supabase
+      let orderQuery = supabase
         .from("orders")
-        .select("*, establishments(*)")
-        .eq("id", orderId!)
-        .maybeSingle();
+        .select("*")
+        .eq("id", orderId!);
+
+      if (establishmentId) {
+        orderQuery = orderQuery.eq("establishment_id", establishmentId);
+      }
+
+      const { data, error } = await orderQuery.maybeSingle();
       if (error) throw error;
-      return data;
+
+      if (!data) return null;
+
+      const { data: establishment, error: establishmentError } = await supabase
+        .from("establishments")
+        .select("id,name,slug,logo,whatsapp")
+        .eq("id", data.establishment_id)
+        .maybeSingle();
+
+      if (establishmentError) throw establishmentError;
+
+      return { ...data, establishments: establishment };
     },
   });
 
