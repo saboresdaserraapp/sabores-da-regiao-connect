@@ -54,6 +54,20 @@ export function createMessage(payload: {
   return call<{ id: string }>("create_message", payload);
 }
 
+export function createProposal(payload: {
+  order_id: string;
+  establishment_id: string;
+  proposed_subtotal?: number;
+  proposed_delivery_fee?: number;
+  proposed_total?: number;
+  prep_min?: number;
+  delivery_min?: number;
+  note?: string;
+  status?: "sent" | "draft" | "accepted" | "rejected";
+}) {
+  return call<{ id: string }>("create_proposal", payload);
+}
+
 export function deleteOrder(order_id: string) {
   return call<{ ok: boolean }>("delete_order", { order_id });
 }
