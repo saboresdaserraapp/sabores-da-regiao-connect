@@ -6,7 +6,8 @@ import { PainelSection } from "./_shared";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MessageCircle, ImageIcon, ChevronDown, ChevronUp, Smartphone, AlertTriangle, CheckCircle2, LayoutGrid, List, MessageSquare, ExternalLink } from "lucide-react";
+import { MessageCircle, ImageIcon, ChevronDown, ChevronUp, Smartphone, AlertTriangle, CheckCircle2, LayoutGrid, List, MessageSquare, ExternalLink, Search, X, RefreshCw } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { OrderReferencesPanel } from "@/components/orders/OrderReferencesPanel";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -78,6 +79,8 @@ export default function Pedidos() {
   const { ctx } = useActiveEstablishment();
   const [orders, setOrders] = useState<Order[]>([]);
   const [filter, setFilter] = useState<string>("all");
+  const [search, setSearch] = useState<string>("");
+  const [refreshing, setRefreshing] = useState(false);
   const [expandedRef, setExpandedRef] = useState<string | null>(null);
   const [onlyUnread, setOnlyUnread] = useState(false);
   const { data: unreadMap } = useOrderUnreadCountsForBusiness(ctx?.establishmentId);
@@ -85,13 +88,33 @@ export default function Pedidos() {
 
   async function refresh() {
     if (!ctx) return;
+    setRefreshing(true);
     const { data } = await supabase.from("orders")
       .select("id,tracking_code,customer_name,customer_phone,total,subtotal,delivery_fee,status,created_at,payment_method,notes,items,address_id,assigned_driver_name,driver_reference_sent_at,payment_status,payment_paid_at,final_delivery_fee,final_total,confirmation_flow_status,current_confirmation_proposal_id")
       .eq("establishment_id", ctx.establishmentId)
       .order("created_at", { ascending: false }).limit(100);
     setOrders((data ?? []) as any);
+    setRefreshing(false);
   }
   useEffect(() => { refresh(); /* eslint-disable-next-line */ }, [ctx?.establishmentId]);
+
+  // Polling fallback (20s) + atualizar ao focar a janela.
+  useEffect(() => {
+    if (!ctx?.establishmentId) return;
+    const onFocus = () => { refresh(); };
+    const onVisible = () => { if (document.visibilityState === "visible") refresh(); };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisible);
+    const id = window.setInterval(() => {
+      if (document.visibilityState === "visible") refresh();
+    }, 20000);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.clearInterval(id);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ctx?.establishmentId]);
 
   // Realtime: novos pedidos, mensagens e propostas para esta loja
   useEffect(() => {
@@ -221,9 +244,39 @@ export default function Pedidos() {
   }
 
   if (!ctx) return null;
-  let filtered = filter === "all" ? orders : orders.filter(o => o.status === filter);
+  let filtered = orders;
+  if (filter === "awaiting_acceptance") {
+    filtered = filtered.filter(o => o.confirmation_flow_status === "proposal_sent_to_customer");
+  } else if (filter !== "all") {
+    filtered = filtered.filter(o => o.status === filter);
+  }
   if (onlyUnread) filtered = filtered.filter(o => unread(o.id) > 0);
+  const q = search.trim().toLowerCase();
+  if (q) {
+    filtered = filtered.filter(o => {
+      const code = (o.tracking_code ?? "").toLowerCase();
+      const name = (o.customer_name ?? "").toLowerCase();
+      const phone = (o.customer_phone ?? "").replace(/\D/g, "");
+      const qDigits = q.replace(/\D/g, "");
+      return (
+        code.includes(q) ||
+        name.includes(q) ||
+        (qDigits.length > 0 && phone.includes(qDigits))
+      );
+    });
+  }
   const stagnantCount = orders.filter(isStagnant).length;
+
+  const QUICK_FILTERS: { key: string; label: string; count: number }[] = [
+    { key: "all",                            label: "Todos",                  count: orders.length },
+    { key: "waiting_business_confirmation",  label: "Novos",                  count: orders.filter(o => o.status === "waiting_business_confirmation").length },
+    { key: "awaiting_acceptance",            label: "Aguardando aceite",      count: orders.filter(o => o.confirmation_flow_status === "proposal_sent_to_customer").length },
+    { key: "confirmed_by_business",          label: "Confirmados",            count: orders.filter(o => o.status === "confirmed_by_business").length },
+    { key: "preparing",                      label: "Em preparo",             count: orders.filter(o => o.status === "preparing").length },
+    { key: "out_for_delivery",               label: "Saiu para entrega",      count: orders.filter(o => o.status === "out_for_delivery").length },
+    { key: "delivered",                      label: "Entregues",              count: orders.filter(o => o.status === "delivered").length },
+    { key: "canceled_by_business",           label: "Cancelados",             count: orders.filter(o => o.status === "canceled_by_business").length },
+  ];
 
   const renderKanbanCard = (o: Order) => (
     <div
@@ -475,6 +528,16 @@ export default function Pedidos() {
         <div className="flex items-center gap-2">
           <Button
             size="sm"
+            variant="outline"
+            className="h-8 text-xs"
+            onClick={() => refresh()}
+            disabled={refreshing}
+            aria-label="Atualizar lista de pedidos"
+          >
+            <RefreshCw className={`size-3.5 mr-1 ${refreshing ? "animate-spin" : ""}`} /> Atualizar
+          </Button>
+          <Button
+            size="sm"
             variant={onlyUnread ? "default" : "outline"}
             className="h-8 text-xs"
             onClick={() => setOnlyUnread(v => !v)}
@@ -485,6 +548,7 @@ export default function Pedidos() {
             <SelectTrigger className="w-[220px] h-8 text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos os status</SelectItem>
+              <SelectItem value="awaiting_acceptance">Aguardando aceite do cliente</SelectItem>
               {STATUS_OPTIONS.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
             </SelectContent>
           </Select>
@@ -500,6 +564,51 @@ export default function Pedidos() {
           <span><strong>{stagnantCount}</strong> pedido(s) aguardando confirmação há mais de {STAGNANT_MIN} min.</span>
         </div>
       )}
+
+      <div className="mb-3 space-y-2" data-testid="orders-toolbar">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar por código, nome ou telefone do cliente"
+            className="h-9 pl-8 pr-8 text-sm"
+            aria-label="Buscar pedidos"
+            data-testid="orders-search"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:bg-muted"
+              aria-label="Limpar busca"
+            >
+              <X className="size-3.5" />
+            </button>
+          )}
+        </div>
+        <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Filtros rápidos de pedidos">
+          {QUICK_FILTERS.map((qf) => (
+            <button
+              key={qf.key}
+              type="button"
+              role="tab"
+              aria-selected={filter === qf.key}
+              onClick={() => setFilter(qf.key)}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                filter === qf.key
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border bg-background text-foreground hover:bg-muted"
+              }`}
+            >
+              {qf.label}
+              <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${
+                filter === qf.key ? "bg-primary-foreground/15" : "bg-muted text-muted-foreground"
+              }`}>{qf.count}</span>
+            </button>
+          ))}
+        </div>
+      </div>
 
       <Tabs defaultValue="list" className="w-full">
         <TabsList className="mb-3">
