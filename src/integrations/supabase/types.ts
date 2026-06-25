@@ -3024,6 +3024,19 @@ export type Database = {
           updated_at: string
         }[]
       }
+      get_order_messages_by_tracking: {
+        Args: { _code: string }
+        Returns: {
+          attachments: Json
+          created_at: string
+          establishment_id: string
+          id: string
+          message: string
+          order_id: string
+          read_at: string
+          sender_type: string
+        }[]
+      }
       get_order_public_events: { Args: { _code: string }; Returns: Json }
       get_share_link_by_token: { Args: { _token: string }; Returns: Json }
       get_visual_reference_by_token: { Args: { _token: string }; Returns: Json }
