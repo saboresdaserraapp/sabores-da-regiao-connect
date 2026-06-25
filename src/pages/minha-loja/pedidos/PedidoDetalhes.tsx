@@ -52,19 +52,13 @@ export default function PedidoDetalhesLoja({
       let orderQuery = supabase
         .from("orders")
         .select("*")
-        .eq("id", orderId!)
-        .maybeSingle();
+        .eq("id", orderId!);
 
       if (establishmentId) {
-        orderQuery = supabase
-          .from("orders")
-          .select("*")
-          .eq("id", orderId!)
-          .eq("establishment_id", establishmentId)
-          .maybeSingle();
+        orderQuery = orderQuery.eq("establishment_id", establishmentId);
       }
 
-      const { data, error } = await orderQuery;
+      const { data, error } = await orderQuery.maybeSingle();
       if (error) throw error;
 
       if (!data) return null;
