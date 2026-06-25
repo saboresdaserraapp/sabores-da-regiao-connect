@@ -2957,6 +2957,10 @@ export type Database = {
     Functions: {
       _assert_estab_member: { Args: { _order_id: string }; Returns: string }
       accept_order_proposal: { Args: { _proposal_id: string }; Returns: Json }
+      accept_order_proposal_by_tracking: {
+        Args: { _code: string; _proposal_id: string }
+        Returns: Json
+      }
       admin_find_user_by_email: { Args: { _email: string }; Returns: string }
       can_manage: { Args: { _user_id: string }; Returns: boolean }
       can_user_access_order: { Args: { order_uuid: string }; Returns: boolean }
@@ -2993,6 +2997,38 @@ export type Database = {
       }
       ensure_official_admin: { Args: never; Returns: undefined }
       gen_tracking_code: { Args: never; Returns: string }
+      get_active_proposal_by_tracking: {
+        Args: { _code: string }
+        Returns: {
+          accepted_at: string | null
+          business_note: string | null
+          canceled_at: string | null
+          created_at: string
+          created_by: string | null
+          customer_response_note: string | null
+          establishment_id: string
+          estimated_delivery_time_min: number | null
+          estimated_preparation_time_min: number | null
+          expires_at: string | null
+          id: string
+          order_id: string
+          proposed_delivery_fee: number | null
+          proposed_discount: number | null
+          proposed_extra_fee: number | null
+          proposed_subtotal: number | null
+          proposed_total: number | null
+          rejected_at: string | null
+          sent_at: string | null
+          status: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "order_confirmation_proposals"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       get_establishment_plan_info: {
         Args: { _estab_id: string }
         Returns: Json
@@ -3094,6 +3130,10 @@ export type Database = {
         Args: { _note?: string; _proposal_id: string }
         Returns: Json
       }
+      reject_order_proposal_by_tracking: {
+        Args: { _code: string; _note?: string; _proposal_id: string }
+        Returns: Json
+      }
       search_signup_invites: {
         Args: {
           _campaign?: string
@@ -3115,6 +3155,10 @@ export type Database = {
         }[]
       }
       seed_initial_data: { Args: never; Returns: undefined }
+      send_order_message_by_tracking: {
+        Args: { _code: string; _message: string }
+        Returns: Json
+      }
       slugify: { Args: { _t: string }; Returns: string }
       unaccent_safe: { Args: { _t: string }; Returns: string }
       user_is_order_customer: {
