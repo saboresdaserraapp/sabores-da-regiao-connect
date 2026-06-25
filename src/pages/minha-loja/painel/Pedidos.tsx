@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useActiveEstablishment } from "@/contexts/ActiveEstablishmentContext";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,6 +13,7 @@ import { OrderReferencesPanel } from "@/components/orders/OrderReferencesPanel";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { OrderFreteActions, flowStatusBadge, requiresCustomerAcceptance } from "@/components/orders/OrderFreteActions";
 import { useOrderUnreadCountsForBusiness } from "@/hooks/useOrderUnreadCounts";
+import { shouldEmitOnce } from "@/lib/ordersRealtimeDedup";
 
 const STATUS_OPTIONS: { value: string; label: string; tone?: string }[] = [
   { value: "waiting_business_confirmation", label: "Aguardando confirmação" },
@@ -85,6 +86,9 @@ export default function Pedidos() {
   const [onlyUnread, setOnlyUnread] = useState(false);
   const { data: unreadMap } = useOrderUnreadCountsForBusiness(ctx?.establishmentId);
   const unread = (id: string) => unreadMap?.[id] ?? 0;
+  // Set persistente entre renders para deduplicar toasts disparados pelo
+  // realtime quando o mesmo evento chega por mais de um canal.
+  const seenToastIds = useRef<Set<string>>(new Set());
 
   async function refresh() {
     if (!ctx) return;
@@ -125,8 +129,10 @@ export default function Pedidos() {
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "orders", filter: `establishment_id=eq.${estId}` },
-        () => {
-          toast.success("Novo pedido recebido");
+        (payload: any) => {
+          if (shouldEmitOnce(seenToastIds.current, `order:${payload?.new?.id}`)) {
+            toast.success("Novo pedido recebido");
+          }
           refresh();
         }
       )
@@ -139,7 +145,10 @@ export default function Pedidos() {
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "order_messages", filter: `establishment_id=eq.${estId}` },
         (payload: any) => {
-          if (payload?.new?.sender_type === "customer") {
+          if (
+            payload?.new?.sender_type === "customer" &&
+            shouldEmitOnce(seenToastIds.current, `msg:${payload?.new?.id}`)
+          ) {
             toast("Nova mensagem de cliente");
           }
           refresh();
@@ -150,8 +159,11 @@ export default function Pedidos() {
         { event: "*", schema: "public", table: "order_confirmation_proposals", filter: `establishment_id=eq.${estId}` },
         (payload: any) => {
           const status = payload?.new?.status;
-          if (status === "accepted") toast.success("Cliente aceitou o valor final da entrega");
-          else if (status === "rejected") toast.warning("Cliente recusou o valor final da entrega");
+          const evtId = `prop:${payload?.new?.id ?? ""}:${status ?? ""}`;
+          if (shouldEmitOnce(seenToastIds.current, evtId)) {
+            if (status === "accepted") toast.success("Cliente aceitou o valor final da entrega");
+            else if (status === "rejected") toast.warning("Cliente recusou o valor final da entrega");
+          }
           refresh();
         }
       )
