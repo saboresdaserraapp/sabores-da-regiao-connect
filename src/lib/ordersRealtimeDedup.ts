@@ -48,3 +48,41 @@ export function shouldEmitOnce(seen: Set<string>, eventId: string | null | undef
   }
   return true;
 }
+
+/**
+ * Aplica filtros e paginação à lista de pedidos garantindo unicidade por
+ * `id`, mesmo que a entrada contenha duplicatas vindas de polling+realtime
+ * concorrentes ou da troca de filtros sobre uma lista parcial. Mantém a
+ * ordenação por `created_at desc` e nunca emite o mesmo `id` em páginas
+ * diferentes.
+ */
+export function paginateOrders<T extends DedupOrderLike>(
+  list: readonly T[],
+  opts: {
+    predicate?: (o: T) => boolean;
+    page?: number; // 1-based
+    pageSize?: number;
+  } = {},
+): { items: T[]; total: number; page: number; pageSize: number } {
+  const predicate = opts.predicate ?? (() => true);
+  const page = Math.max(1, opts.page ?? 1);
+  const pageSize = Math.max(1, opts.pageSize ?? 20);
+
+  const seen = new Set<string>();
+  const unique: T[] = [];
+  for (const o of list) {
+    if (seen.has(o.id)) continue;
+    seen.add(o.id);
+    if (predicate(o)) unique.push(o);
+  }
+  unique.sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+  );
+  const start = (page - 1) * pageSize;
+  return {
+    items: unique.slice(start, start + pageSize),
+    total: unique.length,
+    page,
+    pageSize,
+  };
+}

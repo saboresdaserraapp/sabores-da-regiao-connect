@@ -12,6 +12,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "e2e:preflight": "tsx scripts/e2e-preflight.ts",
+    "pretest:e2e": "tsx scripts/e2e-preflight.ts",
     "predev": "tsx scripts/generate-sitemap.ts",
     "prebuild": "tsx scripts/generate-sitemap.ts"
   },
