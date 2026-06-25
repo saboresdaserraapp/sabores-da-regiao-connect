@@ -9,11 +9,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, MessageCircle, Loader2, User, Phone, MapPin, Receipt, Clock, Trash2, Smartphone } from "lucide-react";
+import { Copy } from "lucide-react";
 import { OrderChat } from "@/components/OrderChat";
 import { OrderDetailsPanel } from "@/components/orders/OrderDetailsPanel";
 import { OrderReferencesPanel } from "@/components/orders/OrderReferencesPanel";
 import { SendProposalDialog } from "@/components/orders/SendProposalDialog";
 import { WhatsappHistoryPanel } from "@/components/orders/WhatsappHistoryPanel";
+import { WhatsappOrderEventsTimeline } from "@/components/orders/WhatsappOrderEventsTimeline";
 import { StoreConfirmActions } from "@/components/orders/StoreConfirmActions";
 import { confirmWithoutChange, fetchActiveProposal, registerWhatsappAcceptance, OrderProposal } from "@/lib/orderProposals";
 import { toast } from "sonner";
@@ -222,9 +224,42 @@ export default function PedidoDetalhesLoja({
   const openWhatsApp = () => {
     if (!order.customer_phone) return;
     const num = order.customer_phone.replace(/\D/g, "");
-    const msg = `Olá, ${order.customer_name}! Aqui é da ${(order.establishments as any)?.name}. Recebemos seu pedido #${order.tracking_code || order.id.slice(0, 8)}.`;
-    window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`, "_blank");
+    window.open(`https://wa.me/${num}?text=${encodeURIComponent(buildWhatsMessage())}`, "_blank");
   };
+
+  function buildWhatsMessage() {
+    const lines: string[] = [];
+    const code = order.tracking_code || order.id.slice(0, 8);
+    const estName = (order.establishments as { name?: string } | null)?.name || "loja";
+    lines.push(`*Pedido ${code}* — ${estName}`);
+    lines.push(`Olá ${order.customer_name ?? ""}!`);
+    lines.push("");
+    if (Array.isArray(order.items)) {
+      lines.push("*Itens:*");
+      (order.items as Array<{ name?: string; quantity?: number; price?: number }>).forEach((it) => {
+        const qty = it.quantity ?? 1;
+        const price = Number(it.price ?? 0) * qty;
+        lines.push(`• ${qty}x ${it.name ?? "item"} (${brl(price)})`);
+      });
+      lines.push("");
+    }
+    if (order.notes) { lines.push(`*Observação:* ${order.notes}`); lines.push(""); }
+    lines.push(`*Subtotal:* ${brl(Number(order.subtotal))}`);
+    lines.push(`*Entrega:* ${brl(Number(order.final_delivery_fee ?? order.delivery_fee ?? 0))}`);
+    if (order.final_total != null) lines.push(`*TOTAL FINAL:* ${brl(Number(order.final_total))}`);
+    else lines.push(`*TOTAL ESTIMADO:* ${brl(Number(order.total_estimated ?? order.total))}`);
+    if (order.payment_method) lines.push(`*Forma de pagamento:* ${order.payment_method}`);
+    return lines.join("\n");
+  }
+
+  async function copyWhatsApp() {
+    try {
+      await navigator.clipboard.writeText(buildWhatsMessage());
+      toast.success("Mensagem copiada");
+    } catch {
+      toast.error("Não foi possível copiar a mensagem");
+    }
+  }
 
   return (
     <PainelSection title={`Pedido #${order.tracking_code || order.id.slice(0, 8)}`}>
@@ -283,6 +318,13 @@ export default function PedidoDetalhesLoja({
           )}
 
           <WhatsappHistoryPanel orderId={order.id} />
+
+          <section className="rounded-xl border p-5 bg-card" data-testid="store-order-timeline">
+            <h3 className="font-bold flex items-center gap-2 mb-4">
+              <Clock className="size-4" /> Linha do tempo (WhatsApp & confirmações)
+            </h3>
+            <WhatsappOrderEventsTimeline orderId={order.id} />
+          </section>
         </div>
 
         <div className="space-y-6">
@@ -390,9 +432,14 @@ export default function PedidoDetalhesLoja({
                     )}
                   </>
                 )}
-                <Button className="w-full" onClick={openWhatsApp}>
-                  <MessageCircle className="mr-2 size-4" /> Conversar no WhatsApp
-                </Button>
+                <div className="flex gap-2" data-testid="wa-actions">
+                  <Button className="flex-1" onClick={openWhatsApp} data-testid="wa-open">
+                    <MessageCircle className="mr-2 size-4" /> Abrir WhatsApp
+                  </Button>
+                  <Button variant="outline" onClick={copyWhatsApp} aria-label="Copiar mensagem do WhatsApp" data-testid="wa-copy">
+                    <Copy className="size-4" />
+                  </Button>
+                </div>
                 <Button variant="outline" className="w-full text-destructive hover:bg-destructive/10">
                   <Trash2 className="mr-2 size-4" /> Cancelar Pedido
                 </Button>
