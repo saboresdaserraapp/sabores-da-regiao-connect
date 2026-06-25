@@ -1,87 +1,92 @@
-## Auditoria
+## Diagnóstico da página vazia
 
-| Demanda | Situação atual | Ação |
-|---|---|---|
-| Timeline em /pedido/:code com status + eventos | `PedidoTrackingPublic` já tem `OrderStatusStepper` (status) e bloco "Resposta do estabelecimento". Não há lista cronológica de eventos (status_history + order_messages do tipo `system`), nem mensagem explicativa do estágio inicial. | **Adicionar** componente `OrderEventsTimeline` que combina `orders.status_history` (jsonb) + mensagens `system` de `order_messages`, com texto guia para o estado atual (ex.: "Aguarde o estabelecimento confirmar disponibilidade, prazo e valor final"). |
-| Reenviar WhatsApp sem duplicar eventos | Hoje `handleResendWhatsapp` só abre `wa.me`. Não há gravação adicional → **já não duplica** status nem mensagens. Único risco: a primeira gravação `whatsapp_message` poderia ser sobrescrita. | **Garantir idempotência**: não chamar `update orders.whatsapp_message` no reenvio, registrar apenas um marcador leve (campo `whatsapp_resent_count` + `last_whatsapp_sent_at`) via RPC dedicada, sem inserir em `order_messages`/`status_history`. |
-| Snapshot no banco incluir whatsapp / whatsappMessage / trackingUrl, e /pedido/:code carregar os mesmos dados da confirmação | Snapshot em memória já tem os três campos. No banco: `orders.whatsapp_message` já é salvo; `orders.items/subtotal/delivery_fee/total/tracking_code` também. Falta persistir `whatsapp` do estabelecimento de forma estável (hoje vem por JOIN, que já funciona via `get_order_by_tracking → establishment_whatsapp`) e `trackingUrl` (derivável de `tracking_code + origin`). | **Não precisa migração**: derivar `trackingUrl` no cliente e usar `establishment_whatsapp + whatsapp_message` da RPC para reconstruir o mesmo snapshot. Pequeno reforço: garantir que `Checkout` use exatamente o mesmo cálculo de `items/subtotal/total` salvo (já usa). Documentar no hook `useOrderTracking` o mapeamento. |
-| Testes (unit + 1 E2E) para Copiar link, Compartilhar e Reenviar WhatsApp | Não existem testes para `ConfirmationScreen`. | **Adicionar** suite unit (`Checkout.confirmation.test.tsx`) e um E2E (`tests/e2e/checkout-confirmation-actions.spec.ts`). |
+Hoje a rota oficial é `/pedido/:code` (tracking code) e ela já tem 3 modos:
+- `PedidoDetalhesLoja` se o usuário logado é dono do `establishment_id`;
+- `PedidoCliente` se `orders.user_id = auth.uid()`;
+- `PedidoTrackingPublic` (visão pública) para qualquer outro caso, **inclusive quando o usuário não está logado**.
 
-## O que muda
+A tela "Pedido não encontrado" do print vem de `PedidoTrackingPublic` em uma destas situações:
+1. Usuário acessa link de pedido **sem sessão** → cai no público; se a RPC pública `get_order_by_tracking` não devolver linha (RLS / código inexistente / pedido apagado), mostra o card vazio.
+2. Notificação ou botão usou um valor que **não** é `tracking_code` (ex.: `notification.id`, `order.id`, código curto antigo).
+3. `RedirectByOrderId` recebeu um `orderId` inválido (notification.id) → `tracking_code` vem `null` → manda para `/minha-conta?tab=pedidos`, mas se o link original já era `/pedido/<id-uuid>` ele cai direto no público sem match.
+4. O usuário está em `/auth` (rota inexistente) — não é a página de pedido, é redirect quebrado do login.
 
-### 1. Timeline em /pedido/:code
+A causa raiz para o caso "loja clica em Acompanhar/Detalhes e vê tela vazia" é a linha de `Pedidos.tsx`:
+```
+<Link to={o.tracking_code ? `/pedido/${o.tracking_code}` : `/minha-loja/.../pedidos/${o.id}`}>
+```
+Quando `tracking_code` existe, manda para `/pedido/:code`. Se o usuário logado **não** é detectado como dono (ex.: contexto de loja ainda carregando `myEsts`, ou pedido antigo sem `user_id` populado), cai no público "Pedido não encontrado".
 
-**Novo componente** `src/components/orders/OrderEventsTimeline.tsx`:
-- Recebe `order` (com `status`, `status_history`, `confirmation_flow_status`, `establishment_reply`, `final_total`, `estimated_minutes`).
-- Busca `order_messages` onde `sender_type='system'` (público via RPC nova `get_order_public_events(_code text)` — `security definer`, retorna apenas mensagens system + status_history, sem dados sensíveis).
-- Mescla por timestamp, renderiza lista vertical com ícone + label + horário + texto-guia.
-- Mensagens-guia por status:
-  - `waiting_business_confirmation` → "Aguarde o estabelecimento confirmar disponibilidade, prazo e valor final."
-  - `confirmed_by_business` → "Pedido confirmado. Preparando em breve."
-  - `preparing` → "Cozinha em ação."
-  - `ready_for_pickup` / `out_for_delivery` / `delivered` → textos correspondentes.
+## O que muda (mínimo, sem refazer app)
 
-**Edit** `src/pages/PedidoTrackingPublic.tsx`: inserir `<OrderEventsTimeline order={order} />` logo abaixo do stepper.
+### Fase 0 — Logs temporários + bugfix do roteador
+- Em `PedidoTracking.tsx`: enquanto `useMyEstablishmentIds` ainda está carregando, **não** renderizar `PedidoTrackingPublic`; manter `LoadingState`. Só cair no público depois que `myEsts !== undefined` e `resolved.user_id !== user.id` e o usuário não for dono.
+- Adicionar `console.debug("[order-route]", { code, userId, resolved, isOwner })` controlado por `import.meta.env.DEV`.
+- Em `RedirectByOrderId`: se a query devolver erro/`null`, mostrar `ErrorState` "Pedido não encontrado" com botão "Voltar para pedidos" em vez de redirect silencioso.
 
-**Migração** nova: RPC `get_order_public_events(_code text)` retornando `jsonb[]` de eventos.
+### Fase 1 — Rotas oficiais reais (sem quebrar `/pedido/:code`)
+Manter `/pedido/:code` como **rota pública compartilhável** (links de WhatsApp já enviados).
+Promover as rotas contextuais a páginas reais:
+- `/minha-conta/pedidos/:orderId` → novo wrapper `CustomerOrderRoute` que valida `auth.uid()` e renderiza `PedidoCliente` direto (sem redirect para `/pedido/:code`).
+- `/minha-loja/:establishmentId/pedidos/:orderId` → novo wrapper `StoreOrderRoute` que valida pertencimento via `useMyEstablishmentIds` e renderiza `PedidoDetalhesLoja` direto.
+- `RedirectByOrderId` passa a redirecionar **para a rota contextual correta**, não mais para `/pedido/:code`:
+  - dentro de `/minha-loja/...` → `/minha-loja/:estId/pedidos/:orderId` (sem redirect, já é a própria rota).
+  - dentro de `/minha-conta/...` → `/minha-conta/pedidos/:orderId` (idem).
+- `/pedido/:code` continua existindo e segue resolvendo dono/cliente/público (compatibilidade).
 
-### 2. Reenviar WhatsApp idempotente
+### Fase 2 — Funções de busca
+Reaproveitar o que já existe:
+- Cliente: `useOrderTracking` (já busca por `orders.id`/tracking). Adicionar variante `useCustomerOrder(orderId)` que filtra por `user_id = auth.uid()`.
+- Loja: `PedidoDetalhesLoja` já recebe `orderId` + `establishmentId` e carrega itens, mensagens, propostas, status_history, referências. Garantir que ele exponha estados: carregando, sem permissão, não encontrado, erro, parcial — substituindo qualquer `return null`.
 
-**Migração**: adicionar em `orders`:
-- `whatsapp_resent_count integer not null default 0`
-- `last_whatsapp_sent_at timestamptz`
+### Fase 3 — Cliques do painel da loja
+Em `src/pages/minha-loja/painel/Pedidos.tsx`:
+- Trocar os 2 `<Link>` para sempre apontar para `/minha-loja/${establishmentId}/pedidos/${o.id}` (nunca mais `/pedido/${tracking_code}` no contexto da loja). O link público `/pedido/:code` continua disponível por botão "Copiar link do cliente" / WhatsApp.
 
-**RPC** `register_whatsapp_resend(_code text)` (security definer, sem auth → match por `tracking_code`):
-- Incrementa contador e seta timestamp.
-- **Não** insere em `order_messages` nem altera `status_history`.
+### Fase 4 — Página do lojista (consolidação)
+`PedidoDetalhesLoja` já tem a base. Verificar/garantir as seções pedidas (cabeçalho, cliente, itens, entrega+referências, taxa+proposta com `SendProposalDialog`/`OrderFreteActions`, status, chat, pagamento, motoboy se existir, histórico via `OrderEventsTimeline`). Sem reescrever — apenas preencher lacunas e amarrar componentes existentes (`StoreConfirmActions`, `WhatsappHistoryPanel`, `OrderReferencesPanel`, `OrderChat`).
+Bloqueio operacional: ao tentar marcar `confirmed_by_business` sem `final_total` ou sem aceite, mostrar toast com a mensagem exigida.
 
-**Edit** `ConfirmationScreen.handleResendWhatsapp`:
-- Chama `supabase.rpc("register_whatsapp_resend", { _code })` antes de abrir `wa.me`.
-- Mostra toast "Mensagem reaberta no WhatsApp".
+### Fase 5 — Página do cliente
+`PedidoCliente` já existe; só garantir as seções (resumo, itens, valores, proposta pendente via `ProposalAcceptCard`, chat via `OrderChat`, endereço/referências, timeline via `OrderEventsTimeline`). Nada de edição operacional.
 
-### 3. Snapshot consistente
+### Fase 6 — Pop-up "Falar com a loja"
+Auditar onde o pop-up grava mensagem; garantir insert em `order_messages` com `order_id`, `sender_type='customer'`, e que o painel da loja já lê dessa mesma tabela em `PedidoDetalhesLoja` (usa `useOrderMessages`). Se houver caminho paralelo (ex.: ticket), redirecionar para `order_messages`.
 
-**Edit** `Checkout.tsx` — sem mudança de schema:
-- Confirmar que `snapshot.items/subtotal/total/deliveryFee` vêm das mesmas variáveis salvas em `orders.insert(...)`.
-- Derivar `trackingUrl` igual em `PedidoTrackingPublic` (via `window.location.origin + /pedido/ + tracking_code`) para o botão "Copiar link" também aparecer lá (reuso do mesmo componente de actions — pequeno cartão `TrackingShareActions`).
+### Fase 7 — Notificações
+`NotificationCenter` já roteia para `/minha-conta/pedidos/:orderId` e `/minha-loja/:estId/pedidos/:orderId`. Com as rotas reais (Fase 1) o clique passa a abrir a página correta sem pular pelo `/pedido/:code`. Adicionar fallback: se `related_order_id` ausente → toast "Pedido não disponível" e não navegar.
 
-**Novo componente** `src/components/orders/TrackingShareActions.tsx` (reuso entre Checkout confirm e /pedido/:code): Copiar código, Copiar link, Compartilhar, Reenviar WhatsApp. Recebe `{ trackingCode, trackingUrl, whatsapp, whatsappMessage }`. `ConfirmationScreen` e `PedidoTrackingPublic` passam a usá-lo.
+### Fase 8 — Tempo real na lista
+Em `painel/Pedidos.tsx`: adicionar Realtime channel para `orders`, `order_messages`, `order_confirmation_proposals` filtrando por `establishment_id`. Fallback: refetch ao focar a janela + polling 20s. Toasts: novo pedido, nova mensagem, cliente aceitou/recusou frete. Evitar duplicar (usar `qc.setQueryData` por id).
 
-### 4. Testes
+### Fase 9 — Card da lista
+Enriquecer o card com selos (nova mensagem, aguardando aceite, referência visual) reusando dados já carregados. Filtros e busca adicionais sem reescrever a tela.
 
-**Unit** `src/pages/__tests__/CheckoutConfirmation.test.tsx`:
-- Renderiza `ConfirmationScreen` com snapshot fake.
-- Mocka `navigator.clipboard.writeText` e `navigator.share`.
-- Mocka `window.open`.
-- Cenários:
-  - clicar "Copiar link" → `writeText(trackingUrl)`, toast e badge "Link copiado".
-  - clicar "Compartilhar" com `navigator.share` disponível → chama `share` com `{title,text,url}`.
-  - clicar "Compartilhar" sem `share` → fallback para `writeText`.
-  - clicar "Reenviar pelo WhatsApp" → `window.open` com URL `wa.me/<num>?text=<encoded>` e supabase rpc `register_whatsapp_resend` chamada uma vez.
+### Fase 10 — Estados de erro
+Padronizar em `PedidoCliente`, `PedidoDetalhesLoja` e wrappers: `LoadingState`, `ErrorState` (com retry), "Sem permissão", "Não encontrado", "Dados parciais". Banir `return null` nessas páginas.
 
-**E2E** `tests/e2e/checkout-confirmation-actions.spec.ts`:
-- Stub do estado de confirmação via rota dedicada de teste OU navegação real curta:
-  - Servir `/checkout/<slug>` mockando supabase via interceptação de network? Mais simples: criar pedido real headless (sem auth) usando a mesma RPC pública já existente. Se inviável, usar `window.__setConfirmationForTest__` (helper exposto apenas em `import.meta.env.MODE==='test'`).
-- Verifica:
-  - Botão Copiar link aciona clipboard (lê `navigator.clipboard.readText`).
-  - Botão Compartilhar dispara fallback de cópia quando `navigator.share` não existe (Chromium headless).
-  - Botão Reenviar WhatsApp abre nova aba/`window.open` com host `wa.me` (intercepta via `page.context().on('page')`).
-
-### Fora de escopo
-- Histórico completo do chat cliente↔loja na timeline pública (privacidade).
-- Encurtador de link.
-- Persistir snapshot adicional além do já gravado em `orders`.
+### Fase 11 — Testes
+- Unit: wrappers `CustomerOrderRoute` / `StoreOrderRoute` (cenários: carregando, sem auth, sem permissão, ok).
+- Atualizar `tests/e2e/checkout-confirmation-actions.spec.ts` cobrindo navegação por notificação para `/minha-conta/pedidos/:orderId` e ausência de tela em branco.
 
 ## Resumo de arquivos
 
 **Novos**
-- `src/components/orders/OrderEventsTimeline.tsx`
-- `src/components/orders/TrackingShareActions.tsx`
-- `src/pages/__tests__/CheckoutConfirmation.test.tsx`
-- `tests/e2e/checkout-confirmation-actions.spec.ts`
-- 1 migração: colunas `whatsapp_resent_count`, `last_whatsapp_sent_at` + RPCs `register_whatsapp_resend`, `get_order_public_events`.
+- `src/components/orders/CustomerOrderRoute.tsx` (wrapper de auth + render `PedidoCliente`)
+- `src/components/orders/StoreOrderRoute.tsx` (wrapper de pertencimento + render `PedidoDetalhesLoja`)
+- `src/hooks/useCustomerOrder.ts` (busca por `orders.id` + `user_id = auth.uid()`)
+- `src/components/orders/__tests__/OrderRoutes.test.tsx`
 
 **Editados**
-- `src/pages/Checkout.tsx` (usa `TrackingShareActions`, chama RPC no reenvio)
-- `src/pages/PedidoTrackingPublic.tsx` (timeline + share actions)
-- `src/hooks/useOrderTracking.ts` (tipos para novos campos, se necessário)
+- `src/App.tsx` — substituir `RedirectByOrderId` nas rotas `/minha-conta/pedidos/:orderId` e `/minha-loja/:est/pedidos/:orderId` pelos novos wrappers; manter `/pedido/:code`.
+- `src/components/RedirectByOrderId.tsx` — virar fallback genérico com `ErrorState`.
+- `src/pages/PedidoTracking.tsx` — não cair no público enquanto `myEsts` está `undefined`; logs DEV.
+- `src/pages/minha-loja/painel/Pedidos.tsx` — links sempre contextuais; Realtime + toasts; filtros/selos.
+- `src/pages/PedidoCliente.tsx` — estados de erro padronizados; remover `return null`.
+- `src/pages/minha-loja/pedidos/PedidoDetalhes.tsx` — estados padronizados; amarrar `StoreConfirmActions`, `WhatsappHistoryPanel`, `OrderReferencesPanel`, `OrderChat`, `OrderEventsTimeline` (se faltarem); bloqueio de status sem aceite.
+- `src/components/NotificationCenter.tsx` — fallback quando `related_order_id` ausente.
+
+## Fora de escopo
+- Refazer carrinho, checkout, catálogo, painel admin, motoboys (só exibição), referências visuais (só exibição).
+- Encurtar URL pública; criar tabelas novas; mudar RLS global.
+- Apagar `/pedido/:code` (continua como link público compartilhável).
