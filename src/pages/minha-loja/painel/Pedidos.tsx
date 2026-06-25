@@ -724,6 +724,53 @@ export default function Pedidos() {
           </div>
         </TabsContent>
       </Tabs>
+
+      <div
+        className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t pt-3 text-xs text-muted-foreground"
+        data-testid="orders-pagination"
+      >
+        <div>
+          {totalCount === 0
+            ? "0 pedidos"
+            : `Mostrando ${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, totalCount)} de ${totalCount} pedidos`}
+        </div>
+        <div className="flex items-center gap-2">
+          <span>Itens por página:</span>
+          <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
+            <SelectTrigger className="h-8 w-[80px] text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {[10, 25, 50, 100].map((n) => (
+                <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 px-2"
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page <= 1 || refreshing}
+            aria-label="Página anterior"
+            data-testid="orders-prev-page"
+          >
+            <ChevronLeft className="size-3.5" />
+          </Button>
+          <span className="tabular-nums">
+            Página {page} / {Math.max(1, Math.ceil(totalCount / pageSize))}
+          </span>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 px-2"
+            onClick={() => setPage((p) => p + 1)}
+            disabled={page * pageSize >= totalCount || refreshing}
+            aria-label="Próxima página"
+            data-testid="orders-next-page"
+          >
+            <ChevronRight className="size-3.5" />
+          </Button>
+        </div>
+      </div>
     </PainelSection>
   );
 }
