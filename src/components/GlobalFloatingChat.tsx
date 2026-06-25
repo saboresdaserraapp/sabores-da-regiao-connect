@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { MessageCircle, X, Loader2, Store, Headphones, ArrowLeft } from "lucide-react";
+import { MessageCircle, X, Loader2, Store, Headphones, ArrowLeft, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -12,6 +12,8 @@ import { useGuestChatOrders, useGuestOrderMessages } from "@/hooks/useGuestChatO
 import { markGuestSeen } from "@/lib/guestSeenMessages";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 function timeAgo(iso: string | null) {
   if (!iso) return "";
