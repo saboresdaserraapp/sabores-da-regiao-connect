@@ -576,6 +576,17 @@ export default function Pedidos() {
           </Button>
           <Button
             size="sm"
+            variant="outline"
+            className="h-8 text-xs"
+            onClick={() => setSortDir((d) => (d === "desc" ? "asc" : "desc"))}
+            aria-label="Alternar ordenação por data"
+            data-testid="orders-sort"
+          >
+            {sortDir === "desc" ? <ArrowDown className="size-3.5 mr-1" /> : <ArrowUp className="size-3.5 mr-1" />}
+            {sortDir === "desc" ? "Mais novos" : "Mais antigos"}
+          </Button>
+          <Button
+            size="sm"
             variant={onlyUnread ? "default" : "outline"}
             className="h-8 text-xs"
             onClick={() => setOnlyUnread(v => !v)}
@@ -593,6 +604,31 @@ export default function Pedidos() {
         </div>
       }
     >
+      {loadError && (
+        <div
+          className="mb-4 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm"
+          data-testid="orders-load-error"
+        >
+          <div className="flex items-center gap-2 font-semibold text-destructive">
+            <AlertCircle className="size-4" /> Não foi possível carregar os pedidos.
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {/permission|rls|policy/i.test(loadError)
+              ? "Sem permissão para visualizar os pedidos desta loja. Verifique se você ainda é dono ou colaborador autorizado."
+              : loadError}
+          </p>
+          <Button
+            size="sm"
+            variant="outline"
+            className="mt-3"
+            onClick={() => refresh()}
+            disabled={refreshing}
+            data-testid="orders-reload"
+          >
+            <RefreshCw className={`size-3.5 mr-1 ${refreshing ? "animate-spin" : ""}`} /> Tentar novamente
+          </Button>
+        </div>
+      )}
       <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 text-pretty mb-4 shadow-sm">
         ⚠️ Pedido enviado ao WhatsApp <strong>não é venda confirmada</strong>. Use os status abaixo para registrar o andamento real.
       </div>
