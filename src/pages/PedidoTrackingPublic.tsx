@@ -15,12 +15,19 @@ import { brl } from "@/lib/format";
 import { LoadingState } from "@/components/ui/loading-state";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
+import { addRecentOrderCode } from "@/lib/recentOrderCodes";
 
 const PedidoTrackingPublic = () => {
   const { code } = useParams();
   const { order, loading } = useOrderTracking(code);
   const { user } = useAuth();
   const [inviteOpen, setInviteOpen] = useState(false);
+
+  // Remember tracking codes so the global floating chat can surface
+  // messages from the establishment even for guest visitors.
+  useEffect(() => {
+    if (code) addRecentOrderCode(code);
+  }, [code]);
 
   const inviteKey = order ? `sdr_signup_invite_shown:${order.tracking_code}` : null;
 
