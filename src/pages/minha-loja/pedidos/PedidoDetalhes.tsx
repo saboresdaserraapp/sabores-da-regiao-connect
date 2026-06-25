@@ -20,7 +20,9 @@ import { StoreConfirmActions } from "@/components/orders/StoreConfirmActions";
 import { confirmWithoutChange, fetchActiveProposal, registerWhatsappAcceptance, OrderProposal } from "@/lib/orderProposals";
 import { toast } from "sonner";
 import { brl } from "@/lib/format";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useActionTimings } from "@/hooks/useActionTimings";
+import { Activity } from "lucide-react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { CheckCircle2, Send, Smartphone as SmartphoneIcon } from "lucide-react";
 
@@ -77,32 +79,46 @@ export default function PedidoDetalhesLoja({
     },
   });
 
+  const { timings, measure, clear: clearTimings } = useActionTimings();
+  const statusLockRef = useRef(false);
+
   const updateStatus = useMutation({
     mutationFn: async (newStatus: string) => {
       const oldStatus = order?.status;
-      const { error } = await supabase.from("orders").update({ status: newStatus as any }).eq("id", orderId!);
-      if (error) throw error;
+      await measure("status:update", `Status → ${newStatus}`, async () => {
+        const { error } = await supabase
+          .from("orders")
+          .update({ status: newStatus as any })
+          .eq("id", orderId!);
+        if (error) throw error;
+      });
 
-      // Secondary writes — fire-and-forget para não travar o UI.
-      // O histórico e notificações chegam logo em seguida via realtime / refetch.
-      void supabase.from("order_status_history").insert({
-        order_id: orderId!,
-        from_status: oldStatus,
-        to_status: newStatus,
-        note: "Alterado pelo painel da loja",
-      } as any);
+      // Secondary writes — fire-and-forget, com medição independente.
+      void measure("status:history", "Histórico de status", async () => {
+        const { error } = await supabase.from("order_status_history").insert({
+          order_id: orderId!,
+          from_status: oldStatus,
+          to_status: newStatus,
+          note: "Alterado pelo painel da loja",
+        } as any);
+        if (error) throw error;
+      }).catch(() => {});
 
       if (order?.user_id) {
-        void supabase.from("notifications").insert({
-          user_id: order.user_id,
-          type: "order_status_update",
-          title: "Atualização no seu pedido",
-          message: `Seu pedido na ${(order.establishments as any)?.name || "loja"} agora está: ${STATUS_OPTIONS.find(opt => opt.value === newStatus)?.label || newStatus}.`,
-          data: { order_id: orderId, new_status: newStatus } as any,
-        });
+        void measure("status:notify", "Notificação ao cliente", async () => {
+          const { error } = await supabase.from("notifications").insert({
+            user_id: order.user_id,
+            type: "order_status_update",
+            title: "Atualização no seu pedido",
+            message: `Seu pedido na ${(order.establishments as any)?.name || "loja"} agora está: ${STATUS_OPTIONS.find(opt => opt.value === newStatus)?.label || newStatus}.`,
+            data: { order_id: orderId, new_status: newStatus } as any,
+          });
+          if (error) throw error;
+        }).catch(() => {});
       }
     },
     onMutate: async (newStatus: string) => {
+      statusLockRef.current = true;
       // UI otimista: atualiza o cache imediatamente para o Select refletir a escolha.
       const key = ["order-detail-loja", establishmentId, orderId];
       await queryClient.cancelQueries({ queryKey: key });
@@ -110,15 +126,25 @@ export default function PedidoDetalhesLoja({
       if (prev) queryClient.setQueryData(key, { ...prev, status: newStatus });
       return { prev };
     },
-    onError: (err, _v, ctx) => {
+    onError: (err, newStatus, ctx) => {
       const key = ["order-detail-loja", establishmentId, orderId];
+      // Rollback automático do cache
       if (ctx?.prev) queryClient.setQueryData(key, ctx.prev);
-      toast.error((err as Error)?.message || "Erro ao atualizar status");
+      const msg = (err as Error)?.message || "Falha ao atualizar status";
+      toast.error(`Não foi possível alterar o status. ${msg}`, {
+        description: "O status foi revertido para o valor anterior.",
+        action: {
+          label: "Tentar novamente",
+          onClick: () => updateStatus.mutate(newStatus),
+        },
+        duration: 8000,
+      });
     },
     onSuccess: () => {
       toast.success("Status atualizado");
     },
     onSettled: () => {
+      statusLockRef.current = false;
       queryClient.invalidateQueries({ queryKey: ["order-detail-loja", establishmentId, orderId] });
     },
   });
@@ -159,15 +185,22 @@ export default function PedidoDetalhesLoja({
     if (Number.isNaN(fee) || fee < 0) { toast.error("Informe uma taxa válida"); return; }
     setSavingFee(true);
     const newTotal = Number(order.subtotal || 0) + fee;
-    const { error } = await supabase.from("orders").update({
-      delivery_fee: fee,
-      final_total: newTotal,
-      establishment_reply: replyInput || null,
-    }).eq("id", order.id);
-    setSavingFee(false);
-    if (error) { toast.error(error.message); return; }
-    toast.success("Total confirmado para o cliente");
-    queryClient.invalidateQueries({ queryKey: ["order-detail-loja", orderId] });
+    try {
+      await measure("fee:confirm", "Confirmar taxa de entrega", async () => {
+        const { error } = await supabase.from("orders").update({
+          delivery_fee: fee,
+          final_total: newTotal,
+          establishment_reply: replyInput || null,
+        }).eq("id", order.id);
+        if (error) throw error;
+      });
+      toast.success("Total confirmado para o cliente");
+      queryClient.invalidateQueries({ queryKey: ["order-detail-loja", establishmentId, orderId] });
+    } catch (e) {
+      toast.error((e as Error)?.message || "Erro ao confirmar taxa");
+    } finally {
+      setSavingFee(false);
+    }
   };
 
   if (isLoading) {
@@ -353,7 +386,12 @@ export default function PedidoDetalhesLoja({
                 </label>
                 <Select
                   value={order.status}
-                  onValueChange={(v) => { if (v !== order.status) updateStatus.mutate(v); }}
+                  onValueChange={(v) => {
+                    // Lock duplo: ignora cliques repetidos enquanto há request em voo
+                    if (statusLockRef.current || updateStatus.isPending) return;
+                    if (v === order.status) return;
+                    updateStatus.mutate(v);
+                  }}
                   disabled={updateStatus.isPending}
                 >
                   <SelectTrigger>
@@ -372,6 +410,41 @@ export default function PedidoDetalhesLoja({
                 availabilityConfirmedAt={(order as { availability_confirmed_at?: string | null }).availability_confirmed_at ?? null}
                 onChanged={() => queryClient.invalidateQueries({ queryKey: ["order-detail-loja", orderId] })}
               />
+
+              {timings.length > 0 && (
+                <div className="rounded-xl border border-dashed bg-muted/30 p-3 space-y-2" data-testid="action-timings">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      <Activity className="size-3" /> Latência das ações
+                    </div>
+                    <button
+                      type="button"
+                      onClick={clearTimings}
+                      className="text-[10px] text-muted-foreground hover:text-foreground underline"
+                    >
+                      limpar
+                    </button>
+                  </div>
+                  <ul className="space-y-1 text-xs font-mono">
+                    {timings.map((t, i) => (
+                      <li key={`${t.at}-${i}`} className="flex items-center justify-between gap-2">
+                        <span className="truncate text-muted-foreground">{t.label}</span>
+                        <span
+                          className={
+                            t.ok
+                              ? t.durationMs > 1000
+                                ? "text-amber-600 font-semibold"
+                                : "text-emerald-700"
+                              : "text-destructive font-semibold"
+                          }
+                        >
+                          {t.durationMs} ms{!t.ok && " · falhou"}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               <div className="pt-2 border-t">
                 <div className="flex justify-between text-sm mb-1">
