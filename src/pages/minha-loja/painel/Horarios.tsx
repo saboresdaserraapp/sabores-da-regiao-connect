@@ -13,7 +13,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Trash2, Copy, CalendarPlus, AlertCircle, Bookmark, PlayCircle } from "lucide-react";
+import { Plus, Trash2, Copy, CalendarPlus, AlertCircle, Bookmark, PlayCircle, CalendarRange } from "lucide-react";
 import { BlockSimulator } from "@/components/painel/horarios/BlockSimulator";
 import { HoursCalendar } from "@/components/painel/horarios/HoursCalendar";
 import { toast } from "sonner";
@@ -80,6 +80,9 @@ export default function Horarios() {
     return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
   });
   const [previewChannel, setPreviewChannel] = useState<ChannelTab>("default");
+  // Copy-special-to-other-dates dialog state
+  const [copySpecialIdx, setCopySpecialIdx] = useState<number | null>(null);
+  const [copyTargetDates, setCopyTargetDates] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!ctx) return;
