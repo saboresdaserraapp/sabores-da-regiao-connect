@@ -14,6 +14,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Plus, Trash2, Copy, CalendarPlus, AlertCircle, Bookmark, PlayCircle } from "lucide-react";
+import { BlockSimulator } from "@/components/painel/horarios/BlockSimulator";
+import { HoursCalendar } from "@/components/painel/horarios/HoursCalendar";
 import { toast } from "sonner";
 import {
   WEEKDAYS,
@@ -640,6 +642,12 @@ export default function Horarios() {
             )}
           </CardContent>
         </Card>
+
+        {/* Simulador de bloqueio por canal */}
+        <BlockSimulator week={week} channelHours={channelHours} special={special} timezone={timezone} />
+
+        {/* Calendário mensal por canal */}
+        <HoursCalendar week={week} channelHours={channelHours} special={special} />
 
         <Separator />
 
