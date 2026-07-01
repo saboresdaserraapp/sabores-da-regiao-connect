@@ -1,48 +1,72 @@
+## Migração de Lovable Cloud para Supabase (self-managed)
 
-## Diagnóstico
+O projeto hoje roda em Lovable Cloud, que é Supabase gerenciado pela Lovable. Migrar para uma conta Supabase própria significa transferir **dados, schema, edge functions, storage, auth e secrets** para um novo projeto Supabase e reapontar o app para ele. Depois disso, a Lovable deixa de gerenciar o backend — você passa a administrar diretamente no dashboard do Supabase.
 
-Confirmado direto no banco:
+### Antes de começar — o que você precisa saber
 
-1. **Recursão infinita em `establishments`** — há um ciclo entre duas policies:
-   - `establishments` → policy *"Owners read own establishment"* faz `EXISTS (SELECT 1 FROM establishment_owners WHERE eo.establishment_id = establishments.id)`.
-   - `establishment_owners` → policy *"users read own memberships"* faz `EXISTS (SELECT 1 FROM establishments e WHERE e.id = establishment_owners.establishment_id AND e.owner_id = auth.uid())`.
-   - Cada SELECT em uma tabela aciona a policy da outra → Postgres aborta com `infinite recursion detected in policy for relation "establishments"`. É exatamente o erro do checkout logado.
+- **A migração é irreversível pelo lado do Lovable Cloud neste projeto.** Depois que apontarmos para o Supabase externo, o Cloud não gerencia mais este projeto. É possível voltar manualmente, mas dá trabalho.
+- **Você vai precisar de uma conta Supabase própria** (plano Free serve para começar; Pro se já tem volume) e criar um projeto novo lá.
+- **Downtime curto** durante o corte (tipicamente 5–15 min): tempo de exportar/importar dados e trocar as variáveis de ambiente.
+- **Custos** passam a ser cobrados diretamente pelo Supabase, não mais via créditos Lovable.
+- **Alguns recursos exclusivos do Cloud somem**: Lovable AI Gateway (sem chave), envio de e-mail branded pela Lovable, e a UI de "Cloud" no editor. Você pode reimplementar com contas próprias (OpenAI/Anthropic direto, Resend/Postmark para e-mail).
 
-2. **Tracking de pedido como visitante** — o RPC `get_order_by_tracking(_code)` está como `STABLE` **sem `SECURITY DEFINER`**. Logo, roda com o papel `anon`, e as policies de `orders` não permitem SELECT anônimo. O JOIN devolve 0 linhas → o front renderiza "Pedido não encontrado", mesmo o pedido `SDS-GKCYLQ` existindo no banco (verificado).
+### O que precisa ser migrado
 
-3. **Admin "Estabelecimentos" vazio** — existem 5 estabelecimentos no banco, mas a tela mostra 0. A query em `src/pages/admin/Estabelecimentos.tsx` ignora `error` e devolve `data ?? []`. Quando o usuário admin está logado, a mesma recursão do item 1 quebra a query → vira lista vazia. Ou seja: **não é uma terceira causa, é consequência do item 1**. Depois de corrigir a recursão, a tela admin volta a listar.
+1. **Schema do banco** — 55+ tabelas, tipos enum, funções (`is_establishment_member`, `accept_order_proposal_by_tracking`, `get_order_by_tracking`, etc.), triggers, RLS e GRANTs.
+2. **Dados** — establishments, orders, order_messages, profiles, user_roles, plans, todo o histórico.
+3. **Auth** — usuários do `auth.users`, incluindo senhas (hash bcrypt migra), identidades OAuth (Google) e o admin oficial `saboresdaserraapp@gmail.com`.
+4. **Storage** — buckets `public-media` e `user-media` com todos os arquivos e políticas.
+5. **Edge Functions** — `e2e-seed`, `send-announcement-email`, `signup-invite-export-*` (start/status/cancel).
+6. **Secrets do backend** — `E2E_SEED_SECRET` e quaisquer chaves usadas pelas edge functions.
+7. **Config OAuth** — recadastrar o app Google no novo projeto (client ID/secret e redirect URIs).
+8. **Config de e-mail** — reconfigurar templates de auth (confirmação, recuperação) no novo projeto.
 
-Resposta direta à sua pergunta: o app **não está deixando de mostrar os pedidos porque as lojas não estão cadastradas** — as lojas estão cadastradas (5 no banco) e o pedido foi salvo corretamente. Os dois sintomas vêm de RLS quebrado.
+### Plano de execução
 
-## Plano de correção (uma migration + um pequeno hardening de UI)
+**Etapa 1 — Preparação (você faz, fora da Lovable)**
 
-### 1) Migration SQL — quebrar o ciclo de RLS
+- Criar conta em supabase.com e um novo projeto (escolher a mesma região do Cloud atual para reduzir latência).
+- Anotar do dashboard novo: `Project URL`, `anon key`, `service_role key`, `Project ref`, senha do Postgres.
+- Instalar Supabase CLI local (`npm i -g supabase`) para rodar os comandos de dump/restore.
 
-- Criar/atualizar função `public.is_establishment_member(_uid, _est_id)` como `SECURITY DEFINER STABLE SET search_path=public`, retornando `boolean`, lendo `establishment_owners` e `establishments.owner_id` sem disparar RLS.
-- Em `establishments`, recriar a policy de leitura dos donos usando essa função em vez do `EXISTS` direto:
-  - `USING (owner_id = auth.uid() OR public.is_establishment_member(auth.uid(), id))`.
-- Em `establishment_owners`, recriar a policy `users read own memberships` para **não** consultar `establishments` no `USING`. Mantém apenas `user_id = auth.uid() OR can_manage(auth.uid())`. A condição de "owner do estabelecimento também enxerga a equipe" passa a usar `public.is_establishment_member(auth.uid(), establishment_id)` (security-definer, sem recursão).
-- Idem para `owners manage team memberships` — trocar o `EXISTS` por `is_establishment_member(...)`.
+**Etapa 2 — Exportar o backend atual (eu ajudo com scripts/SQL)**
 
-### 2) Migration SQL — tracking público funcionar para visitante
+- Gerar dump do schema + dados do Cloud atual (via `pg_dump` usando a connection string do projeto Cloud; posso preparar os comandos exatos).
+- Exportar `auth.users` preservando `encrypted_password`, `raw_user_meta_data`, `email_confirmed_at`, `identities`.
+- Baixar objetos dos buckets `public-media` e `user-media` (script Node usando service_role).
+- Salvar código das edge functions (já está em `supabase/functions/` no repo, então isso já vem no git).
+- Listar secrets ativos do Cloud para você recriar no Supabase novo.
 
-- `ALTER FUNCTION public.get_order_by_tracking(text) SECURITY DEFINER;` e garantir `GRANT EXECUTE ON FUNCTION public.get_order_by_tracking(text) TO anon, authenticated;`.
-- A função já filtra por `tracking_code`, então só quem tem o código consegue ler — seguro para uso anônimo. Sem isto, todo guest cai em "Pedido não encontrado".
+**Etapa 3 — Importar no Supabase novo**
 
-### 3) UI — Admin Estabelecimentos parar de mascarar erro
+- Rodar as migrations do repo (`supabase/migrations/*`) no projeto novo via CLI — todas as tabelas, funções e policies são recriadas do zero de forma limpa.
+- Fazer `\copy` / `pg_restore` só das linhas de dados (sem schema) para popular as tabelas.
+- Importar `auth.users` e `auth.identities` via SQL direto (mantém as senhas).
+- Upload dos arquivos de storage para os buckets recriados.
+- Deploy das edge functions com `supabase functions deploy`.
+- Cadastrar os secrets no novo projeto (`supabase secrets set`).
+- Reconfigurar o provider Google em Authentication → Providers com as credenciais existentes e adicionar o novo domínio de callback.
 
-- Em `src/pages/admin/Estabelecimentos.tsx` desestruturar `{ data, error }` e: logar `error`, exibir `ErrorState` quando houver falha em vez de "0 resultados". Evita esconder regressões futuras de RLS.
+**Etapa 4 — Reapontar o app Lovable (eu faço aqui)**
 
-### 4) Validação
+- Trocar `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` e `VITE_SUPABASE_PROJECT_ID` no `.env` para os valores do projeto novo.
+- Atualizar `supabase/config.toml` com o novo `project_id`.
+- Rodar `supabase gen types typescript` apontando para o projeto novo para regenerar `src/integrations/supabase/types.ts` (schema é o mesmo, mas garante que fica atrelado ao novo ref).
+- Desabilitar/remover chamadas ao Lovable AI Gateway se houver (não vi uso ativo no código, confirmar durante a execução).
+- Rebuild + smoke test das rotas críticas: `/`, `/login`, `/pedido/:code`, `/minha-loja/painel/pedidos`.
 
-- `psql` antes/depois: `select * from establishments` como `authenticated` (via Supabase) não deve mais retornar recursão.
-- Visitar `https://saboresapp.lovable.app/pedido/SDS-GKCYLQ` deslogado → deve renderizar o pedido.
-- Refazer um checkout logado → não deve mais aparecer "infinite recursion".
-- Admin → Estabelecimentos deve listar os 5 registros.
+**Etapa 5 — Validação e corte**
 
-## Fora de escopo
+- Rodar a suíte E2E do repo apontando para o backend novo.
+- Testar manualmente: login com senha, login Google, checkout como visitante, aceite de proposta, chat de pedido, painel do lojista.
+- Congelar escritas no Cloud antigo, fazer um delta incremental dos dados novos (se houver), publicar a versão apontando pro Supabase novo.
+- Deixar o projeto Cloud antigo em modo somente-leitura por 7 dias antes de descartar.
 
-- Cadastrar manualmente as lojas/produtos no painel admin (elas já existem no banco).
-- Mudanças nos testes E2E recém-criados.
+### O que eu preciso de você para começar
 
-Confirme que posso aplicar a migration e o ajuste de UI.
+1. Confirmação explícita de que quer prosseguir sabendo que é irreversível pelo lado do Cloud.
+2. Se já tem conta/projeto no Supabase criado, ou se quer que eu detalhe passo a passo a criação.
+3. Se prefere fazer o corte com **downtime curto planejado** (mais simples) ou com **replicação em paralelo** (mais complexo, quase zero downtime).
+4. Se quer manter o Lovable AI Gateway em uso em algum ponto — nesse caso, apontar quais features dependem dele para planejarmos substituto.
+
+Confirme esses pontos e eu preparo os scripts de export/import da etapa 2 e 3 e faço as trocas de config da etapa 4.
