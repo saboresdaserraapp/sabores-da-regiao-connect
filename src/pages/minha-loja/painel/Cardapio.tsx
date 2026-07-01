@@ -66,10 +66,10 @@ export default function Cardapio() {
     queryFn: async () => {
       const { data } = await supabase
         .from("products")
-        .select("id,name,position,image,is_active,additional_menu_category_ids,menu_category_id")
+        .select("id,name,display_order,image,is_active,additional_menu_category_ids,menu_category_id")
         .eq("establishment_id", ctx!.establishmentId)
         .or(`menu_category_id.eq.${expanded},additional_menu_category_ids.cs.{${expanded}}`)
-        .order("position", { ascending: true, nullsFirst: false })
+        .order("display_order", { ascending: true, nullsFirst: false })
         .order("name", { ascending: true });
       return data ?? [];
     },
@@ -82,10 +82,10 @@ export default function Cardapio() {
     const j = i + dir;
     if (i < 0 || j < 0 || j >= catProducts.length) return;
     const a = catProducts[i], b = catProducts[j];
-    const posA = a.position ?? i;
-    const posB = b.position ?? j;
-    await supabase.from("products").update({ position: posB }).eq("id", a.id);
-    await supabase.from("products").update({ position: posA }).eq("id", b.id);
+    const posA = a.display_order ?? i;
+    const posB = b.display_order ?? j;
+    await supabase.from("products").update({ display_order: posB }).eq("id", a.id);
+    await supabase.from("products").update({ display_order: posA }).eq("id", b.id);
     refreshProducts();
   };
 
