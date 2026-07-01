@@ -172,7 +172,7 @@ export default function EditarProduto() {
                   <Input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="Ex: X-Salada Especial" />
                 </div>
                 <div className="space-y-2">
-                  <Label>Categoria</Label>
+                  <Label>Categoria principal</Label>
                   <Select value={f.menu_category_id ?? "none"} onValueChange={(v) => setF({ ...f, menu_category_id: v === "none" ? null : v })}>
                     <SelectTrigger><SelectValue placeholder="Sem categoria" /></SelectTrigger>
                     <SelectContent>
@@ -180,7 +180,71 @@ export default function EditarProduto() {
                       {cats.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
+                  <p className="text-[10px] text-muted-foreground">Onde o produto aparece por padrão no cardápio.</p>
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Categorias adicionais (opcional)</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
+                      <span className="truncate">
+                        {additionalIds.length === 0
+                          ? "Adicionar em outras categorias..."
+                          : `${additionalIds.length} categoria(s) adicional(is) selecionada(s)`}
+                      </span>
+                      <ChevronsUpDown className="size-4 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-2" align="start">
+                    <div className="max-h-64 overflow-auto space-y-1">
+                      {cats.length === 0 && (
+                        <p className="text-[11px] text-muted-foreground p-2">Nenhuma categoria cadastrada.</p>
+                      )}
+                      {cats.map((c) => {
+                        const isPrimary = c.id === f.menu_category_id;
+                        const checked = additionalIds.includes(c.id);
+                        return (
+                          <label
+                            key={c.id}
+                            className={`flex items-center gap-2 rounded px-2 py-1.5 text-xs cursor-pointer hover:bg-accent ${isPrimary ? "opacity-50 cursor-not-allowed" : ""}`}
+                          >
+                            <Checkbox
+                              checked={checked}
+                              disabled={isPrimary}
+                              onCheckedChange={() => toggleAdditionalCategory(c.id)}
+                            />
+                            <span className="flex-1">{c.name}</span>
+                            {isPrimary && <Badge variant="secondary" className="text-[9px]">principal</Badge>}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+                {additionalIds.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {additionalIds.map((id) => {
+                      const cat = cats.find((c) => c.id === id);
+                      if (!cat) return null;
+                      return (
+                        <Badge key={id} variant="secondary" className="gap-1 pr-1">
+                          <span>{cat.name}</span>
+                          <button
+                            type="button"
+                            onClick={() => toggleAdditionalCategory(id)}
+                            className="rounded-full hover:bg-background/60 p-0.5"
+                            aria-label={`Remover ${cat.name}`}
+                          >
+                            <Lock className="size-2.5 hidden" />
+                            <span aria-hidden>×</span>
+                          </button>
+                        </Badge>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -228,22 +292,12 @@ export default function EditarProduto() {
 
               <div className="space-y-2 pt-2">
                 <Label>Tags de busca e filtros</Label>
-                <div className="flex flex-wrap gap-2">
-                  {TAGS.map(tag => (
-                    <Badge 
-                      key={tag.id} 
-                      variant={(f.tags_json as string[])?.includes(tag.id) ? "default" : "outline"}
-                      className="cursor-pointer"
-                      onClick={() => {
-                        const current = (f.tags_json as string[]) || [];
-                        const next = current.includes(tag.id) ? current.filter(t => t !== tag.id) : [...current, tag.id];
-                        setF({ ...f, tags_json: next });
-                      }}
-                    >
-                      {tag.label}
-                    </Badge>
-                  ))}
-                </div>
+                <TagEditor
+                  value={Array.isArray(f.tags_json) ? (f.tags_json as string[]) : []}
+                  onChange={(next) => setF({ ...f, tags_json: next })}
+                  establishmentId={establishmentId!}
+                  suggestions={TAGS.map((t) => t.id)}
+                />
               </div>
             </CardContent>
           </Card>
