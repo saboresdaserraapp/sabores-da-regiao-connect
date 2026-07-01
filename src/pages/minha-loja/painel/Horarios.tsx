@@ -644,10 +644,26 @@ export default function Horarios() {
         </Card>
 
         {/* Simulador de bloqueio por canal */}
-        <BlockSimulator week={week} channelHours={channelHours} special={special} timezone={timezone} />
+        <BlockSimulator
+          week={week}
+          channelHours={channelHours}
+          special={special}
+          timezone={timezone}
+          timezones={TIMEZONES}
+          onTimezoneChange={setTimezone}
+          establishmentId={ctx.establishmentId}
+        />
 
         {/* Calendário mensal por canal */}
-        <HoursCalendar week={week} channelHours={channelHours} special={special} />
+        <HoursCalendar
+          week={week}
+          channelHours={channelHours}
+          special={special}
+          timezone={timezone}
+          timezones={TIMEZONES}
+          onTimezoneChange={setTimezone}
+          establishmentName={ctx.establishmentName}
+        />
 
         <Separator />
 
