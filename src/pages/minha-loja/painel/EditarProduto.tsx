@@ -352,183 +352,19 @@ export default function EditarProduto() {
         <TabsContent value="adicionais" className="space-y-6 pt-6">
           <Card>
             <CardContent className="pt-6 space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-semibold">Adicionais (Opcionais)</h3>
-                  <p className="text-[10px] text-muted-foreground">Personalize o produto com extras, variações ou combos.</p>
-                </div>
-                {!canUseFeature(ctx, "simple_addons") && (
-                  <Badge variant="secondary" className="text-[9px] gap-1"><Lock className="size-2" /> Essencial</Badge>
-                )}
-              </div>
-
               {canUseFeature(ctx, "simple_addons") ? (
-                <div className="space-y-3">
-                  {(!f.options || f.options.length === 0) && (
-                    <div className="p-8 text-center border border-dashed rounded-lg bg-muted/20">
-                      <p className="text-xs text-muted-foreground italic">Nenhum adicional cadastrado.</p>
-                    </div>
-                  )}
-                  
-                  <div className="grid gap-2">
-                    {Array.isArray(f.options) && f.options.map((o: any, i: number) => (
-                      <div key={i} className="flex items-center gap-2 rounded-lg border border-border bg-card p-2 animate-in fade-in slide-in-from-left-2">
-                        <Input 
-                          value={o.name} 
-                          onChange={(e) => {
-                            const next = [...f.options];
-                            next[i] = { ...next[i], name: e.target.value };
-                            setF({ ...f, options: next });
-                          }} 
-                          className="flex-1 h-8 text-xs" 
-                          placeholder="Nome do opcional"
-                        />
-                        <div className="relative">
-                          <span className="absolute left-2 top-1.5 text-[10px] text-muted-foreground">R$</span>
-                          <Input 
-                            type="number" 
-                            step="0.01" 
-                            value={o.price} 
-                            onChange={(e) => {
-                              const next = [...f.options];
-                              next[i] = { ...next[i], price: Number(e.target.value) || 0 };
-                              setF({ ...f, options: next });
-                            }} 
-                            className="w-24 h-8 text-xs pl-7" 
-                            placeholder="0,00"
-                          />
-                        </div>
-                        {canUseFeature(ctx, "advanced_addons") && (
-                          <Select 
-                            value={o.type ?? "simple"} 
-                            onValueChange={(v: any) => {
-                              const next = [...f.options];
-                              next[i] = { ...next[i], type: v };
-                              setF({ ...f, options: next });
-                            }}
-                          >
-                            <SelectTrigger className="w-28 h-8 text-[10px]"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="simple" className="text-[10px]">Simples</SelectItem>
-                              <SelectItem value="variation" className="text-[10px]">Variação</SelectItem>
-                              <SelectItem value="combo" className="text-[10px]">Combo</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        )}
-                        <div className="flex flex-col gap-1">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[9px] text-muted-foreground">Mín:</span>
-                            <Input 
-                              type="number" 
-                              min="0"
-                              value={o.min ?? 0} 
-                              onChange={(e) => {
-                                const next = [...f.options];
-                                next[i] = { ...next[i], min: parseInt(e.target.value) || 0 };
-                                setF({ ...f, options: next });
-                              }} 
-                              className="w-10 h-6 text-[9px] text-center px-1" 
-                            />
-                            <span className="text-[9px] text-muted-foreground ml-1">Máx:</span>
-                            <Input 
-                              type="number" 
-                              min="1"
-                              value={o.max ?? 1} 
-                              onChange={(e) => {
-                                const next = [...f.options];
-                                next[i] = { ...next[i], max: parseInt(e.target.value) || 1 };
-                                setF({ ...f, options: next });
-                              }} 
-                              className="w-10 h-6 text-[9px] text-center px-1" 
-                            />
-                          </div>
-                        </div>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8 text-destructive hover:bg-destructive/10" 
-                          onClick={() => {
-                            setF({ ...f, options: f.options.filter((_: any, idx: number) => idx !== i) });
-                          }}
-                        >
-                          <Trash2 className="size-3" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="flex flex-wrap gap-2 pt-2">
-                    <Button 
-                      size="sm" 
-                      variant="outline" 
-                      className="h-8 text-[11px] flex-1 border-dashed" 
-                      onClick={() => {
-                        const next = Array.isArray(f.options) ? [...f.options] : [];
-                        next.push({ name: "Novo adicional", price: 0, type: "simple" });
-                        setF({ ...f, options: next });
-                      }}
-                    >
-                      <Plus className="size-3 mr-1" /> Opcional Simples
-                    </Button>
-                    
-                    {canUseFeature(ctx, "advanced_addons") ? (
-                      <>
-                        <Button 
-                          size="sm" 
-                          variant="outline" 
-                          className="h-8 text-[11px] flex-1 border-dashed" 
-                          onClick={() => {
-                            const next = Array.isArray(f.options) ? [...f.options] : [];
-                            next.push({ name: "Nova variação", price: 0, type: "variation" });
-                            setF({ ...f, options: next });
-                          }}
-                        >
-                          <Plus className="size-3 mr-1" /> Variação (P, M, G)
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          variant="outline" 
-                          className="h-8 text-[11px] flex-1 border-dashed" 
-                          onClick={() => {
-                            const next = Array.isArray(f.options) ? [...f.options] : [];
-                            next.push({ name: "Novo combo", price: 0, type: "combo" });
-                            setF({ ...f, options: next });
-                          }}
-                        >
-                          <Plus className="size-3 mr-1" /> Item de Combo
-                        </Button>
-                      </>
-                    ) : (
-                      <div className="flex items-center gap-1 opacity-50 cursor-not-allowed">
-                        <Lock className="size-3" />
-                        <span className="text-[10px]">Variações e Combos (Gold+)</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
+                <ProductOptionGroupsEditor productId={productId!} />
               ) : (
                 <div className="p-8 border-2 border-dashed rounded-xl bg-muted/20 text-center">
                   <Package className="size-8 mx-auto mb-2 text-muted-foreground/30" />
-                  <p className="text-xs text-muted-foreground mb-4">Adicionais permitem que seus clientes personalizem os itens, aumentando o ticket médio.</p>
+                  <p className="text-xs text-muted-foreground mb-4">
+                    Adicionais e acompanhamentos permitem que seus clientes personalizem os itens, aumentando o ticket médio.
+                  </p>
                   <Button variant="outline" size="sm" onClick={() => navigate(`/minha-loja/${establishmentId}/planos`)}>
-                    Liberar Adicionais
+                    Liberar adicionais
                   </Button>
                 </div>
               )}
-
-              <Separator className="my-6" />
-              
-              <div className="bg-primary/5 p-4 rounded-xl border border-primary/10">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="p-2 bg-primary/10 rounded-lg">
-                    <Package className="size-4 text-primary" />
-                  </div>
-                  <h4 className="text-sm font-semibold">Grupos de Adicionais Avançados (Breve)</h4>
-                </div>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  Em breve você poderá criar grupos complexos com limites de seleção mínima/máxima e categorias de adicionais compartilhadas entre produtos.
-                </p>
-              </div>
             </CardContent>
           </Card>
         </TabsContent>
