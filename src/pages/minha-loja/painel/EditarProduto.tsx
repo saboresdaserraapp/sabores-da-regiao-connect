@@ -19,6 +19,10 @@ import { canUseFeature, planLabelForFeature, type FeatureKey } from "@/lib/permi
 import { MediaUploader } from "@/components/media/MediaUploader";
 import { ProductGalleryEditor } from "@/components/painel/produtos/ProductGalleryEditor";
 import { ProductOptionGroupsEditor } from "@/components/painel/produtos/ProductOptionGroupsEditor";
+import { TagEditor } from "@/components/painel/produtos/TagEditor";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ChevronsUpDown } from "lucide-react";
 
 export default function EditarProduto() {
   const { establishmentId, productId } = useParams();
@@ -51,6 +55,40 @@ export default function EditarProduto() {
     // Basic validation
     if (f.promo && f.promotional_price && Number(f.promotional_price) >= Number(f.price)) {
       return toast.error("O preço promocional deve ser menor que o preço normal.");
+    }
+    if (!f.name || String(f.name).trim().length < 2) {
+      return toast.error("Dê um nome ao produto (mín. 2 caracteres).");
+    }
+    if (Number(f.price) < 0) {
+      return toast.error("O preço não pode ser negativo.");
+    }
+    // Validar opcionais do produto (se existirem grupos, precisam estar íntegros)
+    try {
+      const [{ data: groups }, { data: opts }] = await Promise.all([
+        supabase.from("product_option_groups").select("*").eq("product_id", productId!),
+        supabase
+          .from("product_options")
+          .select("*, product_option_groups!inner(product_id)")
+          .eq("product_option_groups.product_id", productId!),
+      ]);
+      const groupErrs: string[] = [];
+      (groups ?? []).forEach((g: any) => {
+        const gOpts = (opts ?? []).filter((o: any) => o.option_group_id === g.id);
+        const min = g.min_choices ?? 0;
+        const max = g.max_choices ?? 1;
+        if (min > max) groupErrs.push(`Grupo "${g.name}": mínimo > máximo.`);
+        if (g.is_required && min < 1) groupErrs.push(`Grupo "${g.name}" é obrigatório mas o mínimo é 0.`);
+        if (g.type === "radio" && max > 1) groupErrs.push(`Grupo "${g.name}" é escolha única mas o máximo é > 1.`);
+        if (gOpts.length === 0) groupErrs.push(`Grupo "${g.name}" está sem opções.`);
+        if (gOpts.some((o: any) => Number(o.price) < 0)) groupErrs.push(`Grupo "${g.name}" tem opção com preço negativo.`);
+      });
+      if (groupErrs.length > 0) {
+        return toast.error("Corrija os grupos de opcionais antes de salvar", {
+          description: groupErrs.slice(0, 3).join(" • "),
+        });
+      }
+    } catch (e) {
+      console.warn("Falha ao validar grupos de opcionais", e);
     }
 
     const { error } = await supabase.from("products").update(f).eq("id", productId);
@@ -86,6 +124,15 @@ export default function EditarProduto() {
     { id: "serve-2", label: "Serve 2 pessoas" },
     { id: "recomendado", label: "Recomendado da casa" },
   ];
+
+  const additionalIds: string[] = Array.isArray(f.additional_menu_category_ids) ? f.additional_menu_category_ids : [];
+  const toggleAdditionalCategory = (id: string) => {
+    if (id === f.menu_category_id) return; // é a principal, não duplica
+    const next = additionalIds.includes(id)
+      ? additionalIds.filter((x) => x !== id)
+      : [...additionalIds, id];
+    setF({ ...f, additional_menu_category_ids: next });
+  };
 
   return (
     <div className="max-w-5xl mx-auto pb-20">
