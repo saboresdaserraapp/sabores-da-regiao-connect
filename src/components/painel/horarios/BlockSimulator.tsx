@@ -168,7 +168,7 @@ export function BlockSimulator({
   const dateTz = testDate ? isoInTz(testDate, timezone) : "";
 
   return (
-    <Card className="border-amber-500/40">
+    <Card id="simulador" className="border-amber-500/40">
       <CardContent className="p-4 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
@@ -184,13 +184,27 @@ export function BlockSimulator({
           </div>
         </div>
         <p className="text-xs text-muted-foreground">
-          Testa se um pedido nesta data/hora seria bloqueado antes de abrir o WhatsApp, usando o horário do canal (com fallback para o padrão).
-          O fuso acima é o mesmo aplicado no checkout — mudanças aqui refletem também no calendário.
+          Usa <strong>exatamente</strong> a mesma função (<code>evaluateHoursGate</code>) e o mesmo fuso do estabelecimento
+          aplicados no checkout — o resultado abaixo é o que o cliente veria ao clicar em "Enviar pelo WhatsApp".
         </p>
+
+        {tzMismatch && (
+          <div className="flex items-start gap-2 rounded-md border border-amber-500/50 bg-amber-500/10 p-2 text-xs">
+            <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+            <div>
+              <strong>Divergência de fuso:</strong> seu navegador está em <code>{browserTz}</code> mas o estabelecimento
+              usa <code>{timezone}</code>. A simulação sempre compara no fuso do estabelecimento (igual ao checkout).
+              Ajuste o fuso da loja acima se estiver incorreto.
+            </div>
+          </div>
+        )}
 
         <div className="flex flex-wrap gap-2">
           <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-44" />
           <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="w-32" />
+          <Button size="sm" variant="outline" onClick={shareScenarioLink}>
+            <Share2 className="h-3.5 w-3.5 mr-1" /> Compartilhar link
+          </Button>
           <div className="flex items-center gap-1 ml-auto">
             <Input placeholder="Rótulo do cenário (opcional)" value={scenarioLabel}
               onChange={(e) => setScenarioLabel(e.target.value)} className="w-56 h-9" />
