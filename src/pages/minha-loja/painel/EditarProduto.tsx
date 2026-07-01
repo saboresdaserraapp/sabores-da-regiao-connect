@@ -16,6 +16,9 @@ import { toast } from "sonner";
 import { ArrowLeft, Save, Lock, Image as ImageIcon, Plus, Trash2, Package, Calendar } from "lucide-react";
 import { useActiveEstablishment } from "@/contexts/ActiveEstablishmentContext";
 import { canUseFeature, planLabelForFeature, type FeatureKey } from "@/lib/permissions";
+import { MediaUploader } from "@/components/media/MediaUploader";
+import { ProductGalleryEditor } from "@/components/painel/produtos/ProductGalleryEditor";
+import { ProductOptionGroupsEditor } from "@/components/painel/produtos/ProductOptionGroupsEditor";
 
 export default function EditarProduto() {
   const { establishmentId, productId } = useParams();
