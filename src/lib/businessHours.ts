@@ -5,7 +5,24 @@
 export type TimeSlot = { open: string; close: string }; // "HH:mm"
 export type DayConfig = { closed: boolean; slots: TimeSlot[] };
 export type WeeklyHours = Record<string, DayConfig>;
-export type SpecialDay = { date: string; label?: string; closed: boolean; slots: TimeSlot[] };
+export type SpecialRecurrence = "none" | "yearly" | "monthly";
+export type SpecialDay = {
+  id?: string;
+  date: string; // YYYY-MM-DD
+  label?: string;
+  closed: boolean;
+  slots: TimeSlot[];
+  recurrence?: SpecialRecurrence; // default "none"
+  enabled?: boolean; // default true
+};
+export type ChannelKey = "delivery" | "pickup" | "dine_in";
+export type ChannelHours = Partial<Record<ChannelKey, WeeklyHours>>;
+
+export const CHANNEL_LABELS: Record<ChannelKey, string> = {
+  delivery: "Entrega",
+  pickup: "Retirada",
+  dine_in: "Comer no local",
+};
 
 export const WEEKDAYS = [
   { key: "0", short: "Dom", long: "Domingo" },
@@ -44,6 +61,7 @@ export function normalizeSpecial(input: unknown): SpecialDay[] {
   return input
     .filter((s: any) => s && typeof s.date === "string")
     .map((s: any) => ({
+      id: typeof s.id === "string" ? s.id : undefined,
       date: s.date,
       label: typeof s.label === "string" ? s.label : undefined,
       closed: !!s.closed,
@@ -52,7 +70,20 @@ export function normalizeSpecial(input: unknown): SpecialDay[] {
             .filter((x: any) => x && typeof x.open === "string" && typeof x.close === "string")
             .map((x: any) => ({ open: x.open, close: x.close }))
         : [],
+      recurrence:
+        s.recurrence === "yearly" || s.recurrence === "monthly" ? s.recurrence : "none",
+      enabled: s.enabled === false ? false : true,
     }));
+}
+
+export function normalizeChannelHours(input: unknown): ChannelHours {
+  const out: ChannelHours = {};
+  if (!input || typeof input !== "object") return out;
+  for (const k of ["delivery", "pickup", "dine_in"] as ChannelKey[]) {
+    const raw = (input as any)[k];
+    if (raw && typeof raw === "object") out[k] = normalizeWeek(raw);
+  }
+  return out;
 }
 
 function toMinutes(hhmm: string): number {
@@ -148,7 +179,7 @@ export function isOpenAt(
   const wd = wdMap[parts.weekday] ?? "0";
   const nowMin = Number(parts.hour) * 60 + Number(parts.minute);
 
-  const sp = special.find((s) => s.date === isoDate);
+  const sp = matchSpecialForDate(isoDate, special);
   const cfg: DayConfig | undefined = sp
     ? { closed: sp.closed, slots: sp.slots }
     : week[wd];
@@ -165,4 +196,78 @@ export function isOpenAt(
     }
   }
   return false;
+}
+
+// Match a special-day rule against an ISO date, honouring recurrence (yearly/monthly) and enabled flag.
+export function matchSpecialForDate(isoDate: string, special: SpecialDay[]): SpecialDay | undefined {
+  const [y, m, d] = isoDate.split("-");
+  for (const sp of special) {
+    if (sp.enabled === false) continue;
+    const [sy, sm, sd] = sp.date.split("-");
+    const rec = sp.recurrence ?? "none";
+    if (rec === "none" && sp.date === isoDate) return sp;
+    if (rec === "yearly" && sm === m && sd === d) return sp;
+    if (rec === "monthly" && sd === d) return sp;
+    // still allow original exact date to match for yearly/monthly historic records
+    if (sp.date === isoDate) return sp;
+    // ignore future single-date rules that don't match today
+    void y; void sy;
+  }
+  return undefined;
+}
+
+// Find the next moment (up to `daysAhead` in the future) where the store will be open.
+// Returns a formatted string in the configured timezone, or null if none found.
+export function nextOpeningLabel(
+  from: Date,
+  week: WeeklyHours,
+  special: SpecialDay[] = [],
+  timezone = "America/Sao_Paulo",
+  daysAhead = 14,
+): string | null {
+  // Iterate minute-by-minute would be slow; iterate day-by-day and inspect slots.
+  const wdMap = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  for (let offset = 0; offset <= daysAhead; offset++) {
+    const candidate = new Date(from.getTime() + offset * 24 * 60 * 60 * 1000);
+    const fmt = new Intl.DateTimeFormat("en-CA", {
+      timeZone: timezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      weekday: "short",
+      hour12: false,
+    });
+    const parts = fmt.formatToParts(candidate).reduce<Record<string, string>>((acc, p) => {
+      acc[p.type] = p.value; return acc;
+    }, {});
+    const isoDate = `${parts.year}-${parts.month}-${parts.day}`;
+    const wd = String(wdMap.indexOf(parts.weekday));
+    const nowMin = offset === 0 ? Number(parts.hour) * 60 + Number(parts.minute) : 0;
+    const sp = matchSpecialForDate(isoDate, special);
+    const cfg = sp ? { closed: sp.closed, slots: sp.slots } : week[wd];
+    if (!cfg || cfg.closed) continue;
+    const candidates = cfg.slots
+      .map((s) => ({ o: toMinutes(s.open), c: toMinutes(s.close), open: s.open, close: s.close }))
+      .filter((s) => !Number.isNaN(s.o) && !Number.isNaN(s.c))
+      .sort((a, b) => a.o - b.o);
+    for (const s of candidates) {
+      // If we are inside slot right now, opening is "now"
+      if (offset === 0 && s.c > s.o && nowMin >= s.o && nowMin < s.c) return "agora";
+      if (offset === 0 && s.c <= s.o && (nowMin >= s.o || nowMin < s.c)) return "agora";
+      if (s.o >= nowMin || offset > 0) {
+        const dayLabel = offset === 0 ? "hoje" : offset === 1 ? "amanhã" : WEEKDAYS.find((w) => w.key === wd)?.long ?? "";
+        const dateLabel = `${parts.day}/${parts.month}`;
+        return `${dayLabel} (${dateLabel}) às ${s.open}`;
+      }
+    }
+  }
+  return null;
+}
+
+// Resolve which weekly schedule applies to a channel: use channel override if defined, else default.
+export function weekForChannel(base: WeeklyHours, channels: ChannelHours, channel?: ChannelKey): WeeklyHours {
+  if (!channel) return base;
+  return channels[channel] ?? base;
 }
