@@ -123,6 +123,22 @@ export function ProductOptionGroupsEditor({ productId }: Props) {
     qc.invalidateQueries({ queryKey: oKey });
   };
 
+  // Parses a Postgres error message like "... (field=min_choices)" and shows a
+  // targeted toast so users know exactly which input the backend rejected.
+  const handleDbError = (error: any, context: "group" | "option") => {
+    const msg = error?.message ?? String(error);
+    const m = msg.match(/\(field=([a-z_]+)\)/);
+    const clean = msg.replace(/\s*\(field=[a-z_]+\)\s*/, "").trim();
+    if (m) {
+      const label = m[1];
+      toast.error(`Backend rejeitou o campo "${label}"`, {
+        description: clean,
+      });
+    } else {
+      toast.error(clean || `Erro ao salvar ${context === "group" ? "grupo" : "opção"}`);
+    }
+  };
+
   const addGroup = async () => {
     const { error } = await supabase.from("product_option_groups").insert({
       product_id: productId,
@@ -133,13 +149,13 @@ export function ProductOptionGroupsEditor({ productId }: Props) {
       max_choices: 1,
       display_order: groups.length,
     });
-    if (error) toast.error(error.message);
+    if (error) handleDbError(error, "group");
     else invalidate();
   };
 
   const updateGroup = async (id: string, patch: Partial<OptionGroup>) => {
     const { error } = await supabase.from("product_option_groups").update(patch).eq("id", id);
-    if (error) toast.error(error.message);
+    if (error) handleDbError(error, "group");
     else invalidate();
   };
 
@@ -147,7 +163,7 @@ export function ProductOptionGroupsEditor({ productId }: Props) {
     if (!confirm("Remover este grupo e todas as suas opções?")) return;
     await supabase.from("product_options").delete().eq("option_group_id", id);
     const { error } = await supabase.from("product_option_groups").delete().eq("id", id);
-    if (error) toast.error(error.message);
+    if (error) handleDbError(error, "group");
     else invalidate();
   };
 
@@ -160,19 +176,19 @@ export function ProductOptionGroupsEditor({ productId }: Props) {
       is_available: true,
       display_order: groupOptions.length,
     });
-    if (error) toast.error(error.message);
+    if (error) handleDbError(error, "option");
     else invalidate();
   };
 
   const updateOption = async (id: string, patch: Partial<OptionRow>) => {
     const { error } = await supabase.from("product_options").update(patch).eq("id", id);
-    if (error) toast.error(error.message);
+    if (error) handleDbError(error, "option");
     else invalidate();
   };
 
   const removeOption = async (id: string) => {
     const { error } = await supabase.from("product_options").delete().eq("id", id);
-    if (error) toast.error(error.message);
+    if (error) handleDbError(error, "option");
     else invalidate();
   };
 
