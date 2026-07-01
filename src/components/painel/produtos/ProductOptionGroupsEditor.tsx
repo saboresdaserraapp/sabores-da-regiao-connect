@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
-import { Plus, Trash2, Package } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Plus, Trash2, Package, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 
 interface Props {
@@ -37,6 +38,35 @@ export function ProductOptionGroupsEditor({ productId }: Props) {
   const qc = useQueryClient();
   const gKey = ["product-option-groups", productId];
   const oKey = ["product-options", productId];
+
+  const validateGroup = (g: OptionGroup, opts: OptionRow[]): string[] => {
+    const errs: string[] = [];
+    if (!g.name || g.name.trim().length < 2) errs.push("Dê um nome ao grupo (mín. 2 caracteres).");
+    const min = g.min_choices ?? 0;
+    const max = g.max_choices ?? 1;
+    if (min < 0) errs.push("Mínimo não pode ser negativo.");
+    if (max < 1) errs.push("Máximo deve ser pelo menos 1.");
+    if (min > max) errs.push(`Mínimo (${min}) não pode ser maior que máximo (${max}).`);
+    if (g.is_required && min < 1) errs.push("Grupo obrigatório precisa ter mínimo ≥ 1.");
+    if (g.type === "radio" && max > 1) errs.push('Grupo do tipo "Escolha única" só permite máximo 1.');
+    if (opts.length === 0) errs.push("Adicione ao menos uma opção neste grupo.");
+    if (opts.length > 0 && max > opts.length) {
+      errs.push(`Máximo (${max}) é maior que o número de opções disponíveis (${opts.length}).`);
+    }
+    const availableCount = opts.filter((o) => o.is_available !== false).length;
+    if (g.is_required && availableCount < min) {
+      errs.push(`Grupo obrigatório com mínimo ${min}, mas só há ${availableCount} opção(ões) disponível(is).`);
+    }
+    opts.forEach((o) => {
+      if (!o.name || o.name.trim().length < 1) errs.push(`Uma opção está sem nome.`);
+      if (Number(o.price) < 0) errs.push(`A opção "${o.name || "sem nome"}" tem preço negativo.`);
+    });
+    // Nomes duplicados
+    const names = opts.map((o) => o.name?.trim().toLowerCase()).filter(Boolean);
+    const dupes = names.filter((n, i) => names.indexOf(n) !== i);
+    if (dupes.length > 0) errs.push("Existem opções com nomes duplicados neste grupo.");
+    return errs;
+  };
 
   const { data: groups = [] } = useQuery({
     queryKey: gKey,
