@@ -585,6 +585,9 @@ export default function Horarios() {
                     />
                     <span className="text-sm">{sp.closed ? "Fechado" : "Aberto"}</span>
                   </div>
+                  <Button size="sm" variant="ghost" onClick={() => openCopySpecial(idx)} title="Copiar esta exceção para outras datas do mês">
+                    <CalendarRange className="h-4 w-4 mr-1" /> Copiar
+                  </Button>
                   <Button size="icon" variant="ghost" onClick={() => setSpecial((prev) => prev.filter((_, i) => i !== idx))}>
                     <Trash2 className="h-4 w-4 text-muted-foreground" />
                   </Button>
