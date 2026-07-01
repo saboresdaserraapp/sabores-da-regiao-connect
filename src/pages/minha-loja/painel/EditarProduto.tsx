@@ -208,51 +208,31 @@ export default function EditarProduto() {
               <CardContent className="pt-6 space-y-6">
                 <div className="space-y-4">
                   <Label>Imagem principal</Label>
-                  <div className="flex flex-col md:flex-row gap-6 items-start">
-                    <div className="w-full md:w-64 aspect-square rounded-xl bg-muted flex items-center justify-center border-2 border-dashed border-muted-foreground/20 overflow-hidden relative group">
-                      {f.image ? (
-                        <>
-                          <img src={f.image} className="w-full h-full object-cover" alt="Preview" />
-                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                            <Button variant="destructive" size="sm" onClick={() => setF({ ...f, image: null })}>Remover</Button>
-                          </div>
-                        </>
-                      ) : (
-                        <div className="text-center p-4">
-                          <ImageIcon className="size-10 mx-auto mb-2 text-muted-foreground/40" />
-                          <p className="text-xs text-muted-foreground">Nenhuma imagem</p>
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex-1 space-y-4 w-full">
-                      <div className="space-y-2">
-                        <Label className="text-xs">URL da Imagem Externa</Label>
-                        <Input value={f.image ?? ""} onChange={(e) => setF({ ...f, image: e.target.value })} placeholder="https://exemplo.com/foto.jpg" />
-                      </div>
-                      <div className="pt-2">
-                        <p className="text-xs text-muted-foreground mb-2 italic">Upload direto para o servidor disponível em breve.</p>
-                        <Button variant="secondary" className="w-full" disabled>Fazer upload de imagem</Button>
-                      </div>
-                    </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Foto principal exibida no cardápio. Arraste ou clique para enviar (jpg, png, webp, até 8MB).
+                  </p>
+                  <div className="max-w-md">
+                    <MediaUploader
+                      value={f.image ?? ""}
+                      onChange={(url) => setF({ ...f, image: url || null })}
+                      bucket="public-media"
+                      folder={`establishments/${establishmentId}/products/${productId}`}
+                      aspect="aspect-square"
+                      label="Enviar foto principal"
+                      allowUrlInput
+                    />
                   </div>
                 </div>
 
                 <Separator />
 
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <Label>Galeria de Fotos (Imagens extras)</Label>
-                    <Badge variant="outline" className="text-[10px]">Gold ou Superior</Badge>
-                  </div>
-                  <FeatureLock feature="gallery">
-                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <Button variant="outline" className="aspect-square flex-col gap-2 h-auto" disabled>
-                          <Plus className="size-5" />
-                          <span className="text-[10px]">Adicionar</span>
-                        </Button>
-                     </div>
-                  </FeatureLock>
-                </div>
+                <FeatureLock feature="gallery">
+                  <ProductGalleryEditor
+                    productId={productId!}
+                    establishmentId={establishmentId!}
+                    max={5}
+                  />
+                </FeatureLock>
               </CardContent>
             </Card>
           </FeatureLock>
