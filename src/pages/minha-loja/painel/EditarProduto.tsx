@@ -284,6 +284,29 @@ export default function EditarProduto() {
                         <Label className="text-xs">Texto curto (ex: "Oferta")</Label>
                         <Input value={f.promotion_label ?? ""} onChange={(e) => setF({ ...f, promotion_label: e.target.value })} placeholder="Ex: Oferta do Dia" />
                       </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Início (opcional)</Label>
+                          <Input
+                            type="datetime-local"
+                            value={f.promotion_starts_at ? new Date(f.promotion_starts_at).toISOString().slice(0, 16) : ""}
+                            onChange={(e) => setF({ ...f, promotion_starts_at: e.target.value ? new Date(e.target.value).toISOString() : null })}
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Fim (opcional)</Label>
+                          <Input
+                            type="datetime-local"
+                            value={f.promotion_ends_at ? new Date(f.promotion_ends_at).toISOString().slice(0, 16) : ""}
+                            onChange={(e) => setF({ ...f, promotion_ends_at: e.target.value ? new Date(e.target.value).toISOString() : null })}
+                          />
+                        </div>
+                      </div>
+                      {f.promotional_price && Number(f.promotional_price) > 0 && Number(f.price) > 0 && Number(f.promotional_price) < Number(f.price) && (
+                        <p className="text-[11px] text-primary font-medium">
+                          Desconto: {Math.round((1 - Number(f.promotional_price) / Number(f.price)) * 100)}%
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>
