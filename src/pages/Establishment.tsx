@@ -158,7 +158,14 @@ export default function EstablishmentPage() {
 
       const catList = (cats ?? []).map((c) => ({
         ...c,
-        products: sortProds(allProducts.filter((p) => p.menu_category_id === c.id)),
+        products: sortProds(
+          allProducts.filter(
+            (p) =>
+              p.menu_category_id === c.id ||
+              (Array.isArray(p.additional_menu_category_ids) &&
+                p.additional_menu_category_ids.includes(c.id)),
+          ),
+        ),
       }));
 
       const knownIds = new Set((cats ?? []).map((c) => c.id));
