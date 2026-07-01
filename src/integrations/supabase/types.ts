@@ -794,8 +794,10 @@ export type Database = {
           approval_status: string | null
           approved_at: string | null
           approved_by: string | null
+          auto_open_now: boolean
           badges: string[]
           brand_color: string | null
+          business_hours: Json
           category: string
           category_label: string
           city: string | null
@@ -807,6 +809,7 @@ export type Database = {
           eta_min: number | null
           gallery: string[]
           hours: string | null
+          hours_timezone: string
           id: string
           is_public: boolean
           last_menu_update_at: string | null
@@ -826,6 +829,7 @@ export type Database = {
           reviews_count: number
           services: string[]
           slug: string
+          special_hours: Json
           status: Database["public"]["Enums"]["establishment_status"]
           story: string | null
           suspended_reason: string | null
@@ -840,8 +844,10 @@ export type Database = {
           approval_status?: string | null
           approved_at?: string | null
           approved_by?: string | null
+          auto_open_now?: boolean
           badges?: string[]
           brand_color?: string | null
+          business_hours?: Json
           category: string
           category_label: string
           city?: string | null
@@ -853,6 +859,7 @@ export type Database = {
           eta_min?: number | null
           gallery?: string[]
           hours?: string | null
+          hours_timezone?: string
           id?: string
           is_public?: boolean
           last_menu_update_at?: string | null
@@ -872,6 +879,7 @@ export type Database = {
           reviews_count?: number
           services?: string[]
           slug: string
+          special_hours?: Json
           status?: Database["public"]["Enums"]["establishment_status"]
           story?: string | null
           suspended_reason?: string | null
@@ -886,8 +894,10 @@ export type Database = {
           approval_status?: string | null
           approved_at?: string | null
           approved_by?: string | null
+          auto_open_now?: boolean
           badges?: string[]
           brand_color?: string | null
+          business_hours?: Json
           category?: string
           category_label?: string
           city?: string | null
@@ -899,6 +909,7 @@ export type Database = {
           eta_min?: number | null
           gallery?: string[]
           hours?: string | null
+          hours_timezone?: string
           id?: string
           is_public?: boolean
           last_menu_update_at?: string | null
@@ -918,6 +929,7 @@ export type Database = {
           reviews_count?: number
           services?: string[]
           slug?: string
+          special_hours?: Json
           status?: Database["public"]["Enums"]["establishment_status"]
           story?: string | null
           suspended_reason?: string | null
