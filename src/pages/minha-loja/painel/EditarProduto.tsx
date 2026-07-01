@@ -490,7 +490,8 @@ export default function EditarProduto() {
                 </div>
                 <div className="space-y-2">
                   <Label>Ordem de exibição</Label>
-                  <Input type="number" value={f.position ?? 0} onChange={(e) => setF({ ...f, position: Number(e.target.value) })} />
+                  <Input type="number" value={f.display_order ?? 0} onChange={(e) => setF({ ...f, display_order: Number(e.target.value) })} />
+                  <p className="text-[10px] text-muted-foreground">Você também pode ordenar produtos por categoria em <strong>Cardápio</strong>.</p>
                 </div>
               </div>
             </CardContent>
