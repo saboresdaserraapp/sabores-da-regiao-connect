@@ -20,6 +20,7 @@ import { MediaUploader } from "@/components/media/MediaUploader";
 import { ProductGalleryEditor } from "@/components/painel/produtos/ProductGalleryEditor";
 import { ProductOptionGroupsEditor } from "@/components/painel/produtos/ProductOptionGroupsEditor";
 import { TagEditor } from "@/components/painel/produtos/TagEditor";
+import { PricePreview } from "@/components/painel/produtos/PricePreview";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ChevronsUpDown } from "lucide-react";
