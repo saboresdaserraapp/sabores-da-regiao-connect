@@ -1,6 +1,7 @@
 import type { CartItem } from "@/store/cart";
 import type { Establishment } from "@/data/catalogTypes";
 import { brl } from "./format";
+import { isPromoActive } from "./pricing";
 
 export type OrderType = "entrega" | "retirada" | "local";
 
@@ -63,11 +64,34 @@ export function buildWhatsappMessage(
 
   const itemsTxt = items.map(i => {
     const itemLines: string[] = [];
-    
+
     const productName = i.product?.name || "Produto";
-    itemLines.push(`${i.quantity}x ${productName} — ${brl(i.unitPrice)}`);
-    
+    const product: any = i.product || {};
+    const promoActive = isPromoActive({
+      price: product.price ?? i.unitPrice,
+      promo: product.promo,
+      promotional_price: product.promotional_price,
+      promotion_starts_at: product.promotion_starts_at,
+      promotion_ends_at: product.promotion_ends_at,
+    });
+
+    if (promoActive) {
+      // Mostra promoção ativa: preço original riscado + preço promocional
+      const basePrice = Number(product.price) || i.unitPrice;
+      const promoPrice = Number(product.promotional_price) || i.unitPrice;
+      const pct = basePrice > 0 ? Math.round((1 - promoPrice / basePrice) * 100) : 0;
+      itemLines.push(`${i.quantity}x ${productName} — ~${brl(basePrice)}~ ${brl(promoPrice)} 🏷️ -${pct}%`);
+    } else {
+      itemLines.push(`${i.quantity}x ${productName} — ${brl(i.unitPrice)}`);
+    }
+
     const optionsByGroup: Record<string, any[]> = {};
+    // Marca adicionais obrigatórios com um símbolo no WhatsApp
+    const requiredGroups = new Set<string>(
+      Array.isArray(i.options)
+        ? i.options.filter((o: any) => o?.is_required || o?.group_required).map((o: any) => o?.group_name || "Adicionais")
+        : []
+    );
     if (Array.isArray(i.options)) {
       i.options.forEach((o: any) => {
         if (!o || !o.name) return;
@@ -78,7 +102,8 @@ export function buildWhatsappMessage(
     }
 
     Object.entries(optionsByGroup).forEach(([groupName, groupOptions]) => {
-      itemLines.push(`${groupName}:`);
+      const marker = requiredGroups.has(groupName) ? " *(obrigatório)*" : "";
+      itemLines.push(`${groupName}${marker}:`);
       groupOptions.forEach(o => {
         const qty = o.quantity && o.quantity > 1 ? `${o.quantity}x ` : "";
         const obs = o.observation ? ` (${o.observation})` : "";
@@ -100,6 +125,11 @@ export function buildWhatsappMessage(
     }
 
     itemLines.push(`Total do item: ${brl(i.unitPrice * i.quantity)}`);
+    if (promoActive) {
+      const basePrice = Number(product.price) || i.unitPrice;
+      const saved = (basePrice - i.unitPrice) * i.quantity;
+      if (saved > 0) itemLines.push(`(economia com promoção: ${brl(saved)})`);
+    }
     
     return itemLines.join("\n");
   }).join("\n\n");
