@@ -14,12 +14,12 @@ import {
   Play,
   ChevronDown,
   ChevronUp,
+  Share2,
+  AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  weekForChannel,
-  isOpenAt,
-  nextOpeningLabel,
+  evaluateHoursGate,
   matchSpecialForDate,
   CHANNEL_LABELS,
   type WeeklyHours,
@@ -29,10 +29,6 @@ import {
 } from "@/lib/businessHours";
 
 const CHANNELS: ChannelKey[] = ["delivery", "pickup", "dine_in"];
-
-function hasAnySlots(week: WeeklyHours): boolean {
-  return Object.values(week).some((d) => !d.closed && d.slots.length > 0);
-}
 
 function weekdayInTz(date: Date, tz: string): { key: string; long: string } {
   const parts = new Intl.DateTimeFormat("en-US", { timeZone: tz, weekday: "long" }).format(date);
