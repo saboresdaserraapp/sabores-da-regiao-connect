@@ -42,6 +42,12 @@ export function TagEditor({
   const [focused, setFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Live preview of what would be saved after backend normalization
+  const normalizedPreview = normalize(input);
+  const previewIsDupe = !!normalizedPreview && value.includes(normalizedPreview);
+  const previewIsLimit = value.length >= max;
+  const previewChanged = input.trim() !== normalizedPreview && normalizedPreview.length > 0;
+
   // Carrega tags já usadas no estabelecimento para sugestão automática
   const { data: usedTags = [] } = useQuery({
     queryKey: ["tags-in-use", establishmentId],
@@ -155,8 +161,31 @@ export function TagEditor({
           )}
         </div>
       </div>
-      <p className="text-[10px] text-muted-foreground">
-        Enter ou vírgula para adicionar. Backspace remove a última. Máx {max} tags.
+
+      {previewChanged && !previewIsDupe && !previewIsLimit && (
+        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground rounded-md bg-primary/5 border border-primary/20 px-2 py-1">
+          <span>Será salvo como:</span>
+          <Badge variant="outline" className="text-[10px] font-mono border-primary/40 text-primary">
+            {normalizedPreview}
+          </Badge>
+          <span className="italic">(kebab-case, sem acento)</span>
+        </div>
+      )}
+      {previewIsDupe && (
+        <p className="text-[10px] text-amber-600">
+          Já existe uma tag <span className="font-mono">{normalizedPreview}</span> — será ignorada.
+        </p>
+      )}
+
+      <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+        <span>Enter ou vírgula para adicionar. Backspace remove a última.</span>
+        <span>
+          <span className={value.length >= max ? "text-destructive font-semibold" : ""}>{value.length}</span>
+          /{max} tags · até 30 chars cada
+        </span>
+      </div>
+      <p className="text-[10px] text-muted-foreground italic">
+        As tags são normalizadas no backend antes de salvar (minúsculas, sem acento, hífens no lugar de espaços, duplicadas removidas).
       </p>
     </div>
   );
