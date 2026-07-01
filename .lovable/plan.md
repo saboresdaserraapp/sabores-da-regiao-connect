@@ -1,72 +1,76 @@
-## Migração de Lovable Cloud para Supabase (self-managed)
+## Objetivo
 
-O projeto hoje roda em Lovable Cloud, que é Supabase gerenciado pela Lovable. Migrar para uma conta Supabase própria significa transferir **dados, schema, edge functions, storage, auth e secrets** para um novo projeto Supabase e reapontar o app para ele. Depois disso, a Lovable deixa de gerenciar o backend — você passa a administrar diretamente no dashboard do Supabase.
+Transformar o cadastro/edição de produtos do painel do lojista em um formulário completo e profissional, com upload real de imagens, galeria, grupos de acompanhamentos, agendamento de promoção e melhor UX. Hoje o formulário tem os campos, mas parte é mockada (upload desabilitado, galeria vazia, grupos de opções não são usados — apenas o array `options` simples).
 
-### Antes de começar — o que você precisa saber
+## Escopo (o que muda)
 
-- **A migração é irreversível pelo lado do Lovable Cloud neste projeto.** Depois que apontarmos para o Supabase externo, o Cloud não gerencia mais este projeto. É possível voltar manualmente, mas dá trabalho.
-- **Você vai precisar de uma conta Supabase própria** (plano Free serve para começar; Pro se já tem volume) e criar um projeto novo lá.
-- **Downtime curto** durante o corte (tipicamente 5–15 min): tempo de exportar/importar dados e trocar as variáveis de ambiente.
-- **Custos** passam a ser cobrados diretamente pelo Supabase, não mais via créditos Lovable.
-- **Alguns recursos exclusivos do Cloud somem**: Lovable AI Gateway (sem chave), envio de e-mail branded pela Lovable, e a UI de "Cloud" no editor. Você pode reimplementar com contas próprias (OpenAI/Anthropic direto, Resend/Postmark para e-mail).
+### 1. Nova aba "Básico"
+- Nome, categoria (select existente), **múltiplas tags** (chips) — já existe, manter
+- **Descrição curta** (1 linha, até 120 caracteres, com contador)
+- **Descrição completa** (rich textarea com contador de 500 caracteres)
+- SKU/código interno (opcional)
+- Switches: Ativo, Disponível, Permitir observação
 
-### O que precisa ser migrado
+### 2. Aba "Mídia" — upload real
+- **Imagem principal**: upload direto (drag & drop + clique), preview, botão remover. Substitui o "URL externa" (mantém como fallback avançado colapsado).
+- **Galeria** (até 5 fotos extras, gated por plano Gold): grid com upload, reordenar por drag, remover individual.
+- Todas as imagens vão para um bucket `product-images` (público, com RLS por establishment_id no path).
 
-1. **Schema do banco** — 55+ tabelas, tipos enum, funções (`is_establishment_member`, `accept_order_proposal_by_tracking`, `get_order_by_tracking`, etc.), triggers, RLS e GRANTs.
-2. **Dados** — establishments, orders, order_messages, profiles, user_roles, plans, todo o histórico.
-3. **Auth** — usuários do `auth.users`, incluindo senhas (hash bcrypt migra), identidades OAuth (Google) e o admin oficial `saboresdaserraapp@gmail.com`.
-4. **Storage** — buckets `public-media` e `user-media` com todos os arquivos e políticas.
-5. **Edge Functions** — `e2e-seed`, `send-announcement-email`, `signup-invite-export-*` (start/status/cancel).
-6. **Secrets do backend** — `E2E_SEED_SECRET` e quaisquer chaves usadas pelas edge functions.
-7. **Config OAuth** — recadastrar o app Google no novo projeto (client ID/secret e redirect URIs).
-8. **Config de e-mail** — reconfigurar templates de auth (confirmação, recuperação) no novo projeto.
+### 3. Aba "Preço e Promoção"
+- Preço normal (já existe)
+- **Ativar promoção** → preço promocional + texto do selo (já existem)
+- **Agendamento**: data/hora de início e fim da promoção (`promotion_starts_at`, `promotion_ends_at` — colunas já existem no store/cart, garantir na tabela `products`)
+- Preview do desconto calculado em %
 
-### Plano de execução
+### 4. Aba "Adicionais e Acompanhamentos" — migrar para grupos
+Hoje é um array `options` plano. Passar a usar as tabelas `product_option_groups` + `product_options` (já existem):
+- Botão "Novo grupo" (ex: "Escolha o tamanho", "Acompanhamentos", "Adicionais")
+- Por grupo: nome, obrigatório (sim/não), min_select, max_select, tipo (radio/checkbox)
+- Dentro do grupo: lista de opções (nome, preço, ativo), com adicionar/remover/reordenar
+- Manter compatibilidade lendo o `options` antigo como um grupo "Adicionais" na primeira carga
 
-**Etapa 1 — Preparação (você faz, fora da Lovable)**
+### 5. Aba "Estoque" (já existe, manter)
+- Rastrear estoque, quantidade, estoque mínimo, pausar automaticamente
 
-- Criar conta em supabase.com e um novo projeto (escolher a mesma região do Cloud atual para reduzir latência).
-- Anotar do dashboard novo: `Project URL`, `anon key`, `service_role key`, `Project ref`, senha do Postgres.
-- Instalar Supabase CLI local (`npm i -g supabase`) para rodar os comandos de dump/restore.
+### 6. Aba "Exibição e Tags"
+- Tags de busca (chips existentes)
+- Destaque na home (`featured`, gated)
+- Ordem manual dentro da categoria (`position`)
 
-**Etapa 2 — Exportar o backend atual (eu ajudo com scripts/SQL)**
+### 7. Aba "Disponibilidade" (mantém como está por enquanto)
 
-- Gerar dump do schema + dados do Cloud atual (via `pg_dump` usando a connection string do projeto Cloud; posso preparar os comandos exatos).
-- Exportar `auth.users` preservando `encrypted_password`, `raw_user_meta_data`, `email_confirmed_at`, `identities`.
-- Baixar objetos dos buckets `public-media` e `user-media` (script Node usando service_role).
-- Salvar código das edge functions (já está em `supabase/functions/` no repo, então isso já vem no git).
-- Listar secrets ativos do Cloud para você recriar no Supabase novo.
+### 8. Melhorias transversais
+- Validação com **zod** ao salvar (nome obrigatório, preço > 0, promo < preço, min ≤ max)
+- Botão "Salvar" fica **sticky** no topo com estado `dirty` e loading; bloqueia navegação com alterações não salvas
+- Preview em tempo real ao lado (card de produto como aparece no cardápio) — desktop only
+- Unificar a criação (dialog em `Produtos.tsx`) e edição (`EditarProduto.tsx`) no mesmo formulário completo — o dialog vira "criar rápido" apenas com nome+preço+categoria, e um botão "Editar completo" abre a página cheia.
 
-**Etapa 3 — Importar no Supabase novo**
+## Alterações técnicas
 
-- Rodar as migrations do repo (`supabase/migrations/*`) no projeto novo via CLI — todas as tabelas, funções e policies são recriadas do zero de forma limpa.
-- Fazer `\copy` / `pg_restore` só das linhas de dados (sem schema) para popular as tabelas.
-- Importar `auth.users` e `auth.identities` via SQL direto (mantém as senhas).
-- Upload dos arquivos de storage para os buckets recriados.
-- Deploy das edge functions com `supabase functions deploy`.
-- Cadastrar os secrets no novo projeto (`supabase secrets set`).
-- Reconfigurar o provider Google em Authentication → Providers com as credenciais existentes e adicionar o novo domínio de callback.
+**Backend (migração):**
+- Garantir colunas em `products`: `promotion_starts_at timestamptz`, `promotion_ends_at timestamptz`, `sku text`, `position int default 0`, `gallery_images jsonb default '[]'` (já pode existir — verificar antes)
+- Criar bucket de storage `product-images` (público) com policies:
+  - SELECT público
+  - INSERT/UPDATE/DELETE só para owner do estabelecimento (path: `{establishment_id}/{product_id}/{file}`)
 
-**Etapa 4 — Reapontar o app Lovable (eu faço aqui)**
+**Frontend:**
+- Novo componente `src/components/painel/produtos/ProductImageUploader.tsx` (upload + drag&drop, usa `supabase.storage`)
+- Novo componente `src/components/painel/produtos/ProductGalleryEditor.tsx`
+- Novo componente `src/components/painel/produtos/ProductOptionGroupsEditor.tsx` (CRUD dos grupos + opções)
+- Refatorar `src/pages/minha-loja/painel/EditarProduto.tsx` para consumir esses componentes
+- Simplificar o dialog em `Produtos.tsx` (criação rápida)
+- Schema zod em `src/lib/schemas/product.ts`
+- Migração de leitura: hook `useProductOptionGroups(productId)` que carrega das tabelas relacionais; fallback para `products.options` antigos
 
-- Trocar `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` e `VITE_SUPABASE_PROJECT_ID` no `.env` para os valores do projeto novo.
-- Atualizar `supabase/config.toml` com o novo `project_id`.
-- Rodar `supabase gen types typescript` apontando para o projeto novo para regenerar `src/integrations/supabase/types.ts` (schema é o mesmo, mas garante que fica atrelado ao novo ref).
-- Desabilitar/remover chamadas ao Lovable AI Gateway se houver (não vi uso ativo no código, confirmar durante a execução).
-- Rebuild + smoke test das rotas críticas: `/`, `/login`, `/pedido/:code`, `/minha-loja/painel/pedidos`.
+## Fora de escopo (não faço agora)
+- Variações com estoque próprio por SKU (ex: tamanho P/M/G com estoque separado)
+- Combos multi-produto
+- Import em massa via CSV
+- Reordenação drag&drop dos grupos (só das opções dentro do grupo)
 
-**Etapa 5 — Validação e corte**
+## Perguntas antes de eu construir
 
-- Rodar a suíte E2E do repo apontando para o backend novo.
-- Testar manualmente: login com senha, login Google, checkout como visitante, aceite de proposta, chat de pedido, painel do lojista.
-- Congelar escritas no Cloud antigo, fazer um delta incremental dos dados novos (se houver), publicar a versão apontando pro Supabase novo.
-- Deixar o projeto Cloud antigo em modo somente-leitura por 7 dias antes de descartar.
-
-### O que eu preciso de você para começar
-
-1. Confirmação explícita de que quer prosseguir sabendo que é irreversível pelo lado do Cloud.
-2. Se já tem conta/projeto no Supabase criado, ou se quer que eu detalhe passo a passo a criação.
-3. Se prefere fazer o corte com **downtime curto planejado** (mais simples) ou com **replicação em paralelo** (mais complexo, quase zero downtime).
-4. Se quer manter o Lovable AI Gateway em uso em algum ponto — nesse caso, apontar quais features dependem dele para planejarmos substituto.
-
-Confirme esses pontos e eu preparo os scripts de export/import da etapa 2 e 3 e faço as trocas de config da etapa 4.
+1. **Migração de dados antigos**: os produtos que já têm `options` no formato plano — quer que eu (a) converta automaticamente para um grupo "Adicionais" na primeira edição, (b) mostre lado a lado até você migrar manualmente, ou (c) mantenha só o novo modelo e ignore o antigo?
+2. **Galeria**: 5 fotos extras é OK ou prefere outro limite (3 / 10)?
+3. **Preview ao vivo do card**: quer que eu inclua o painel de preview do produto (como aparece no cardápio público) ao lado do formulário, ou prefere focar no formulário e deixar preview para depois?
+4. **Rich text na descrição completa**: texto puro com quebras de linha basta, ou você quer negrito/itálico/listas (adiciona um editor tipo tiptap)?
