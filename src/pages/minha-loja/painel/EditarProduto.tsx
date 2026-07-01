@@ -412,6 +412,7 @@ export default function EditarProduto() {
                   )}
                 </div>
               </div>
+              <PricePreview productId={productId!} f={f} />
             </CardContent>
           </Card>
         </TabsContent>
