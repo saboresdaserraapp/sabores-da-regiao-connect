@@ -662,7 +662,7 @@ export default function Horarios() {
           timezone={timezone}
           timezones={TIMEZONES}
           onTimezoneChange={setTimezone}
-          establishmentName={ctx.name}
+          establishmentName={ctx.establishmentName}
         />
 
         <Separator />
