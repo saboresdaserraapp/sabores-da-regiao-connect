@@ -11,19 +11,28 @@ import { Separator } from "@/components/ui/separator";
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, Copy, CalendarPlus, AlertCircle } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Plus, Trash2, Copy, CalendarPlus, AlertCircle, Bookmark, PlayCircle } from "lucide-react";
 import { toast } from "sonner";
 import {
   WEEKDAYS,
   emptyWeek,
   normalizeWeek,
   normalizeSpecial,
+  normalizeChannelHours,
   summarizeWeek,
   validateWeek,
   isOpenAt,
+  nextOpeningLabel,
+  weekForChannel,
+  CHANNEL_LABELS,
   type WeeklyHours,
   type SpecialDay,
   type TimeSlot,
+  type ChannelHours,
+  type ChannelKey,
+  type SpecialRecurrence,
 } from "@/lib/businessHours";
 
 const TIMEZONES = [
@@ -38,9 +47,20 @@ const TIMEZONES = [
   "America/Noronha",
 ];
 
+type ChannelTab = "default" | ChannelKey;
+
+type HoursTemplate = {
+  id: string;
+  name: string;
+  week: unknown;
+  channel_hours: unknown;
+  special_hours: unknown;
+};
+
 export default function Horarios() {
   const { ctx } = useActiveEstablishment();
   const [week, setWeek] = useState<WeeklyHours>(emptyWeek());
+  const [channelHours, setChannelHours] = useState<ChannelHours>({});
   const [special, setSpecial] = useState<SpecialDay[]>([]);
   const [timezone, setTimezone] = useState<string>("America/Sao_Paulo");
   const [autoOpen, setAutoOpen] = useState(false);
@@ -48,17 +68,28 @@ export default function Horarios() {
   const [settings, setSettings] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [activeChannel, setActiveChannel] = useState<ChannelTab>("default");
+  const [templates, setTemplates] = useState<HoursTemplate[]>([]);
+  const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
+  const [templateName, setTemplateName] = useState("");
+  const [previewDate, setPreviewDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [previewTime, setPreviewTime] = useState<string>(() => {
+    const d = new Date();
+    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  });
+  const [previewChannel, setPreviewChannel] = useState<ChannelTab>("default");
 
   useEffect(() => {
     if (!ctx) return;
     setLoading(true);
     supabase
       .from("establishments")
-      .select("business_hours,special_hours,hours_timezone,auto_open_now,open_now")
+      .select("business_hours,special_hours,hours_timezone,auto_open_now,open_now,channel_hours")
       .eq("id", ctx.establishmentId)
       .maybeSingle()
       .then(({ data }) => {
         setWeek(normalizeWeek(data?.business_hours));
+        setChannelHours(normalizeChannelHours((data as any)?.channel_hours));
         setSpecial(normalizeSpecial(data?.special_hours));
         setTimezone(data?.hours_timezone || "America/Sao_Paulo");
         setAutoOpen(!!data?.auto_open_now);
@@ -73,9 +104,22 @@ export default function Horarios() {
       .then(({ data }) =>
         setSettings(data ?? { delivery_available: true, pickup_available: true, dine_in_available: false }),
       );
+    void loadTemplates();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ctx?.establishmentId]);
 
-  const errors = useMemo(() => validateWeek(week), [week]);
+  const loadTemplates = async () => {
+    const { data } = await (supabase as any).from("hours_templates").select("*").order("created_at", { ascending: false });
+    setTemplates((data ?? []) as HoursTemplate[]);
+  };
+
+  const activeWeek: WeeklyHours = useMemo(() => {
+    if (activeChannel === "default") return week;
+    return channelHours[activeChannel] ?? week;
+  }, [activeChannel, week, channelHours]);
+  const channelOverrideEnabled = activeChannel !== "default" && !!channelHours[activeChannel as ChannelKey];
+
+  const errors = useMemo(() => validateWeek(activeWeek), [activeWeek]);
   const errorByDay = useMemo(() => {
     const map: Record<string, string[]> = {};
     for (const e of errors) (map[e.day] ??= []).push(e.message);
@@ -87,42 +131,66 @@ export default function Horarios() {
     [week, special, timezone],
   );
 
+  const previewResult = useMemo(() => {
+    if (!previewDate || !previewTime) return null;
+    const iso = `${previewDate}T${previewTime}:00`;
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return null;
+    const w = previewChannel === "default" ? week : weekForChannel(week, channelHours, previewChannel as ChannelKey);
+    const open = isOpenAt(d, w, special, timezone);
+    const next = nextOpeningLabel(d, w, special, timezone);
+    return { open, next };
+  }, [previewDate, previewTime, previewChannel, week, channelHours, special, timezone]);
+
   if (!ctx) return null;
 
+  const setActiveWeek = (mut: (w: WeeklyHours) => WeeklyHours) => {
+    if (activeChannel === "default") {
+      setWeek((prev) => mut(prev));
+    } else {
+      const key = activeChannel as ChannelKey;
+      setChannelHours((prev) => ({ ...prev, [key]: mut(prev[key] ?? week) }));
+    }
+  };
+
   const updateDay = (dayKey: string, patch: Partial<{ closed: boolean; slots: TimeSlot[] }>) =>
-    setWeek((prev) => ({ ...prev, [dayKey]: { ...prev[dayKey], ...patch } }));
+    setActiveWeek((w) => ({ ...w, [dayKey]: { ...w[dayKey], ...patch } }));
 
   const addSlot = (dayKey: string) => {
-    const cfg = week[dayKey];
+    const cfg = activeWeek[dayKey];
     const defaults: TimeSlot = cfg.slots.length ? { open: "18:00", close: "23:00" } : { open: "09:00", close: "18:00" };
     updateDay(dayKey, { closed: false, slots: [...cfg.slots, defaults] });
   };
 
   const updateSlot = (dayKey: string, idx: number, patch: Partial<TimeSlot>) => {
-    const slots = week[dayKey].slots.map((s, i) => (i === idx ? { ...s, ...patch } : s));
+    const slots = activeWeek[dayKey].slots.map((s, i) => (i === idx ? { ...s, ...patch } : s));
     updateDay(dayKey, { slots });
   };
 
   const removeSlot = (dayKey: string, idx: number) => {
-    const slots = week[dayKey].slots.filter((_, i) => i !== idx);
+    const slots = activeWeek[dayKey].slots.filter((_, i) => i !== idx);
     updateDay(dayKey, { slots, closed: slots.length === 0 });
   };
 
   const copyToAllWeekdays = (dayKey: string) => {
-    const src = week[dayKey];
-    const next = { ...week };
-    for (const d of WEEKDAYS) {
-      if (["1", "2", "3", "4", "5"].includes(d.key)) next[d.key] = { closed: src.closed, slots: src.slots.map((s) => ({ ...s })) };
-    }
-    setWeek(next);
+    setActiveWeek((w) => {
+      const src = w[dayKey];
+      const next = { ...w };
+      for (const d of WEEKDAYS) {
+        if (["1", "2", "3", "4", "5"].includes(d.key)) next[d.key] = { closed: src.closed, slots: src.slots.map((s) => ({ ...s })) };
+      }
+      return next;
+    });
     toast.success("Aplicado a Seg-Sex");
   };
 
   const copyToAll = (dayKey: string) => {
-    const src = week[dayKey];
-    const next = { ...week };
-    for (const d of WEEKDAYS) next[d.key] = { closed: src.closed, slots: src.slots.map((s) => ({ ...s })) };
-    setWeek(next);
+    setActiveWeek((w) => {
+      const src = w[dayKey];
+      const next = { ...w };
+      for (const d of WEEKDAYS) next[d.key] = { closed: src.closed, slots: src.slots.map((s) => ({ ...s })) };
+      return next;
+    });
     toast.success("Aplicado a todos os dias");
   };
 
@@ -140,13 +208,62 @@ export default function Horarios() {
       for (const k of ["5", "6"]) w[k] = { closed: false, slots: [{ open: "18:00", close: "23:00" }] };
       w["0"] = { closed: false, slots: [{ open: "12:00", close: "18:00" }] };
     }
-    setWeek(w);
+    setActiveWeek(() => w);
     toast.success("Modelo aplicado");
+  };
+
+  const toggleChannelOverride = (enabled: boolean) => {
+    if (activeChannel === "default") return;
+    const key = activeChannel as ChannelKey;
+    setChannelHours((prev) => {
+      const next = { ...prev };
+      if (enabled) next[key] = normalizeWeek(prev[key] ?? week);
+      else delete next[key];
+      return next;
+    });
   };
 
   const addSpecial = () => {
     const today = new Date().toISOString().slice(0, 10);
-    setSpecial((prev) => [...prev, { date: today, label: "", closed: true, slots: [] }]);
+    setSpecial((prev) => [
+      ...prev,
+      { date: today, label: "", closed: true, slots: [], recurrence: "none", enabled: true },
+    ]);
+  };
+
+  // Templates
+  const openSaveTemplate = () => {
+    setTemplateName("");
+    setSaveTemplateOpen(true);
+  };
+  const saveAsTemplate = async () => {
+    const name = templateName.trim();
+    if (!name) { toast.error("Dê um nome ao modelo"); return; }
+    const user = (await supabase.auth.getUser()).data.user;
+    if (!user) { toast.error("Faça login novamente"); return; }
+    const { error } = await (supabase as any).from("hours_templates").insert({
+      user_id: user.id,
+      name,
+      week,
+      channel_hours: channelHours,
+      special_hours: special,
+    });
+    if (error) { toast.error(error.message); return; }
+    toast.success("Modelo salvo");
+    setSaveTemplateOpen(false);
+    void loadTemplates();
+  };
+  const applyTemplate = (t: HoursTemplate, mode: "full" | "week" | "channels" | "special") => {
+    if (mode === "full" || mode === "week") setWeek(normalizeWeek(t.week));
+    if (mode === "full" || mode === "channels") setChannelHours(normalizeChannelHours(t.channel_hours));
+    if (mode === "full" || mode === "special") setSpecial(normalizeSpecial(t.special_hours));
+    toast.success(`Modelo "${t.name}" aplicado`);
+  };
+  const deleteTemplate = async (id: string) => {
+    const { error } = await (supabase as any).from("hours_templates").delete().eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Modelo removido");
+    void loadTemplates();
   };
 
   const save = async () => {
@@ -160,12 +277,13 @@ export default function Horarios() {
       .from("establishments")
       .update({
         business_hours: week as any,
+        channel_hours: channelHours as any,
         special_hours: special as any,
         hours_timezone: timezone,
         auto_open_now: autoOpen,
         open_now: effectiveOpen,
         hours: summary,
-      })
+      } as any)
       .eq("id", ctx.establishmentId);
     if (settings) {
       await supabase.from("establishment_delivery_settings").upsert(
@@ -188,10 +306,10 @@ export default function Horarios() {
   return (
     <PainelSection
       title="Horários e atendimento"
-      subtitle="Configure semanas, feriados, fuso horário e canais de atendimento"
+      subtitle="Configure semanas por canal, feriados recorrentes, modelos reutilizáveis e teste 'aberto em' antes de salvar."
     >
       <div className="space-y-6">
-        {/* Status atual + preview */}
+        {/* Status atual */}
         <Card>
           <CardContent className="p-4 flex flex-wrap items-center gap-3 justify-between">
             <div className="flex items-center gap-3">
@@ -206,86 +324,154 @@ export default function Horarios() {
           </CardContent>
         </Card>
 
-        {/* Presets */}
-        <div className="flex flex-wrap gap-2">
-          <span className="text-sm text-muted-foreground self-center">Modelos rápidos:</span>
-          <Button size="sm" variant="outline" onClick={() => applyPreset("comercial")}>Comercial (Seg-Sex 9-18)</Button>
-          <Button size="sm" variant="outline" onClick={() => applyPreset("restaurante")}>Restaurante (2 turnos)</Button>
-          <Button size="sm" variant="outline" onClick={() => applyPreset("fds")}>Final de semana</Button>
-          <Button size="sm" variant="outline" onClick={() => applyPreset("24h")}>24 horas</Button>
-        </div>
+        {/* Tabs por canal */}
+        <Tabs value={activeChannel} onValueChange={(v) => setActiveChannel(v as ChannelTab)}>
+          <TabsList className="flex-wrap h-auto">
+            <TabsTrigger value="default">Padrão</TabsTrigger>
+            <TabsTrigger value="delivery">Entrega{channelHours.delivery ? " •" : ""}</TabsTrigger>
+            <TabsTrigger value="pickup">Retirada{channelHours.pickup ? " •" : ""}</TabsTrigger>
+            <TabsTrigger value="dine_in">Comer no local{channelHours.dine_in ? " •" : ""}</TabsTrigger>
+          </TabsList>
 
-        {/* Semana */}
-        <div className="space-y-3">
-          {WEEKDAYS.map((d) => {
-            const cfg = week[d.key];
-            const dayErrors = errorByDay[d.key] ?? [];
-            return (
-              <Card key={d.key} className={dayErrors.length ? "border-destructive/60" : ""}>
-                <CardContent className="p-4 space-y-3">
-                  <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <div className="flex items-center gap-3">
-                      <div className="w-28 font-medium">{d.long}</div>
-                      <div className="flex items-center gap-2">
-                        <Switch
-                          checked={!cfg.closed}
-                          onCheckedChange={(v) => updateDay(d.key, { closed: !v, slots: v && cfg.slots.length === 0 ? [{ open: "09:00", close: "18:00" }] : cfg.slots })}
-                        />
-                        <span className="text-sm text-muted-foreground">{cfg.closed ? "Fechado" : "Aberto"}</span>
-                      </div>
+          {(["default", "delivery", "pickup", "dine_in"] as ChannelTab[]).map((tab) => (
+            <TabsContent key={tab} value={tab} className="space-y-4 mt-4">
+              {tab !== "default" && (
+                <Card>
+                  <CardContent className="p-4 flex items-center justify-between gap-3 flex-wrap">
+                    <div>
+                      <p className="font-medium">{CHANNEL_LABELS[tab as ChannelKey]} usa horário próprio?</p>
+                      <p className="text-xs text-muted-foreground">
+                        Desligado: segue o horário padrão. Ligado: define faixas exclusivas para este canal.
+                      </p>
                     </div>
-                    {!cfg.closed && (
-                      <div className="flex items-center gap-1">
-                        <Button size="sm" variant="ghost" onClick={() => copyToAllWeekdays(d.key)} title="Aplicar a Seg-Sex">
-                          <Copy className="h-3.5 w-3.5 mr-1" /> Seg-Sex
-                        </Button>
-                        <Button size="sm" variant="ghost" onClick={() => copyToAll(d.key)} title="Aplicar a todos">
-                          <Copy className="h-3.5 w-3.5 mr-1" /> Todos
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={() => addSlot(d.key)}>
-                          <Plus className="h-3.5 w-3.5 mr-1" /> Faixa
-                        </Button>
-                      </div>
-                    )}
+                    <Switch checked={channelOverrideEnabled} onCheckedChange={toggleChannelOverride} />
+                  </CardContent>
+                </Card>
+              )}
+
+              {(tab === "default" || channelOverrideEnabled) && (
+                <>
+                  <div className="flex flex-wrap gap-2">
+                    <span className="text-sm text-muted-foreground self-center">Modelos rápidos:</span>
+                    <Button size="sm" variant="outline" onClick={() => applyPreset("comercial")}>Comercial (Seg-Sex 9-18)</Button>
+                    <Button size="sm" variant="outline" onClick={() => applyPreset("restaurante")}>Restaurante (2 turnos)</Button>
+                    <Button size="sm" variant="outline" onClick={() => applyPreset("fds")}>Final de semana</Button>
+                    <Button size="sm" variant="outline" onClick={() => applyPreset("24h")}>24 horas</Button>
+                    <Button size="sm" variant="secondary" onClick={openSaveTemplate}>
+                      <Bookmark className="h-3.5 w-3.5 mr-1" /> Salvar como modelo
+                    </Button>
                   </div>
 
-                  {!cfg.closed && (
-                    <div className="space-y-2 pl-1">
-                      {cfg.slots.length === 0 && (
-                        <p className="text-xs text-muted-foreground">Nenhuma faixa configurada. Clique em "Faixa" para adicionar.</p>
-                      )}
-                      {cfg.slots.map((s, i) => (
-                        <div key={i} className="flex items-center gap-2 flex-wrap">
-                          <Input
-                            type="time"
-                            value={s.open}
-                            onChange={(e) => updateSlot(d.key, i, { open: e.target.value })}
-                            className="w-32"
-                          />
-                          <span className="text-muted-foreground">até</span>
-                          <Input
-                            type="time"
-                            value={s.close}
-                            onChange={(e) => updateSlot(d.key, i, { close: e.target.value })}
-                            className="w-32"
-                          />
-                          <Button size="icon" variant="ghost" onClick={() => removeSlot(d.key, i)}>
-                            <Trash2 className="h-4 w-4 text-muted-foreground" />
-                          </Button>
-                        </div>
-                      ))}
-                      {dayErrors.length > 0 && (
-                        <Alert variant="destructive" className="py-2">
-                          <AlertCircle className="h-4 w-4" />
-                          <AlertDescription className="text-xs">{Array.from(new Set(dayErrors)).join(" · ")}</AlertDescription>
-                        </Alert>
-                      )}
+                  <div className="space-y-3">
+                    {WEEKDAYS.map((d) => {
+                      const cfg = activeWeek[d.key];
+                      const dayErrors = errorByDay[d.key] ?? [];
+                      return (
+                        <Card key={d.key} className={dayErrors.length ? "border-destructive/60" : ""}>
+                          <CardContent className="p-4 space-y-3">
+                            <div className="flex items-center justify-between gap-2 flex-wrap">
+                              <div className="flex items-center gap-3">
+                                <div className="w-28 font-medium">{d.long}</div>
+                                <div className="flex items-center gap-2">
+                                  <Switch
+                                    checked={!cfg.closed}
+                                    onCheckedChange={(v) => updateDay(d.key, { closed: !v, slots: v && cfg.slots.length === 0 ? [{ open: "09:00", close: "18:00" }] : cfg.slots })}
+                                  />
+                                  <span className="text-sm text-muted-foreground">{cfg.closed ? "Fechado" : "Aberto"}</span>
+                                </div>
+                              </div>
+                              {!cfg.closed && (
+                                <div className="flex items-center gap-1">
+                                  <Button size="sm" variant="ghost" onClick={() => copyToAllWeekdays(d.key)}>
+                                    <Copy className="h-3.5 w-3.5 mr-1" /> Seg-Sex
+                                  </Button>
+                                  <Button size="sm" variant="ghost" onClick={() => copyToAll(d.key)}>
+                                    <Copy className="h-3.5 w-3.5 mr-1" /> Todos
+                                  </Button>
+                                  <Button size="sm" variant="outline" onClick={() => addSlot(d.key)}>
+                                    <Plus className="h-3.5 w-3.5 mr-1" /> Faixa
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+
+                            {!cfg.closed && (
+                              <div className="space-y-2 pl-1">
+                                {cfg.slots.length === 0 && (
+                                  <p className="text-xs text-muted-foreground">Nenhuma faixa configurada. Clique em "Faixa" para adicionar.</p>
+                                )}
+                                {cfg.slots.map((s, i) => (
+                                  <div key={i} className="flex items-center gap-2 flex-wrap">
+                                    <Input type="time" value={s.open} onChange={(e) => updateSlot(d.key, i, { open: e.target.value })} className="w-32" />
+                                    <span className="text-muted-foreground">até</span>
+                                    <Input type="time" value={s.close} onChange={(e) => updateSlot(d.key, i, { close: e.target.value })} className="w-32" />
+                                    <Button size="icon" variant="ghost" onClick={() => removeSlot(d.key, i)}>
+                                      <Trash2 className="h-4 w-4 text-muted-foreground" />
+                                    </Button>
+                                  </div>
+                                ))}
+                                {dayErrors.length > 0 && (
+                                  <Alert variant="destructive" className="py-2">
+                                    <AlertCircle className="h-4 w-4" />
+                                    <AlertDescription className="text-xs">{Array.from(new Set(dayErrors)).join(" · ")}</AlertDescription>
+                                  </Alert>
+                                )}
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </TabsContent>
+          ))}
+        </Tabs>
+
+        <Separator />
+
+        {/* Modelos salvos */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-medium">Modelos salvos</h3>
+              <p className="text-xs text-muted-foreground">Reaplique em outros dias ou estabelecimentos com um clique.</p>
+            </div>
+            <Button size="sm" variant="outline" onClick={openSaveTemplate}>
+              <Bookmark className="h-4 w-4 mr-1" /> Salvar atual
+            </Button>
+          </div>
+          {templates.length === 0 ? (
+            <p className="text-xs text-muted-foreground">Nenhum modelo salvo ainda.</p>
+          ) : (
+            <div className="grid gap-2 sm:grid-cols-2">
+              {templates.map((t) => (
+                <Card key={t.id}>
+                  <CardContent className="p-3 flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-medium truncate">{t.name}</p>
+                      <p className="text-xs text-muted-foreground truncate">{summarizeWeek(normalizeWeek(t.week))}</p>
                     </div>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
+                    <div className="flex items-center gap-1">
+                      <Select onValueChange={(v) => applyTemplate(t, v as any)}>
+                        <SelectTrigger className="h-8 w-32"><SelectValue placeholder="Aplicar…" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="full">Tudo</SelectItem>
+                          <SelectItem value="week">Só semana</SelectItem>
+                          <SelectItem value="channels">Só canais</SelectItem>
+                          <SelectItem value="special">Só feriados</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button size="icon" variant="ghost" onClick={() => deleteTemplate(t.id)}>
+                        <Trash2 className="h-4 w-4 text-muted-foreground" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
 
         <Separator />
@@ -295,7 +481,7 @@ export default function Horarios() {
           <div className="flex items-center justify-between">
             <div>
               <h3 className="font-medium">Datas especiais e feriados</h3>
-              <p className="text-xs text-muted-foreground">Sobrescreve o horário semanal em datas específicas.</p>
+              <p className="text-xs text-muted-foreground">Sobrescreve o horário semanal. Suporta recorrência anual ou mensal.</p>
             </div>
             <Button size="sm" variant="outline" onClick={addSpecial}>
               <CalendarPlus className="h-4 w-4 mr-1" /> Adicionar
@@ -303,7 +489,7 @@ export default function Horarios() {
           </div>
           {special.length === 0 && <p className="text-xs text-muted-foreground">Nenhuma data cadastrada.</p>}
           {special.map((sp, idx) => (
-            <Card key={idx}>
+            <Card key={idx} className={sp.enabled === false ? "opacity-60" : ""}>
               <CardContent className="p-4 space-y-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <Input
@@ -318,6 +504,28 @@ export default function Horarios() {
                     onChange={(e) => setSpecial((prev) => prev.map((x, i) => (i === idx ? { ...x, label: e.target.value } : x)))}
                     className="flex-1 min-w-[180px]"
                   />
+                  <Select
+                    value={sp.recurrence ?? "none"}
+                    onValueChange={(v) =>
+                      setSpecial((prev) => prev.map((x, i) => (i === idx ? { ...x, recurrence: v as SpecialRecurrence } : x)))
+                    }
+                  >
+                    <SelectTrigger className="w-36 h-9"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Data única</SelectItem>
+                      <SelectItem value="yearly">Todo ano</SelectItem>
+                      <SelectItem value="monthly">Todo mês</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <div className="flex items-center gap-2" title="Ativar/desativar rapidamente">
+                    <Switch
+                      checked={sp.enabled !== false}
+                      onCheckedChange={(v) =>
+                        setSpecial((prev) => prev.map((x, i) => (i === idx ? { ...x, enabled: v } : x)))
+                      }
+                    />
+                    <span className="text-xs text-muted-foreground">{sp.enabled === false ? "Inativo" : "Ativo"}</span>
+                  </div>
                   <div className="flex items-center gap-2">
                     <Switch
                       checked={!sp.closed}
@@ -397,6 +605,44 @@ export default function Horarios() {
 
         <Separator />
 
+        {/* Prévia "aberto em..." */}
+        <Card className="border-primary/30">
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <PlayCircle className="h-5 w-5 text-primary" />
+              <h3 className="font-medium">Testar status "aberto em..."</h3>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Input type="date" value={previewDate} onChange={(e) => setPreviewDate(e.target.value)} className="w-44" />
+              <Input type="time" value={previewTime} onChange={(e) => setPreviewTime(e.target.value)} className="w-32" />
+              <Select value={previewChannel} onValueChange={(v) => setPreviewChannel(v as ChannelTab)}>
+                <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="default">Horário padrão</SelectItem>
+                  <SelectItem value="delivery">Entrega</SelectItem>
+                  <SelectItem value="pickup">Retirada</SelectItem>
+                  <SelectItem value="dine_in">Comer no local</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {previewResult && (
+              <div className="flex flex-wrap items-center gap-3 text-sm">
+                <Badge className={previewResult.open ? "bg-emerald-600 hover:bg-emerald-600" : ""} variant={previewResult.open ? "default" : "secondary"}>
+                  {previewResult.open ? "Aberto" : "Fechado"}
+                </Badge>
+                <span className="text-muted-foreground">
+                  em {previewDate.split("-").reverse().join("/")} às {previewTime} ({timezone})
+                </span>
+                {!previewResult.open && previewResult.next && (
+                  <span className="text-xs text-muted-foreground">· Próxima abertura: <strong>{previewResult.next}</strong></span>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Separator />
+
         {/* Preferências gerais */}
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
@@ -425,7 +671,6 @@ export default function Horarios() {
 
         <Separator />
 
-        {/* Canais */}
         {settings && (
           <div className="space-y-2">
             <h3 className="font-medium">Canais de atendimento</h3>
@@ -455,6 +700,23 @@ export default function Horarios() {
           <Button onClick={save} disabled={saving || errors.length > 0}>{saving ? "Salvando…" : "Salvar alterações"}</Button>
         </div>
       </div>
+
+      <Dialog open={saveTemplateOpen} onOpenChange={setSaveTemplateOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Salvar horários como modelo</DialogTitle>
+            <DialogDescription>Reaplique depois neste ou em outros estabelecimentos.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label>Nome</Label>
+            <Input value={templateName} onChange={(e) => setTemplateName(e.target.value)} placeholder="Ex: Padrão restaurante" />
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setSaveTemplateOpen(false)}>Cancelar</Button>
+            <Button onClick={saveAsTemplate}>Salvar modelo</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </PainelSection>
   );
 }

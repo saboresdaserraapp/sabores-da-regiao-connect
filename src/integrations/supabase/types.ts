@@ -800,6 +800,7 @@ export type Database = {
           business_hours: Json
           category: string
           category_label: string
+          channel_hours: Json
           city: string | null
           cover: string | null
           created_at: string
@@ -850,6 +851,7 @@ export type Database = {
           business_hours?: Json
           category: string
           category_label: string
+          channel_hours?: Json
           city?: string | null
           cover?: string | null
           created_at?: string
@@ -900,6 +902,7 @@ export type Database = {
           business_hours?: Json
           category?: string
           category_label?: string
+          channel_hours?: Json
           city?: string | null
           cover?: string | null
           created_at?: string
@@ -1026,6 +1029,39 @@ export type Database = {
           kind?: Database["public"]["Enums"]["favorite_kind"]
           target_id?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      hours_templates: {
+        Row: {
+          channel_hours: Json
+          created_at: string
+          id: string
+          name: string
+          special_hours: Json
+          updated_at: string
+          user_id: string
+          week: Json
+        }
+        Insert: {
+          channel_hours?: Json
+          created_at?: string
+          id?: string
+          name: string
+          special_hours?: Json
+          updated_at?: string
+          user_id: string
+          week?: Json
+        }
+        Update: {
+          channel_hours?: Json
+          created_at?: string
+          id?: string
+          name?: string
+          special_hours?: Json
+          updated_at?: string
+          user_id?: string
+          week?: Json
         }
         Relationships: []
       }
