@@ -99,6 +99,38 @@ export function BlockSimulator({
   const applyScenario = (s: Scenario) => { setDate(s.date); setTime(s.time); };
   const removeScenario = (id: string) => persistScenarios(scenarios.filter((s) => s.id !== id));
 
+  useEffect(() => {
+    try {
+      const p = new URLSearchParams(window.location.search);
+      const d = p.get("sim_date");
+      const t = p.get("sim_time");
+      const tz = p.get("sim_tz");
+      if (d && /^\d{4}-\d{2}-\d{2}$/.test(d)) setDate(d);
+      if (t && /^\d{2}:\d{2}$/.test(t)) setTime(t);
+      if (tz && timezones.includes(tz) && tz !== timezone) onTimezoneChange(tz);
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const shareScenarioLink = async () => {
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set("sim_date", date);
+      url.searchParams.set("sim_time", time);
+      url.searchParams.set("sim_tz", timezone);
+      url.hash = "simulador";
+      await navigator.clipboard.writeText(url.toString());
+      toast.success("Link do cenário copiado para a área de transferência");
+    } catch {
+      toast.error("Não foi possível copiar o link");
+    }
+  };
+
+  const browserTz = useMemo(() => {
+    try { return Intl.DateTimeFormat().resolvedOptions().timeZone; } catch { return ""; }
+  }, []);
+  const tzMismatch = !!browserTz && browserTz !== timezone;
+
   const testDate = useMemo(() => {
     const d = new Date(`${date}T${time}:00`);
     return Number.isNaN(d.getTime()) ? null : d;
@@ -106,18 +138,30 @@ export function BlockSimulator({
 
   const results = useMemo(() => {
     if (!testDate) return null;
+    const source = {
+      business_hours: week,
+      channel_hours: channelHours,
+      special_hours: special,
+      hours_timezone: timezone,
+    };
     return CHANNELS.map((ch) => {
-      const usingOverride = !!channelHours[ch];
-      const w = weekForChannel(week, channelHours, ch);
-      const configured = hasAnySlots(w);
-      const open = configured ? isOpenAt(testDate, w, special, timezone) : true;
-      const blocked = configured && !open;
-      const next = blocked ? nextOpeningLabel(testDate, w, special, timezone) : null;
+      const gate = evaluateHoursGate(testDate, source, ch);
       const wd = weekdayInTz(testDate, timezone);
       const iso = isoInTz(testDate, timezone);
       const sp = matchSpecialForDate(iso, special);
-      const dayCfg = sp ? { closed: sp.closed, slots: sp.slots } : w[wd.key];
-      return { channel: ch, usingOverride, configured, open, blocked, next, weekday: wd, iso, special: sp, dayCfg };
+      const dayCfg = sp ? { closed: sp.closed, slots: sp.slots } : gate.effectiveWeek[wd.key];
+      return {
+        channel: ch,
+        usingOverride: gate.usingChannelOverride,
+        configured: gate.configured,
+        open: gate.open,
+        blocked: gate.blocked,
+        next: gate.next,
+        weekday: wd,
+        iso,
+        special: sp,
+        dayCfg,
+      };
     });
   }, [testDate, week, channelHours, special, timezone]);
 
