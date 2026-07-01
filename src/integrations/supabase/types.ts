@@ -2094,6 +2094,7 @@ export type Database = {
       }
       products: {
         Row: {
+          additional_menu_category_ids: string[]
           allow_notes: boolean | null
           auto_pause_when_zero: boolean | null
           availability_rules_json: Json | null
@@ -2129,6 +2130,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          additional_menu_category_ids?: string[]
           allow_notes?: boolean | null
           auto_pause_when_zero?: boolean | null
           availability_rules_json?: Json | null
@@ -2164,6 +2166,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          additional_menu_category_ids?: string[]
           allow_notes?: boolean | null
           auto_pause_when_zero?: boolean | null
           availability_rules_json?: Json | null
