@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Plus, Trash2, Package, AlertCircle } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
 interface Props {
@@ -39,33 +40,53 @@ export function ProductOptionGroupsEditor({ productId }: Props) {
   const gKey = ["product-option-groups", productId];
   const oKey = ["product-options", productId];
 
-  const validateGroup = (g: OptionGroup, opts: OptionRow[]): string[] => {
-    const errs: string[] = [];
-    if (!g.name || g.name.trim().length < 2) errs.push("Dê um nome ao grupo (mín. 2 caracteres).");
+  type FieldError = {
+    field: "name" | "min" | "max" | "type" | "options" | "option-name" | "option-price";
+    rule: "Obrigatório" | "Min/Max" | "Tipo" | "Preço" | "Nome" | "Duplicado";
+    message: string;
+    optionId?: string;
+  };
+
+  const validateGroup = (g: OptionGroup, opts: OptionRow[]): FieldError[] => {
+    const errs: FieldError[] = [];
+    if (!g.name || g.name.trim().length < 2)
+      errs.push({ field: "name", rule: "Nome", message: "Dê um nome ao grupo (mín. 2 caracteres)." });
     const min = g.min_choices ?? 0;
     const max = g.max_choices ?? 1;
-    if (min < 0) errs.push("Mínimo não pode ser negativo.");
-    if (max < 1) errs.push("Máximo deve ser pelo menos 1.");
-    if (min > max) errs.push(`Mínimo (${min}) não pode ser maior que máximo (${max}).`);
-    if (g.is_required && min < 1) errs.push("Grupo obrigatório precisa ter mínimo ≥ 1.");
-    if (g.type === "radio" && max > 1) errs.push('Grupo do tipo "Escolha única" só permite máximo 1.');
-    if (opts.length === 0) errs.push("Adicione ao menos uma opção neste grupo.");
-    if (opts.length > 0 && max > opts.length) {
-      errs.push(`Máximo (${max}) é maior que o número de opções disponíveis (${opts.length}).`);
-    }
+    if (min < 0) errs.push({ field: "min", rule: "Min/Max", message: "Mínimo não pode ser negativo." });
+    if (max < 1) errs.push({ field: "max", rule: "Min/Max", message: "Máximo deve ser pelo menos 1." });
+    if (min > max)
+      errs.push({ field: "min", rule: "Min/Max", message: `Mínimo (${min}) não pode ser maior que máximo (${max}).` });
+    if (g.is_required && min < 1)
+      errs.push({ field: "min", rule: "Obrigatório", message: "Grupo obrigatório precisa ter mínimo ≥ 1." });
+    if (g.type === "radio" && max > 1)
+      errs.push({ field: "type", rule: "Tipo", message: 'Grupo "Escolha única" só permite máximo 1.' });
+    if (opts.length === 0)
+      errs.push({ field: "options", rule: "Obrigatório", message: "Adicione ao menos uma opção neste grupo." });
+    if (opts.length > 0 && max > opts.length)
+      errs.push({ field: "max", rule: "Min/Max", message: `Máximo (${max}) excede o número de opções (${opts.length}).` });
     const availableCount = opts.filter((o) => o.is_available !== false).length;
-    if (g.is_required && availableCount < min) {
-      errs.push(`Grupo obrigatório com mínimo ${min}, mas só há ${availableCount} opção(ões) disponível(is).`);
-    }
+    if (g.is_required && availableCount < min)
+      errs.push({ field: "options", rule: "Obrigatório", message: `Só há ${availableCount} opção(ões) disponível(is), mínimo é ${min}.` });
     opts.forEach((o) => {
-      if (!o.name || o.name.trim().length < 1) errs.push(`Uma opção está sem nome.`);
-      if (Number(o.price) < 0) errs.push(`A opção "${o.name || "sem nome"}" tem preço negativo.`);
+      if (!o.name || o.name.trim().length < 1)
+        errs.push({ field: "option-name", rule: "Nome", message: "Uma opção está sem nome.", optionId: o.id });
+      if (Number(o.price) < 0)
+        errs.push({ field: "option-price", rule: "Preço", message: `A opção "${o.name || "sem nome"}" tem preço negativo.`, optionId: o.id });
     });
-    // Nomes duplicados
     const names = opts.map((o) => o.name?.trim().toLowerCase()).filter(Boolean);
-    const dupes = names.filter((n, i) => names.indexOf(n) !== i);
-    if (dupes.length > 0) errs.push("Existem opções com nomes duplicados neste grupo.");
+    const dupes = Array.from(new Set(names.filter((n, i) => names.indexOf(n) !== i)));
+    dupes.forEach((d) => errs.push({ field: "option-name", rule: "Duplicado", message: `Existe mais de uma opção chamada "${d}".` }));
     return errs;
+  };
+
+  const ruleTone: Record<FieldError["rule"], string> = {
+    "Obrigatório": "bg-amber-500/15 text-amber-600 border-amber-500/30",
+    "Min/Max": "bg-blue-500/15 text-blue-600 border-blue-500/30",
+    "Tipo": "bg-purple-500/15 text-purple-600 border-purple-500/30",
+    "Preço": "bg-destructive/10 text-destructive border-destructive/30",
+    "Nome": "bg-orange-500/15 text-orange-600 border-orange-500/30",
+    "Duplicado": "bg-pink-500/15 text-pink-600 border-pink-500/30",
   };
 
   const { data: groups = [] } = useQuery({
@@ -200,35 +221,42 @@ export function ProductOptionGroupsEditor({ productId }: Props) {
           const groupOptions = options.filter((o) => o.option_group_id === g.id);
           const errors = validateGroup(g, groupOptions);
           const invalid = errors.length > 0;
+          const hasErr = (field: FieldError["field"], optionId?: string) =>
+            errors.some((e) => e.field === field && (!optionId || e.optionId === optionId));
           return (
             <Card key={g.id} className={invalid ? "border-destructive/50" : "border-border/70"}>
               <CardContent className="pt-4 space-y-3">
                 {invalid && (
-                  <div className="rounded-md bg-destructive/5 border border-destructive/20 p-2 space-y-0.5">
+                  <div className="rounded-md bg-destructive/5 border border-destructive/20 p-2 space-y-1">
                     {errors.map((err, i) => (
-                      <p key={i} className="text-[11px] text-destructive flex items-start gap-1.5">
-                        <AlertCircle className="size-3 mt-0.5 shrink-0" />
-                        <span>{err}</span>
-                      </p>
+                      <div key={i} className="flex items-start gap-1.5 text-[11px]">
+                        <Badge variant="outline" className={`text-[9px] font-semibold shrink-0 px-1.5 py-0 ${ruleTone[err.rule]}`}>
+                          {err.rule}
+                        </Badge>
+                        <span className="text-destructive leading-tight pt-0.5">{err.message}</span>
+                      </div>
                     ))}
                   </div>
                 )}
                 <div className="grid gap-3 md:grid-cols-4">
                   <div className="md:col-span-2 space-y-1">
-                    <Label className="text-[11px]">Nome do grupo</Label>
+                    <Label className={`text-[11px] ${hasErr("name") ? "text-destructive" : ""}`}>
+                      Nome do grupo {hasErr("name") && "*"}
+                    </Label>
                     <Input
                       defaultValue={g.name}
                       onBlur={(e) => e.target.value !== g.name && updateGroup(g.id, { name: e.target.value })}
-                      aria-invalid={!g.name || g.name.trim().length < 2}
+                      aria-invalid={hasErr("name")}
+                      className={hasErr("name") ? "border-destructive focus-visible:ring-destructive" : ""}
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-[11px]">Tipo</Label>
+                    <Label className={`text-[11px] ${hasErr("type") ? "text-destructive" : ""}`}>Tipo</Label>
                     <Select
                       value={g.type ?? "checkbox"}
                       onValueChange={(v) => updateGroup(g.id, { type: v })}
                     >
-                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectTrigger className={hasErr("type") ? "border-destructive" : ""}><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="checkbox">Múltipla escolha</SelectItem>
                         <SelectItem value="radio">Escolha única</SelectItem>
@@ -251,41 +279,43 @@ export function ProductOptionGroupsEditor({ productId }: Props) {
                     <Label className="text-[11px]">Obrigatório</Label>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <Label className="text-[11px]">Mín:</Label>
+                    <Label className={`text-[11px] ${hasErr("min") ? "text-destructive font-semibold" : ""}`}>Mín:</Label>
                     <Input
                       type="number"
                       min={0}
                       defaultValue={g.min_choices ?? 0}
                       onBlur={(e) => updateGroup(g.id, { min_choices: parseInt(e.target.value) || 0 })}
-                      className="w-16 h-8 text-xs text-center"
-                      aria-invalid={(g.min_choices ?? 0) > (g.max_choices ?? 1) || (!!g.is_required && (g.min_choices ?? 0) < 1)}
+                      className={`w-16 h-8 text-xs text-center ${hasErr("min") ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                      aria-invalid={hasErr("min")}
                     />
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <Label className="text-[11px]">Máx:</Label>
+                    <Label className={`text-[11px] ${hasErr("max") ? "text-destructive font-semibold" : ""}`}>Máx:</Label>
                     <Input
                       type="number"
                       min={1}
                       defaultValue={g.max_choices ?? 1}
                       onBlur={(e) => updateGroup(g.id, { max_choices: parseInt(e.target.value) || 1 })}
-                      className="w-16 h-8 text-xs text-center"
-                      aria-invalid={(g.max_choices ?? 1) < 1 || (g.type === "radio" && (g.max_choices ?? 1) > 1)}
+                      className={`w-16 h-8 text-xs text-center ${hasErr("max") ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                      aria-invalid={hasErr("max")}
                     />
                   </div>
                 </div>
 
-                <div className="pl-2 border-l-2 border-primary/20 space-y-2">
+                <div className={`pl-2 border-l-2 space-y-2 ${hasErr("options") ? "border-destructive/60" : "border-primary/20"}`}>
                   {groupOptions.length === 0 && (
-                    <p className="text-[11px] italic text-muted-foreground">Nenhuma opção neste grupo.</p>
+                    <p className={`text-[11px] italic ${hasErr("options") ? "text-destructive" : "text-muted-foreground"}`}>
+                      {hasErr("options") ? "Este grupo precisa de pelo menos uma opção." : "Nenhuma opção neste grupo."}
+                    </p>
                   )}
                   {groupOptions.map((o) => (
                     <div key={o.id} className="flex items-center gap-2">
                       <Input
                         defaultValue={o.name}
                         onBlur={(e) => e.target.value !== o.name && updateOption(o.id, { name: e.target.value })}
-                        className="flex-1 h-8 text-xs"
+                        className={`flex-1 h-8 text-xs ${hasErr("option-name", o.id) ? "border-destructive focus-visible:ring-destructive" : ""}`}
                         placeholder="Nome da opção"
-                        aria-invalid={!o.name || o.name.trim().length < 1}
+                        aria-invalid={hasErr("option-name", o.id)}
                       />
                       <div className="relative">
                         <span className="absolute left-2 top-1.5 text-[10px] text-muted-foreground">R$</span>
@@ -294,8 +324,8 @@ export function ProductOptionGroupsEditor({ productId }: Props) {
                           step="0.01"
                           defaultValue={Number(o.price)}
                           onBlur={(e) => updateOption(o.id, { price: Number(e.target.value) || 0 })}
-                          className="w-24 h-8 text-xs pl-7"
-                          aria-invalid={Number(o.price) < 0}
+                          className={`w-24 h-8 text-xs pl-7 ${hasErr("option-price", o.id) ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                          aria-invalid={hasErr("option-price", o.id)}
                           min={0}
                         />
                       </div>
