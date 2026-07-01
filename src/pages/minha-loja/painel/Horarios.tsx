@@ -236,6 +236,47 @@ export default function Horarios() {
     ]);
   };
 
+  const openCopySpecial = (idx: number) => {
+    setCopySpecialIdx(idx);
+    setCopyTargetDates(new Set());
+  };
+  const daysInMonth = (isoDate: string): string[] => {
+    const [y, m] = isoDate.split("-").map(Number);
+    if (!y || !m) return [];
+    const last = new Date(y, m, 0).getDate();
+    const yy = String(y).padStart(4, "0");
+    const mm = String(m).padStart(2, "0");
+    return Array.from({ length: last }, (_, i) => `${yy}-${mm}-${String(i + 1).padStart(2, "0")}`);
+  };
+  const confirmCopySpecial = () => {
+    if (copySpecialIdx === null) return;
+    const src = special[copySpecialIdx];
+    if (!src) return;
+    const existing = new Set(special.map((s) => `${s.date}|${s.recurrence ?? "none"}`));
+    const additions: SpecialDay[] = [];
+    for (const d of copyTargetDates) {
+      if (d === src.date) continue;
+      const key = `${d}|${src.recurrence ?? "none"}`;
+      if (existing.has(key)) continue;
+      additions.push({
+        date: d,
+        label: src.label,
+        closed: src.closed,
+        slots: src.slots.map((s) => ({ ...s })),
+        recurrence: src.recurrence ?? "none",
+        enabled: src.enabled !== false,
+      });
+    }
+    if (additions.length === 0) {
+      toast.error("Selecione ao menos uma nova data");
+      return;
+    }
+    setSpecial((prev) => [...prev, ...additions]);
+    toast.success(`${additions.length} data(s) criadas com as mesmas faixas`);
+    setCopySpecialIdx(null);
+    setCopyTargetDates(new Set());
+  };
+
   // Templates
   const openSaveTemplate = () => {
     setTemplateName("");
