@@ -25,12 +25,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { consumeReorderPrefill } from "@/lib/reorder";
 import {
-  normalizeWeek,
-  normalizeSpecial,
-  normalizeChannelHours,
-  weekForChannel,
-  isOpenAt,
-  nextOpeningLabel,
+  evaluateHoursGate,
+  CHANNEL_FROM_ORDER_TYPE,
   type ChannelKey,
 } from "@/lib/businessHours";
 
@@ -210,19 +206,12 @@ const CheckoutPage = () => {
     }
     // Bloqueio por horário de funcionamento — usa fuso e canal específico se configurados.
     if (est) {
-      const baseWeek = normalizeWeek((est as any).business_hours);
-      const channels = normalizeChannelHours((est as any).channel_hours);
-      const specials = normalizeSpecial((est as any).special_hours);
-      const tz = (est as any).hours_timezone || "America/Sao_Paulo";
-      const channelKey: ChannelKey = type === "entrega" ? "delivery" : type === "retirada" ? "pickup" : "dine_in";
-      const effectiveWeek = weekForChannel(baseWeek, channels, channelKey);
-      // Só bloqueia se houver alguma faixa configurada; caso contrário assume disponível (retrocompat).
-      const hasAnySlots = Object.values(effectiveWeek).some((d) => !d.closed && d.slots.length > 0);
-      if (hasAnySlots && !isOpenAt(new Date(), effectiveWeek, specials, tz)) {
-        const next = nextOpeningLabel(new Date(), effectiveWeek, specials, tz);
+      const channelKey: ChannelKey = CHANNEL_FROM_ORDER_TYPE[type] ?? "delivery";
+      const gate = evaluateHoursGate(new Date(), est as any, channelKey);
+      if (gate.blocked) {
         toast.error(
-          next
-            ? `Estamos fechados agora para ${type === "entrega" ? "entrega" : type === "retirada" ? "retirada" : "consumo no local"}. Próximo horário: ${next}.`
+          gate.next
+            ? `Estamos fechados agora para ${type === "entrega" ? "entrega" : type === "retirada" ? "retirada" : "consumo no local"}. Próximo horário: ${gate.next}.`
             : `Estamos fechados agora e não há horário previsto nos próximos dias.`,
           { duration: 6000 },
         );
