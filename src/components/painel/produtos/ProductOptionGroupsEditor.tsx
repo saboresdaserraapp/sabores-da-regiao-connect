@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
-import { Plus, Trash2, Package } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Plus, Trash2, Package, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 
 interface Props {
@@ -37,6 +38,35 @@ export function ProductOptionGroupsEditor({ productId }: Props) {
   const qc = useQueryClient();
   const gKey = ["product-option-groups", productId];
   const oKey = ["product-options", productId];
+
+  const validateGroup = (g: OptionGroup, opts: OptionRow[]): string[] => {
+    const errs: string[] = [];
+    if (!g.name || g.name.trim().length < 2) errs.push("Dê um nome ao grupo (mín. 2 caracteres).");
+    const min = g.min_choices ?? 0;
+    const max = g.max_choices ?? 1;
+    if (min < 0) errs.push("Mínimo não pode ser negativo.");
+    if (max < 1) errs.push("Máximo deve ser pelo menos 1.");
+    if (min > max) errs.push(`Mínimo (${min}) não pode ser maior que máximo (${max}).`);
+    if (g.is_required && min < 1) errs.push("Grupo obrigatório precisa ter mínimo ≥ 1.");
+    if (g.type === "radio" && max > 1) errs.push('Grupo do tipo "Escolha única" só permite máximo 1.');
+    if (opts.length === 0) errs.push("Adicione ao menos uma opção neste grupo.");
+    if (opts.length > 0 && max > opts.length) {
+      errs.push(`Máximo (${max}) é maior que o número de opções disponíveis (${opts.length}).`);
+    }
+    const availableCount = opts.filter((o) => o.is_available !== false).length;
+    if (g.is_required && availableCount < min) {
+      errs.push(`Grupo obrigatório com mínimo ${min}, mas só há ${availableCount} opção(ões) disponível(is).`);
+    }
+    opts.forEach((o) => {
+      if (!o.name || o.name.trim().length < 1) errs.push(`Uma opção está sem nome.`);
+      if (Number(o.price) < 0) errs.push(`A opção "${o.name || "sem nome"}" tem preço negativo.`);
+    });
+    // Nomes duplicados
+    const names = opts.map((o) => o.name?.trim().toLowerCase()).filter(Boolean);
+    const dupes = names.filter((n, i) => names.indexOf(n) !== i);
+    if (dupes.length > 0) errs.push("Existem opções com nomes duplicados neste grupo.");
+    return errs;
+  };
 
   const { data: groups = [] } = useQuery({
     queryKey: gKey,
@@ -139,6 +169,23 @@ export function ProductOptionGroupsEditor({ productId }: Props) {
         </Button>
       </div>
 
+      {(() => {
+        const totalErrors = groups.reduce((acc, g) => {
+          const opts = options.filter((o) => o.option_group_id === g.id);
+          return acc + validateGroup(g, opts).length;
+        }, 0);
+        if (totalErrors === 0 || groups.length === 0) return null;
+        return (
+          <Alert variant="destructive">
+            <AlertCircle className="size-4" />
+            <AlertDescription>
+              <strong>{totalErrors}</strong> problema(s) precisam ser corrigidos abaixo. Grupos inválidos
+              podem quebrar a experiência do cliente no cardápio.
+            </AlertDescription>
+          </Alert>
+        );
+      })()}
+
       {groups.length === 0 && (
         <div className="p-8 border border-dashed rounded-xl bg-muted/20 text-center">
           <Package className="size-8 mx-auto mb-2 text-muted-foreground/30" />
@@ -151,15 +198,28 @@ export function ProductOptionGroupsEditor({ productId }: Props) {
       <div className="space-y-4">
         {groups.map((g) => {
           const groupOptions = options.filter((o) => o.option_group_id === g.id);
+          const errors = validateGroup(g, groupOptions);
+          const invalid = errors.length > 0;
           return (
-            <Card key={g.id} className="border-border/70">
+            <Card key={g.id} className={invalid ? "border-destructive/50" : "border-border/70"}>
               <CardContent className="pt-4 space-y-3">
+                {invalid && (
+                  <div className="rounded-md bg-destructive/5 border border-destructive/20 p-2 space-y-0.5">
+                    {errors.map((err, i) => (
+                      <p key={i} className="text-[11px] text-destructive flex items-start gap-1.5">
+                        <AlertCircle className="size-3 mt-0.5 shrink-0" />
+                        <span>{err}</span>
+                      </p>
+                    ))}
+                  </div>
+                )}
                 <div className="grid gap-3 md:grid-cols-4">
                   <div className="md:col-span-2 space-y-1">
                     <Label className="text-[11px]">Nome do grupo</Label>
                     <Input
                       defaultValue={g.name}
                       onBlur={(e) => e.target.value !== g.name && updateGroup(g.id, { name: e.target.value })}
+                      aria-invalid={!g.name || g.name.trim().length < 2}
                     />
                   </div>
                   <div className="space-y-1">
@@ -198,6 +258,7 @@ export function ProductOptionGroupsEditor({ productId }: Props) {
                       defaultValue={g.min_choices ?? 0}
                       onBlur={(e) => updateGroup(g.id, { min_choices: parseInt(e.target.value) || 0 })}
                       className="w-16 h-8 text-xs text-center"
+                      aria-invalid={(g.min_choices ?? 0) > (g.max_choices ?? 1) || (!!g.is_required && (g.min_choices ?? 0) < 1)}
                     />
                   </div>
                   <div className="flex items-center gap-1.5">
@@ -208,6 +269,7 @@ export function ProductOptionGroupsEditor({ productId }: Props) {
                       defaultValue={g.max_choices ?? 1}
                       onBlur={(e) => updateGroup(g.id, { max_choices: parseInt(e.target.value) || 1 })}
                       className="w-16 h-8 text-xs text-center"
+                      aria-invalid={(g.max_choices ?? 1) < 1 || (g.type === "radio" && (g.max_choices ?? 1) > 1)}
                     />
                   </div>
                 </div>
@@ -223,6 +285,7 @@ export function ProductOptionGroupsEditor({ productId }: Props) {
                         onBlur={(e) => e.target.value !== o.name && updateOption(o.id, { name: e.target.value })}
                         className="flex-1 h-8 text-xs"
                         placeholder="Nome da opção"
+                        aria-invalid={!o.name || o.name.trim().length < 1}
                       />
                       <div className="relative">
                         <span className="absolute left-2 top-1.5 text-[10px] text-muted-foreground">R$</span>
@@ -232,6 +295,8 @@ export function ProductOptionGroupsEditor({ productId }: Props) {
                           defaultValue={Number(o.price)}
                           onBlur={(e) => updateOption(o.id, { price: Number(e.target.value) || 0 })}
                           className="w-24 h-8 text-xs pl-7"
+                          aria-invalid={Number(o.price) < 0}
+                          min={0}
                         />
                       </div>
                       <div className="flex items-center gap-1.5">

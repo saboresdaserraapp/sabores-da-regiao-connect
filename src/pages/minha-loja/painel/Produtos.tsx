@@ -13,7 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, Lock } from "lucide-react";
+import { Plus, Pencil, Trash2, Lock, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
 import type { ActiveEstablishment } from "@/lib/permissions";
@@ -334,6 +334,62 @@ export default function Produtos() {
   const navigate = useNavigate();
   const [editing, setEditing] = useState<Product | null>(null);
   const [open, setOpen] = useState(false);
+  const [quickName, setQuickName] = useState("");
+  const [quickPrice, setQuickPrice] = useState<string>("");
+  const [quickCategory, setQuickCategory] = useState<string>("none");
+  const [creating, setCreating] = useState(false);
+
+  const { data: quickCats = [] } = useQuery({
+    queryKey: ["mc-select", ctx?.establishmentId],
+    enabled: !!ctx?.establishmentId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("menu_categories")
+        .select("id,name")
+        .eq("establishment_id", ctx!.establishmentId)
+        .order("position");
+      return (data ?? []) as MenuCategoryLite[];
+    },
+  });
+
+  const quickCreate = async () => {
+    if (!ctx) return;
+    const name = quickName.trim();
+    if (name.length < 2) {
+      toast.error("Dê um nome ao produto (mín. 2 caracteres).");
+      return;
+    }
+    const priceNum = Number(quickPrice);
+    if (Number.isNaN(priceNum) || priceNum < 0) {
+      toast.error("Preço inválido — informe um valor ≥ 0.");
+      return;
+    }
+    setCreating(true);
+    const { data, error } = await supabase
+      .from("products")
+      .insert({
+        establishment_id: ctx.establishmentId,
+        name,
+        price: priceNum,
+        menu_category_id: quickCategory === "none" ? null : quickCategory,
+        is_active: true,
+        is_available: true,
+      })
+      .select("id")
+      .single();
+    setCreating(false);
+    if (error || !data) {
+      toast.error(error?.message || "Não foi possível criar o produto.");
+      return;
+    }
+    toast.success("Produto criado — abrindo edição completa...");
+    setOpen(false);
+    setQuickName("");
+    setQuickPrice("");
+    setQuickCategory("none");
+    qc.invalidateQueries({ queryKey: ["prods", ctx.establishmentId] });
+    navigate(`${data.id}/editar`);
+  };
 
   const { data: products = [] } = useQuery({
     queryKey: ["prods", ctx?.establishmentId],
@@ -367,10 +423,55 @@ export default function Produtos() {
       title="Produtos"
       subtitle="Crie e edite produtos — visíveis no app em tempo real"
       action={
-        <Dialog open={open && !editing} onOpenChange={(v) => { setOpen(v); if (!v) setEditing(null); }}>
+        <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild><Button><Plus className="size-4 mr-1" />Novo produto</Button></DialogTrigger>
-          <DialogContent><DialogHeader><DialogTitle>Novo produto</DialogTitle></DialogHeader>
-            <ProductForm ctx={ctx} onDone={onDone} />
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Novo produto</DialogTitle>
+              <p className="text-xs text-muted-foreground pt-1">
+                Preencha o essencial e continue no editor completo (imagens, promoções, adicionais, tags, categorias adicionais...).
+              </p>
+            </DialogHeader>
+            <div className="space-y-4 pt-2">
+              <div className="space-y-2">
+                <Label>Nome do produto *</Label>
+                <Input
+                  value={quickName}
+                  onChange={(e) => setQuickName(e.target.value)}
+                  placeholder="Ex: X-Salada Especial"
+                  autoFocus
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label>Preço (R$) *</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={quickPrice}
+                    onChange={(e) => setQuickPrice(e.target.value)}
+                    placeholder="0,00"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Categoria</Label>
+                  <Select value={quickCategory} onValueChange={setQuickCategory}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sem categoria</SelectItem>
+                      {quickCats.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <Button className="w-full" onClick={quickCreate} disabled={creating}>
+                {creating ? "Criando..." : (<>Criar e abrir editor completo <ArrowRight className="size-4 ml-1.5" /></>)}
+              </Button>
+              <p className="text-[10px] text-center text-muted-foreground">
+                Você poderá adicionar imagem, descrição, promoções, tags, opcionais e mais na próxima tela.
+              </p>
+            </div>
           </DialogContent>
         </Dialog>
       }
