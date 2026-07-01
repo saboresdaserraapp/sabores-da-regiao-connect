@@ -271,3 +271,50 @@ export function weekForChannel(base: WeeklyHours, channels: ChannelHours, channe
   if (!channel) return base;
   return channels[channel] ?? base;
 }
+
+// -----------------------------------------------------------------------------
+// Shared gate: single source of truth used by BOTH the checkout and the
+// simulator so results never diverge. Accepts raw establishment fields.
+// -----------------------------------------------------------------------------
+export type EstablishmentHoursSource = {
+  business_hours?: unknown;
+  channel_hours?: unknown;
+  special_hours?: unknown;
+  hours_timezone?: string | null;
+};
+
+export type GateResult = {
+  channel: ChannelKey;
+  timezone: string;
+  configured: boolean; // whether there is any slot in the effective week
+  open: boolean;
+  blocked: boolean; // configured && !open
+  next: string | null; // next opening label (when blocked)
+  effectiveWeek: WeeklyHours;
+  usingChannelOverride: boolean;
+  specials: SpecialDay[];
+};
+
+export function evaluateHoursGate(
+  when: Date,
+  source: EstablishmentHoursSource,
+  channel: ChannelKey,
+): GateResult {
+  const baseWeek = normalizeWeek(source.business_hours);
+  const channels = normalizeChannelHours(source.channel_hours);
+  const specials = normalizeSpecial(source.special_hours);
+  const tz = source.hours_timezone || "America/Sao_Paulo";
+  const usingChannelOverride = !!channels[channel];
+  const effectiveWeek = weekForChannel(baseWeek, channels, channel);
+  const configured = Object.values(effectiveWeek).some((d) => !d.closed && d.slots.length > 0);
+  const open = configured ? isOpenAt(when, effectiveWeek, specials, tz) : true;
+  const blocked = configured && !open;
+  const next = blocked ? nextOpeningLabel(when, effectiveWeek, specials, tz) : null;
+  return { channel, timezone: tz, configured, open, blocked, next, effectiveWeek, usingChannelOverride, specials };
+}
+
+export const CHANNEL_FROM_ORDER_TYPE: Record<string, ChannelKey> = {
+  entrega: "delivery",
+  retirada: "pickup",
+  local: "dine_in",
+};
