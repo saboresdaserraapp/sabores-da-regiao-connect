@@ -3163,6 +3163,7 @@ export type Database = {
         Returns: Json
       }
       slugify: { Args: { _t: string }; Returns: string }
+      unaccent: { Args: { "": string }; Returns: string }
       unaccent_safe: { Args: { _t: string }; Returns: string }
       user_is_order_customer: {
         Args: { _order_id: string; _user_id: string }
