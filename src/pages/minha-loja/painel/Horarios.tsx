@@ -788,6 +788,74 @@ export default function Horarios() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={copySpecialIdx !== null} onOpenChange={(o) => !o && setCopySpecialIdx(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Copiar exceção para outras datas</DialogTitle>
+            <DialogDescription>
+              {copySpecialIdx !== null && special[copySpecialIdx] && (
+                <>
+                  Criará novas exceções com <strong>as mesmas faixas</strong>, mesmo status
+                  (<em>{special[copySpecialIdx].closed ? "fechado" : "aberto"}</em>) e a mesma recorrência
+                  (<em>{special[copySpecialIdx].recurrence ?? "none"}</em>). Datas já existentes com a mesma recorrência são ignoradas.
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          {copySpecialIdx !== null && special[copySpecialIdx] && (
+            <div className="space-y-3">
+              <p className="text-xs text-muted-foreground">
+                Origem: <strong>{special[copySpecialIdx].date.split("-").reverse().join("/")}</strong>
+                {special[copySpecialIdx].label ? ` · ${special[copySpecialIdx].label}` : ""}
+              </p>
+              <div className="grid grid-cols-7 gap-1 max-h-72 overflow-auto p-1 border rounded-md">
+                {daysInMonth(special[copySpecialIdx].date).map((d) => {
+                  const day = Number(d.slice(-2));
+                  const isSource = d === special[copySpecialIdx!].date;
+                  const selected = copyTargetDates.has(d);
+                  return (
+                    <button
+                      key={d}
+                      type="button"
+                      disabled={isSource}
+                      onClick={() => setCopyTargetDates((prev) => {
+                        const n = new Set(prev);
+                        if (n.has(d)) n.delete(d); else n.add(d);
+                        return n;
+                      })}
+                      className={`h-9 text-xs rounded border ${
+                        isSource
+                          ? "bg-muted text-muted-foreground cursor-not-allowed"
+                          : selected
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "bg-background hover:bg-muted"
+                      }`}
+                      title={d}
+                    >
+                      {day}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <button
+                  className="underline text-muted-foreground hover:text-foreground"
+                  onClick={() => {
+                    const all = daysInMonth(special[copySpecialIdx!].date).filter((d) => d !== special[copySpecialIdx!].date);
+                    setCopyTargetDates(new Set(all));
+                  }}
+                >Selecionar todas do mês</button>
+                <span className="text-muted-foreground">{copyTargetDates.size} selecionada(s)</span>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setCopySpecialIdx(null)}>Cancelar</Button>
+            <Button onClick={confirmCopySpecial}>Criar cópias</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </PainelSection>
   );
 }
